@@ -30,4 +30,7 @@ public class UsuarioService {
     public boolean existePorCorreo(String correo) {
         return usuarioRepository.existsByCorreo(correo);
     }
+    public Optional<Usuario> buscarPorCedula(String cedula) {
+        return usuarioRepository.findById(cedula);
+    }
 }

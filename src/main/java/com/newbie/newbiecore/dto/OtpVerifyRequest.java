@@ -4,6 +4,6 @@ import lombok.Data;
 
 @Data
 public class OtpVerifyRequest {
-    private Long clienteId;
+    private Long cedula;
     private String codigo;
 }

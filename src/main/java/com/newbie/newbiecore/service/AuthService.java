@@ -50,6 +50,7 @@ public class AuthService {
                 .orElseThrow(() -> new RuntimeException("Rol no encontrado"));
 
         Usuario usuario = Usuario.builder()
+                .cedula(request.getCedula()) 
                 .nombre(request.getNombre())
                 .correo(request.getCorreo())
                 .password(passwordEncoder.encode(request.getPassword()))
@@ -57,10 +58,11 @@ public class AuthService {
                 .estado(true)
                 .build();
 
+
         return usuarioRepository.save(usuario);
     }
 
-    // Login y generación de token
+ 
     public String login(LoginRequest request) {
         logger.info("Login iniciado para correo: {}", request.getCorreo());
 

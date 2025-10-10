@@ -6,16 +6,19 @@ import java.time.Instant;
 
 @Entity
 @Table(name = "otp_validaciones")
-@Data @NoArgsConstructor @AllArgsConstructor @Builder
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class OtpValidacion {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id_otp")
     private Long idOtp;
 
     @ManyToOne
-    @JoinColumn(name = "cliente_id", nullable = false)
-    private Cliente cliente;
+    @JoinColumn(name = "usuario_cedula", nullable = false)
+    private Usuario usuario;
 
     private String codigo;
     private Instant fechaEnvio = Instant.now();

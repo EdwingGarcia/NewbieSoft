@@ -13,8 +13,9 @@ public class Equipo {
     private Long idEquipo;
 
     @ManyToOne
-    @JoinColumn(name="cliente_id")
-    private Cliente cliente;
+    @JoinColumn(name = "cedula", nullable = false)
+    private Usuario usuario;
+
 
     @Column(name="numero_serie")
     private String numeroSerie;
