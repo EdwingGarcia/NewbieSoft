@@ -20,4 +20,14 @@ public class MailService {
         mensaje.setText("Tu código OTP es: " + codigo + "\nEste código expira en 10 minutos.");
         mailSender.send(mensaje);
     }
+    
+    public void enviarCorreoPrueba(String destinatario) {
+        SimpleMailMessage mensaje = new SimpleMailMessage();
+        mensaje.setTo(destinatario);
+        mensaje.setSubject("Correo de prueba");
+        mensaje.setText("¡Hola! Este es un correo de prueba desde Spring Boot.");
+        mensaje.setFrom("tu_correo@gmail.com");
+
+        mailSender.send(mensaje);
+    }
 }

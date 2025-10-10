@@ -29,7 +29,6 @@ public class OtpController {
 
     @PostMapping("/generar")
     public ResponseEntity<OtpResponse> generarOtp(@RequestBody OtpRequest request) {
-        // Ahora request.getClienteId() debe ser la cédula directamente
         Optional<Usuario> clienteOpt = usuarioService.buscarPorCedula(request.getCedula().toString());
         if (clienteOpt.isEmpty()) {
             return ResponseEntity.badRequest().body(new OtpResponse(false, "Cliente no encontrado"));
