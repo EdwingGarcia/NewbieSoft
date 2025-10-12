@@ -14,8 +14,9 @@ public class Cita {
     private Long idCita;
 
     @ManyToOne
-    @JoinColumn(name = "cliente_id", nullable = false)
-    private Cliente cliente;
+    @JoinColumn(name = "cedula", nullable = false)
+    private Usuario usuario;
+
 
     @ManyToOne
     @JoinColumn(name = "tecnico_id")

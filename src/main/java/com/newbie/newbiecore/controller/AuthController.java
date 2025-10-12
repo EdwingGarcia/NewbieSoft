@@ -4,7 +4,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import com.newbie.newbiecore.dto.LoginRequest;
 import com.newbie.newbiecore.dto.LoginResponse;
@@ -13,11 +17,11 @@ import com.newbie.newbiecore.entity.Usuario;
 import com.newbie.newbiecore.service.AuthService;
 
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -40,15 +44,27 @@ public class AuthController {
                 schema = @Schema(implementation = LoginResponse.class))),
         @ApiResponse(responseCode = "401", description = "Usuario o contraseña incorrectos")
     })
+
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest) {
         logger.info("Login POST recibido para correo: {}", loginRequest.getCorreo());
         try {
             String token = authService.login(loginRequest);
             Usuario usuario = authService.getUsuarioByCorreo(loginRequest.getCorreo());
-            String correo = usuario.getCorreo();
-            String rol = usuario.getRol().getNombre();
-            LoginResponse response = new LoginResponse(token, correo, rol);
+
+            // Aquí reemplazas la línea antigua:
+            // LoginResponse response = new LoginResponse(token, correo, rol);
+
+            // Por la versión completa:
+            LoginResponse response = new LoginResponse(
+                token,
+                usuario.getCorreo(),
+                usuario.getRol().getNombre(),           // rol principal
+                authService.getRoles(usuario),          // lista de roles
+                authService.getPermissions(usuario),    // lista de permisos
+                authService.getScreens(usuario)         // lista de pantallas permitidas
+            );
+
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("Error en login: {}", e.getMessage());

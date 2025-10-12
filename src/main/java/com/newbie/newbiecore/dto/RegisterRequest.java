@@ -5,6 +5,7 @@ import lombok.Data;
 
 @Data
 public class RegisterRequest {
+	private String cedula;
     private String nombre;
     private String correo;
     private String password;

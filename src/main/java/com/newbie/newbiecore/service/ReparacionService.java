@@ -23,6 +23,6 @@ public class ReparacionService {
     }
 
     public List<Reparacion> listarPorTecnico(Long tecnicoId) {
-        return reparacionRepository.findByTecnico_IdUsuario(tecnicoId);
+        return reparacionRepository.findByTecnico_Cedula(tecnicoId.toString());
     }
 }

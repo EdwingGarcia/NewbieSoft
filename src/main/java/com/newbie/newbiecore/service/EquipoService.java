@@ -1,6 +1,5 @@
 package com.newbie.newbiecore.service;
 
-
 import com.newbie.newbiecore.entity.Equipo;
 import com.newbie.newbiecore.repository.EquipoRepository;
 import org.springframework.stereotype.Service;
@@ -18,7 +17,8 @@ public class EquipoService {
         return equipoRepository.save(equipo);
     }
 
-    public List<Equipo> listarPorCliente(Long clienteId) {
-        return equipoRepository.findByCliente_IdCliente(clienteId);
+    // Cambiado a String para usar la cédula como ID
+    public List<Equipo> listarPorCliente(String clienteCedula) {
+        return equipoRepository.findByUsuario_Cedula(clienteCedula);
     }
 }

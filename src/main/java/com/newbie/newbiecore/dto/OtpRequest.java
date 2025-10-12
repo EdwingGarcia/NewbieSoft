@@ -5,6 +5,6 @@ import lombok.Data;
 
 @Data
 public class OtpRequest {
-    private Long clienteId;
+    private Long cedula;
     private String correo;
 }
