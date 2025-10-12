@@ -4,68 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="ddf03273-e7ff-4622-aed3-f486321b3a50" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.gitattributes" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.mvn/wrapper/maven-wrapper.properties" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.pre-commit-config.yaml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/mvnw" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/mvnw.cmd" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/pom.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/NewbieCoreApplication.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/PasswordGenerator.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/config/JwtAuthenticationFilter.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/config/MailConfig.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/config/SecurityConfig.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/config/SwaggerConfig.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/controller/AuthController.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/controller/OtpController.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/controller/TestEmailController.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/dto/EquipoDto.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/dto/FichaTecnicaDto.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/dto/LoginRequest.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/dto/LoginResponse.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/dto/OtpRequest.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/dto/OtpResponse.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/dto/OtpVerifyRequest.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/dto/RegisterRequest.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/dto/ReparacionDto.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/entity/Cita.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/entity/Equipo.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/entity/FichaTecnica.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/entity/Log.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/entity/OtpValidacion.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/entity/Reparacion.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/entity/ReparacionServicio.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/entity/ReparacionServicioId.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/entity/Rol.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/entity/Servicio.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/entity/Usuario.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/repository/EquipoRepository.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/repository/FichaTecnicaRepository.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/repository/OtpValidacionRepository.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/repository/ReparacionRepository.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/repository/ReparacionServicioRepository.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/repository/RolRepository.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/repository/ServicioRepository.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/repository/UsuarioRepository.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/service/AuthService.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/service/CustomUserDetailsService.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/service/EquipoService.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/service/FichaTecnicaService.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/service/MailService.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/service/OtpService.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/service/ReparacionService.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/service/ReparacionServicioService.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/service/RolService.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/service/ServicioService.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/service/UsuarioService.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/util/DateUtils.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/util/JwtUtils.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/util/OtpGenerator.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/newbie/newbiecore/util/PasswordUtils.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/application.properties" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/test/java/com/newbie/newbiecore/NewbieCoreApplicationTests.java" beforeDir="false" />
+    <list default="true" id="ddf03273-e7ff-4622-aed3-f486321b3a50" name="Changes" comment="refactor for crate frontend">
+      <change afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -75,18 +16,18 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
-  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
-  "lastFilter": {
-    "state": "OPEN",
-    "assignee": "sy-sinai"
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;sy-sinai&quot;
   }
-}]]></component>
-  <component name="GithubPullRequestsUISettings"><![CDATA[{
-  "selectedUrlAndAccountId": {
-    "url": "https://github.com/EdwingGarcia/NewbieSoft.git",
-    "accountId": "2e61ff29-1331-423d-8950-f047b0515831"
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/EdwingGarcia/NewbieSoft.git&quot;,
+    &quot;accountId&quot;: &quot;2e61ff29-1331-423d-8950-f047b0515831&quot;
   }
-}]]></component>
+}</component>
   <component name="MavenImportPreferences">
     <option name="generalSettings">
       <MavenGeneralSettings>
@@ -94,9 +35,9 @@
       </MavenGeneralSettings>
     </option>
   </component>
-  <component name="ProjectColorInfo"><![CDATA[{
-  "associatedIndex": 3
-}]]></component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 3
+}</component>
   <component name="ProjectId" id="33wsxBjfaedeGurltlw3SLQNvI4" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
@@ -104,16 +45,19 @@
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "main",
+    "git-widget-placeholder": "frontend-login",
     "kotlin-language-version-configured": "true",
+    "last_opened_file_path": "C:/Users/sysin/IdeaProjects/NewbieSoft",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
     "node.js.selected.package.tslint": "(autodetect)",
     "nodejs_package_manager_path": "npm",
+    "settings.editor.selected.configurable": "preferences.general",
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
@@ -133,10 +77,25 @@
       <option name="presentableId" value="Default" />
       <updated>1760239716104</updated>
       <workItem from="1760239721543" duration="800000" />
+      <workItem from="1760241236160" duration="130000" />
+      <workItem from="1760241460287" duration="863000" />
     </task>
+    <task id="LOCAL-00001" summary="refactor for crate frontend">
+      <option name="closed" value="true" />
+      <created>1760241310864</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1760241310864</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="refactor for crate frontend" />
+    <option name="LAST_COMMIT_MESSAGE" value="refactor for crate frontend" />
   </component>
 </project>
