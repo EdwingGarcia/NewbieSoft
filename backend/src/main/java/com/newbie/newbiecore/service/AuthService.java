@@ -46,7 +46,7 @@ public class AuthService {
             throw new RuntimeException("El correo ya está en uso");
         }
 
-        Rol rol = rolRepository.findByNombre(request.getRol())
+        Rol rol = rolRepository.findById(request.getRol().getIdRol())
                 .orElseThrow(() -> new RuntimeException("Rol no encontrado"));
 
         Usuario usuario = Usuario.builder()
@@ -114,7 +114,7 @@ public class AuthService {
     // Pantallas según rol
     public List<String> getScreens(Usuario usuario) {
         Rol rol = usuario.getRol();
-        if (rol.getNombre().equals("ADMIN")) {
+        if (rol.getNombre().equals("ROLE_ADMIN")) {
             return List.of("Dashboard", "UserManagement", "Reports", "Settings");
         } else if (rol.getNombre().equals("USER")) {
             return List.of("Dashboard", "Profile");

@@ -1,5 +1,7 @@
 package com.newbie.newbiecore.dto;
 
+import com.newbie.newbiecore.entity.Rol;
+
 
 import lombok.Data;
 
@@ -9,5 +11,5 @@ public class RegisterRequest {
     private String nombre;
     private String correo;
     private String password;
-    private String rol; // ADMINISTRADOR, TECNICO, CLIENTE
+    private Rol rol; // ADMINISTRADOR, TECNICO, CLIENTE
 }
