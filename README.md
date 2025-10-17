@@ -33,3 +33,9 @@
 - IDE recomendado (IntelliJ IDEA, Eclipse, VSCode)  
 
 ---
+Para ejcutar, iniciar backend:
+cd backend
+mvn clean spring-boot:run
+iniciar frontend:
+cd frontend
+npm run dev
