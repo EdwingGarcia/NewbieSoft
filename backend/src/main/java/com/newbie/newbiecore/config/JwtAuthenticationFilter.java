@@ -41,7 +41,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             jwtToken = authHeader.substring(7); // remover "Bearer "
             try {
-                username = jwtUtils.getUsernameFromToken(jwtToken);
+                username = jwtUtils.extractUsername(jwtToken);
             } catch (Exception e) {
                 logger.error("Error al extraer username del token JWT", e);
             }

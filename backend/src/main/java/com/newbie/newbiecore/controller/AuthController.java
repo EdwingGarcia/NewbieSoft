@@ -4,11 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import com.newbie.newbiecore.dto.LoginRequest;
 import com.newbie.newbiecore.dto.LoginResponse;
@@ -29,7 +25,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 public class AuthController {
 
     private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
-
     private final AuthService authService;
 
     @Autowired
@@ -39,32 +34,16 @@ public class AuthController {
 
     @Operation(summary = "Login de usuario", description = "Genera un token JWT para autenticación")
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Login exitoso",
-            content = @Content(mediaType = "application/json",
-                schema = @Schema(implementation = LoginResponse.class))),
-        @ApiResponse(responseCode = "401", description = "Usuario o contraseña incorrectos")
+            @ApiResponse(responseCode = "200", description = "Login exitoso",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = LoginResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Usuario o contraseña incorrectos")
     })
-
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest) {
         logger.info("Login POST recibido para correo: {}", loginRequest.getCorreo());
         try {
-            String token = authService.login(loginRequest);
-            Usuario usuario = authService.getUsuarioByCorreo(loginRequest.getCorreo());
-
-            // Aquí reemplazas la línea antigua:
-            // LoginResponse response = new LoginResponse(token, correo, rol);
-
-            // Por la versión completa:
-            LoginResponse response = new LoginResponse(
-                token,
-                usuario.getCorreo(),
-                usuario.getRol().getNombre(),           // rol principal
-                authService.getRoles(usuario),          // lista de roles
-                authService.getPermissions(usuario),    // lista de permisos
-                authService.getScreens(usuario)         // lista de pantallas permitidas
-            );
-
+            LoginResponse response = authService.login(loginRequest);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("Error en login: {}", e.getMessage());
@@ -74,10 +53,10 @@ public class AuthController {
 
     @Operation(summary = "Registro de usuario", description = "Crea un nuevo usuario en la base de datos")
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Usuario registrado correctamente",
-            content = @Content(mediaType = "application/json",
-                schema = @Schema(implementation = Usuario.class))),
-        @ApiResponse(responseCode = "400", description = "Error en los datos enviados")
+            @ApiResponse(responseCode = "200", description = "Usuario registrado correctamente",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = Usuario.class))),
+            @ApiResponse(responseCode = "400", description = "Error en los datos enviados")
     })
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
@@ -89,13 +68,43 @@ public class AuthController {
         }
     }
 
-    @Operation(summary = "Ping de prueba", description = "Endpoint público para verificar que la API está activa")
+    @Operation(summary = "Refrescar token JWT", description = "Genera un nuevo token a partir de un refresh token válido")
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Ping recibido correctamente")
+            @ApiResponse(responseCode = "200", description = "Token renovado",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = LoginResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Refresh token inválido o expirado")
     })
+    @PostMapping("/refresh")
+    public ResponseEntity<?> refresh(@RequestBody String refreshToken) {
+        try {
+            LoginResponse response = authService.refreshToken(refreshToken);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Error en refresh token: {}", e.getMessage());
+            return ResponseEntity.status(401).body("Refresh token inválido o expirado");
+        }
+    }
+
+    @Operation(summary = "Logout de usuario", description = "Invalida el token JWT actual")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Logout exitoso"),
+            @ApiResponse(responseCode = "400", description = "Error al cerrar sesión")
+    })
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(@RequestHeader("Authorization") String authHeader) {
+        try {
+            String token = authHeader.replace("Bearer ", "");
+            authService.logout(token);
+            return ResponseEntity.ok("Sesión cerrada correctamente");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error al cerrar sesión");
+        }
+    }
+
+    @Operation(summary = "Ping", description = "Verifica que el servicio de autenticación está activo")
     @GetMapping("/ping")
-    public String ping() {
-        logger.info("Ping Recibido");
-        return "pong";
+    public ResponseEntity<String> ping() {
+        return ResponseEntity.ok("Auth service is alive");
     }
 }

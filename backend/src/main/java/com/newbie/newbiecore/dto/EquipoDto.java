@@ -10,5 +10,5 @@ public class EquipoDto {
     private String numeroSerie;
     private String modelo;
     private String marca;
-    private String clienteNombre;
+    private String cedulaCliente;
 }
