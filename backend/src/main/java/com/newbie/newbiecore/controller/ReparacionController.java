@@ -1,85 +1,127 @@
 package com.newbie.newbiecore.controller;
 
+import com.newbie.newbiecore.dto.ReparacionCreateDTO;
+import com.newbie.newbiecore.dto.ReparacionResponseDTO;
 import com.newbie.newbiecore.entity.Reparacion;
+import com.newbie.newbiecore.service.FichaTecnicaService;
 import com.newbie.newbiecore.service.ReparacionService;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.security.Principal;
 import java.util.List;
 
 @RestController
-@RequestMapping("/repairs")
-@Tag(name = "Reparaciones", description = "Gestión de reparaciones técnicas")
+@RequestMapping("/api/reparaciones")
 public class ReparacionController {
 
     private final ReparacionService reparacionService;
+    private final FichaTecnicaService fichaTecnicaService;
 
-    public ReparacionController(ReparacionService reparacionService) {
+    public ReparacionController(ReparacionService reparacionService, FichaTecnicaService fichaTecnicaService) {
         this.reparacionService = reparacionService;
+        this.fichaTecnicaService = fichaTecnicaService;
+    }
+    @PostMapping
+    public ResponseEntity<Reparacion> crearReparacion(@RequestBody ReparacionCreateDTO dto) {
+        return reparacionService.crearReparacion(dto)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.badRequest().build());
+    }
+    // 🔍 Listar reparaciones por técnico
+    @GetMapping("/tecnico/{cedula}")
+    public ResponseEntity<List<ReparacionResponseDTO>> listarPorTecnico(@PathVariable String cedula) {
+        return ResponseEntity.ok(reparacionService.listarPorTecnico(cedula));
     }
 
-    @Operation(summary = "Listar reparaciones asignadas al técnico logueado")
-    @GetMapping
-    public ResponseEntity<List<Reparacion>> listar(Principal principal) {
-        return ResponseEntity.ok(reparacionService.listarPorTecnico(principal.getName()));
-    }
-
-    @Operation(summary = "Ver detalle de reparación")
+    // 🔍 Ver detalle
     @GetMapping("/{id}")
-    public ResponseEntity<Reparacion> detalle(@PathVariable Long id) {
+    public ResponseEntity<ReparacionResponseDTO> obtenerPorId(@PathVariable Long id) {
         return reparacionService.obtenerPorId(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    @Operation(summary = "Registrar diagnóstico inicial")
-    @PostMapping("/{id}/diagnosis")
-    public ResponseEntity<Reparacion> diagnostico(@PathVariable Long id, @RequestBody String diagnostico) {
+    // 🛠️ Registrar diagnóstico
+    @PutMapping("/{id}/diagnostico")
+    public ResponseEntity<Reparacion> registrarDiagnostico(@PathVariable Long id, @RequestBody String diagnostico) {
         return reparacionService.registrarDiagnostico(id, diagnostico)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    @Operation(summary = "Subir archivo XML con datos técnicos")
-    @PostMapping("/{id}/upload-xml")
-    public ResponseEntity<Reparacion> subirXml(@PathVariable Long id, @RequestParam("file") MultipartFile file) throws IOException {
+    // 📎 Subir XML como observación
+    @PostMapping("/{id}/xml-observacion")
+    public ResponseEntity<Reparacion> subirXml(@PathVariable Long id, @RequestParam MultipartFile file) throws IOException {
         return reparacionService.subirXml(id, file)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    @Operation(summary = "Subir fotos/evidencias")
-    @PostMapping("/{id}/upload-evidence")
-    public ResponseEntity<Reparacion> subirEvidencia(@PathVariable Long id, @RequestParam("file") MultipartFile file) throws IOException {
+    // 📷 Subir evidencia
+    @PostMapping("/{id}/evidencia")
+    public ResponseEntity<Reparacion> subirEvidencia(@PathVariable Long id, @RequestParam MultipartFile file) throws IOException {
         return reparacionService.subirEvidencia(id, file)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    @Operation(summary = "Actualizar datos técnicos")
-    @PutMapping("/{id}/update")
-    public ResponseEntity<Reparacion> actualizar(@PathVariable Long id, @RequestBody Reparacion datos) {
-        return reparacionService.actualizar(id, datos)
+    // 🔧 Actualizar datos técnicos
+    @PutMapping("/{id}")
+    public ResponseEntity<Reparacion> actualizar(@PathVariable Long id, @RequestBody ReparacionCreateDTO datos) {
+        Reparacion parcial = Reparacion.builder()
+                .estado(datos.getEstado())
+                .observaciones(datos.getObservaciones())
+                .costoTotal(datos.getCostoTotal())
+                .build();
+        return reparacionService.actualizar(id, parcial)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    @Operation(summary = "Cerrar reparación con informe final")
-    @PostMapping("/{id}/close")
+    // ✅ Cerrar reparación
+    @PutMapping("/{id}/cerrar")
     public ResponseEntity<Reparacion> cerrar(@PathVariable Long id, @RequestBody String informeFinal) {
         return reparacionService.cerrar(id, informeFinal)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    @Operation(summary = "Consultar historial por equipo (ID)")
-    @GetMapping("/history/{equipoId}")
-    public ResponseEntity<List<Reparacion>> historialPorEquipo(@PathVariable Long equipoId) {
+    @GetMapping("/equipo/{equipoId}")
+    public ResponseEntity<List<ReparacionResponseDTO>> historialPorEquipo(@PathVariable Long equipoId) {
         return ResponseEntity.ok(reparacionService.historialPorEquipo(equipoId));
+    }
+
+    // 🖊️ Firma de aceptación
+    @PutMapping("/{id}/firma-aceptacion")
+    public ResponseEntity<Reparacion> registrarFirmaAceptacion(@PathVariable Long id, @RequestBody String firma) {
+        return fichaTecnicaService.registrarFirmaAceptacion(id, firma)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    // 🖊️ Firma de conformidad
+    @PutMapping("/{id}/firma-conformidad")
+    public ResponseEntity<Reparacion> registrarFirmaConformidad(@PathVariable Long id, @RequestBody String firma) {
+        return fichaTecnicaService.registrarFirmaConformidad(id, firma)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    // 📄 Subir XML técnico
+    @PostMapping("/{id}/xml-tecnico")
+    public ResponseEntity<Reparacion> subirXmlDatos(@PathVariable Long id, @RequestParam MultipartFile file) throws IOException {
+        return fichaTecnicaService.subirXmlDatos(id, file)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    // 📸 Subir fotos
+    @PostMapping("/{id}/fotos")
+    public ResponseEntity<Reparacion> subirFotos(@PathVariable Long id, @RequestBody String fotosJson) {
+        return fichaTecnicaService.subirFotos(id, fotosJson)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 }

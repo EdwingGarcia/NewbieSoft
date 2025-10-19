@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class EquipoService {
@@ -34,7 +35,27 @@ public class EquipoService {
     }
 
 
-    public List<Equipo> listarPorCliente(String clienteCedula) {
-        return equipoRepository.findByUsuario_Cedula(clienteCedula);
+    public List<EquipoDto> listarPorCliente(String clienteCedula) {
+        return equipoRepository.findByUsuario_Cedula(clienteCedula)
+                .stream()
+                .map(this::mapToDto)
+                .collect(Collectors.toList());
     }
+
+    public List<EquipoDto> listarTodosLosEquipos() {
+        return equipoRepository.findAll()
+                .stream()
+                .map(this::mapToDto)
+                .collect(Collectors.toList());
+    }
+    private EquipoDto mapToDto(Equipo equipo) {
+        return EquipoDto.builder()
+                .id(equipo.getIdEquipo())
+                .numeroSerie(equipo.getNumeroSerie())
+                .modelo(equipo.getModelo())
+                .marca(equipo.getMarca())
+                .cedulaCliente(equipo.getUsuario().getCedula())
+                .build();
+    }
+
 }

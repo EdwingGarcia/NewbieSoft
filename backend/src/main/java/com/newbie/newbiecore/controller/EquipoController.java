@@ -35,8 +35,8 @@ public class EquipoController {
     }
     // Endpoint para listar equipos por cédula de cliente
     @GetMapping("/cliente/{cedula}")
-    public ResponseEntity<List<Equipo>> listarPorCliente(@PathVariable String cedula) {
-        List<Equipo> equipos = equipoService.listarPorCliente(cedula);
+    public ResponseEntity<List<EquipoDto>> listarPorCliente(@PathVariable String cedula) {
+        List<EquipoDto> equipos = equipoService.listarPorCliente(cedula);
 
         if (equipos.isEmpty()) {
             return ResponseEntity.noContent().build(); // 204 si no hay equipos
@@ -44,4 +44,14 @@ public class EquipoController {
 
         return ResponseEntity.ok(equipos); // 200 con la lista
     }
+    @GetMapping("/")
+    public ResponseEntity<List<EquipoDto>> listarTodosEquipos() {
+        List<EquipoDto> equipos = equipoService.listarTodosLosEquipos();
+        if (equipos.isEmpty()) {
+            return ResponseEntity.noContent().build(); // 204 si no hay equipos
+        }
+        return ResponseEntity.ok(equipos); // 200 con la lista
+    }
+
+
 }
