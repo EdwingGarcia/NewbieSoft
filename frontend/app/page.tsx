@@ -36,7 +36,7 @@ export default function Home() {
 
             setMensaje("✅ Login exitoso, redirigiendo...");
             setTimeout(() => {
-                router.push("/consultas");
+                router.push("/dashboard");
             }, 1500);
         } catch (error: any) {
             console.error("❌ Error en login:", error);

@@ -49,12 +49,11 @@ public class SecurityConfig {
         http
             .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(auth -> auth
-                    .requestMatchers("/api/**").permitAll()
                 .requestMatchers("/api/auth/**").permitAll()  // login y registro
-               // .requestMatchers("/api/**").authenticated()  // protege otros endpoints de la API
+                .requestMatchers("/consultas/**").permitAll()
+                .requestMatchers("/api/**").authenticated()  // protege otros endpoints de la API
                 .requestMatchers("/", "/index.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
-
-                .anyRequest().permitAll()
+                .anyRequest().authenticated()
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
