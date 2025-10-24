@@ -51,6 +51,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll()  // login y registro
                 .requestMatchers("/consultas/**").permitAll()
+                    .requestMatchers("/api/otp/**").permitAll()
                 .requestMatchers("/api/**").authenticated()  // protege otros endpoints de la API
                 .requestMatchers("/", "/index.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 .anyRequest().authenticated()
