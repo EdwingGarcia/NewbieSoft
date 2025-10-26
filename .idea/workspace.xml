@@ -4,17 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="ddf03273-e7ff-4622-aed3-f486321b3a50" name="Changes" comment="for frontend">
-      <change afterPath="$PROJECT_DIR$/backend/src/main/resources/static/archivo-prueba.pdf" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/app/consultas/components/ConsultaForm.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/app/consultas/components/OTPModal.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/app/consultas/consultas.css" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/public/archivo-prueba.pdf" afterDir="false" />
+    <list default="true" id="ddf03273-e7ff-4622-aed3-f486321b3a50" name="Changes" comment="Otp module">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/config/SecurityConfig.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/config/SecurityConfig.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/controller/OtpController.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/controller/OtpController.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/src/main/resources/application.properties" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/resources/application.properties" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/app/consultas/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/app/consultas/page.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/app/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/app/page.tsx" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -152,7 +145,15 @@
       <option name="project" value="LOCAL" />
       <updated>1761192279451</updated>
     </task>
-    <option name="localTasksCounter" value="8" />
+    <task id="LOCAL-00008" summary="Otp module">
+      <option name="closed" value="true" />
+      <created>1761339045012</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1761339045012</updated>
+    </task>
+    <option name="localTasksCounter" value="9" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -161,6 +162,7 @@
   <component name="VcsManagerConfiguration">
     <MESSAGE value="refactor for crate frontend" />
     <MESSAGE value="for frontend" />
-    <option name="LAST_COMMIT_MESSAGE" value="for frontend" />
+    <MESSAGE value="Otp module" />
+    <option name="LAST_COMMIT_MESSAGE" value="Otp module" />
   </component>
 </project>
