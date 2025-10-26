@@ -1,0 +1,145 @@
+/* Fondo principal */
+.consulta-wrapper {
+    background: linear-gradient(180deg, #2d3ef8 0%, #8a2bf6 100%);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    text-align: center;
+    padding: 0;
+}
+
+/* Contenedor central */
+.consulta-container {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    padding: 2rem 2.5rem; /* 🔹 menos padding */
+    width: 500px; /* 🔹 más estrecho */
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.25);
+}
+
+    .consulta-inner{
+        width: 100%;
+        max-width: 720px;
+        margin: 0 auto;
+    }
+
+    .consulta-container{ width:100%; }
+
+/* Título grande */
+.consulta-header h1 {
+    font-size: 1.8rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.consulta-header p {
+    font-size: 0.95rem;
+    color: #f0f0f0;
+    margin-bottom: 2rem;
+    line-height: 1.4;
+}
+
+/* Campos */
+.consulta-container label {
+    display: block;
+    font-size: 0.95rem;
+    margin-top: 1rem;
+    text-align: left;
+}
+
+.consulta-container input[type="text"],
+.consulta-container input[type="email"] {
+    width: 100%;
+    padding: 8px; /* antes 12px */
+    border: none;
+    border-radius: 6px;
+    margin-top: 0.3rem;
+    font-size: 0.9rem;
+    color: #333;
+    background: #fff;
+}
+
+.consulta-container small {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.9);
+    display: block;
+    margin-top: 0.4rem;
+    text-align: left;
+}
+
+/* Radios */
+.radio-group {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    margin: 1.5rem 0;
+}
+
+.radio-group label {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 1rem;
+}
+
+.radio-group input[type="radio"] {
+    accent-color: white;
+    transform: scale(1.2);
+}
+
+/* Botón */
+.consulta-container button {
+    display: block;
+    background: #fff;
+    color: #5b2cf7;
+    border: none;
+    padding: 8px 22px;
+    border-radius: 25px;
+    margin: 1.2rem auto 0;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background 0.2s ease;
+}
+
+.consulta-container button:hover {
+    background: #ece9ff;
+}
+
+/* Modal OTP */
+.otp-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.otp-modal {
+    background: linear-gradient(180deg, #4a3cf0 0%, #8b2df7 100%);
+    border-radius: 15px;
+    padding: 2rem 2.5rem;
+    color: white;
+    width: 300px;
+    text-align: center;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+.otp-modal input {
+    width: 100%;
+    padding: 10px;
+    border: none;
+    border-radius: 6px;
+    margin: 1rem 0;
+    font-size: 1rem;
+    color: #333;
+    background: #fff;
+}
+    .consulta-container{ padding:1.4rem 1.8rem; }
+    .consulta-container input[type="text"],
+    .consulta-container input[type="email"]{
+        padding:6px 10px; font-size:.9rem;
+    }
+    .consulta-container button{ padding:7px 20px; }
