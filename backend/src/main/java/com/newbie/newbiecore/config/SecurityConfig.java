@@ -2,6 +2,7 @@ package com.newbie.newbiecore.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -52,6 +53,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/**").permitAll()  // login y registro
                 .requestMatchers("/consultas/**").permitAll()
                 .requestMatchers("/api/**").authenticated()  // protege otros endpoints de la API
+                .requestMatchers(HttpMethod.POST, "/api/equipo/*/hardware/upload-xml").permitAll()
                 .requestMatchers("/", "/index.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 .anyRequest().authenticated()
             )

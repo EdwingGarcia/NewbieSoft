@@ -1,7 +1,11 @@
 package com.newbie.newbiecore.entity;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
 import java.time.Instant;
 
 @Entity
@@ -25,4 +29,13 @@ public class Equipo {
 
     @Column(name="fecha_registro")
     private Instant fechaRegistro;
+    @Column(name="hostname")
+    private String hostname;
+
+    @Column(name="sistema_operativo")
+    private String sistemaOperativo;
+
+    @JdbcTypeCode(SqlTypes.JSON)                // 👈 clave para JSON/JSONB
+    @Column(name = "hardware_json", columnDefinition = "jsonb")
+    private JsonNode hardwareJson;
 }
