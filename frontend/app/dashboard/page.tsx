@@ -11,6 +11,31 @@ export default function DashboardPage() {
         if (!token) router.push("/");
     }, [router]);
 
+    // 🔹 Función para cerrar sesión correctamente
+    const handleLogout = async () => {
+        const token = localStorage.getItem("token");
+        try {
+            if (token) {
+                await fetch("http://localhost:8080/api/auth/logout", {
+                    method: "POST",
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
+            }
+        } catch (error) {
+            console.error("Error al cerrar sesión:", error);
+        } finally {
+            // Limpia cualquier dato del login
+            localStorage.removeItem("token");
+            localStorage.removeItem("nb.auth");
+            localStorage.removeItem("nb.auth.token");
+
+            // Redirige al inicio o login
+            router.push("/");
+        }
+    };
+
     return (
         <div className={styles.container}>
             <aside className={styles.sidebar}>
@@ -29,8 +54,23 @@ export default function DashboardPage() {
 
             <main className={styles.main}>
                 <header className={styles.header}>
-                    <span>Administrador</span> | <a href="/login">Cerrar sesión</a>
+                    <span>Administrador</span> |{" "}
+                    <button
+                        onClick={handleLogout}
+                        style={{
+                            background: "none",
+                            border: "none",
+                            color: "#0070f3",
+                            cursor: "pointer",
+                            padding: 0,
+                            font: "inherit",
+                            textDecoration: "underline",
+                        }}
+                    >
+                        Cerrar sesión
+                    </button>
                 </header>
+
                 <section className={styles.content}>
                     <h1>Bienvenido al Dashboard 🎉</h1>
                     <p>Contenido vacío por ahora.</p>
