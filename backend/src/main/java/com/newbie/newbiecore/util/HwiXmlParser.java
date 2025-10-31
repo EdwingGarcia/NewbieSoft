@@ -159,4 +159,213 @@ public class HwiXmlParser {
         try { return objectMapper.writeValueAsString(hw); }
         catch (Exception e) { throw new RuntimeException(e); }
     }
+    // dentro de HwiXmlParser.java
+    public static class PropertyRow {
+        public String path;
+        public String entry;
+        public String value;
+        public String unit;
+    }
+
+    public List<PropertyRow> collectAllProperties(InputStream in) {
+        try {
+            DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+            dbf.setXIncludeAware(false);
+            dbf.setExpandEntityReferences(false);
+            try {
+                dbf.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+                dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", false);
+            } catch (Exception ignore) {}
+
+            var builder = dbf.newDocumentBuilder();
+            builder.setEntityResolver((publicId, systemId) -> new InputSource(new StringReader("")));
+            Document doc = builder.parse(in);
+            doc.getDocumentElement().normalize();
+
+            NodeList properties = (NodeList) xp.evaluate("//Property", doc, XPathConstants.NODESET);
+            List<PropertyRow> rows = new ArrayList<>(properties.getLength());
+
+            for (int i = 0; i < properties.getLength(); i++) {
+                Element p = (Element) properties.item(i);
+                String entry = text(p, "Entry");
+                String value = text(p, "Description");
+                if ((entry == null || entry.isBlank()) && (value == null || value.isBlank())) continue;
+
+                PropertyRow r = new PropertyRow();
+                r.path  = computePath(p);
+                r.entry = safe(entry);
+                r.value = safe(value);
+                r.unit  = text(p, "Unit"); // opcional si existe en tu XML
+                rows.add(r);
+            }
+            return rows;
+        } catch (Exception e) {
+            throw new RuntimeException("Error recolectando propiedades del XML HWiNFO", e);
+        }
+    }
+
+
+    private static String safe(String s) { return s == null ? null : s.trim(); }
+
+    // Ruta legible usando NodeName cuando exista + índice de hermanos
+    private String computePath(Node leaf) {
+        Deque<String> parts = new ArrayDeque<>();
+        Node cur = leaf;
+        while (cur != null && cur.getNodeType() == Node.ELEMENT_NODE) {
+            Element el = (Element) cur;
+
+            String nodeNameText = null;
+            NodeList nodeNameNodes = el.getElementsByTagName("NodeName");
+            if (nodeNameNodes.getLength() > 0) {
+                nodeNameText = nodeNameNodes.item(0).getTextContent();
+            }
+
+            String label;
+            if (nodeNameText != null && !nodeNameText.isBlank()) {
+                label = el.getTagName() + "(" + nodeNameText.trim() + ")";
+            } else {
+                int idx = siblingIndex(el);
+                label = el.getTagName() + "#" + idx;
+            }
+            parts.addFirst(label);
+
+            cur = el.getParentNode();
+            if (cur != null && cur.getNodeType() == Node.DOCUMENT_NODE) break;
+        }
+        return String.join(" > ", parts);
+    }
+
+    private int siblingIndex(Element el) {
+        int idx = 0;
+        Node prev = el.getPreviousSibling();
+        while (prev != null) {
+            if (prev.getNodeType() == Node.ELEMENT_NODE
+                    && ((Element) prev).getTagName().equals(el.getTagName())) {
+                idx++;
+            }
+            prev = prev.getPreviousSibling();
+        }
+        return idx;
+    }
+    // HwiXmlParser.java
+    public Map<String, String> collectByEntry(InputStream in) {
+        try {
+            DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+            dbf.setXIncludeAware(false);
+            dbf.setExpandEntityReferences(false);
+            try {
+                dbf.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+                dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", false);
+            } catch (Exception ignore) {}
+
+            var builder = dbf.newDocumentBuilder();
+            builder.setEntityResolver((publicId, systemId) -> new org.xml.sax.InputSource(new java.io.StringReader("")));
+            org.w3c.dom.Document doc = builder.parse(in);
+            doc.getDocumentElement().normalize();
+
+            javax.xml.xpath.XPath xp = javax.xml.xpath.XPathFactory.newInstance().newXPath();
+            org.w3c.dom.NodeList props = (org.w3c.dom.NodeList)
+                    xp.evaluate("//Property", doc, javax.xml.xpath.XPathConstants.NODESET);
+
+            Map<String,String> map = new java.util.LinkedHashMap<>();
+            for (int i = 0; i < props.getLength(); i++) {
+                org.w3c.dom.Element p = (org.w3c.dom.Element) props.item(i);
+                String entry = text(p, "Entry");
+                String value = text(p, "Description");
+                if (entry != null && !entry.isBlank() && value != null && !value.isBlank()) {
+                    map.put(entry.trim(), value.trim()); // último valor para la misma clave “gana”
+                }
+            }
+            return map;
+        } catch (Exception e) {
+            throw new RuntimeException("Error construyendo byEntry desde XML HWiNFO", e);
+        }
+    }
+    // --- NUEVO: devuelve un JSON agrupado por secciones ---
+    public Map<String, Object> collectGroupedByEntry(InputStream in) {
+        try {
+            // Parser DOM seguro (igual que parse(...))
+            DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+            dbf.setXIncludeAware(false);
+            dbf.setExpandEntityReferences(false);
+            try {
+                dbf.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+                dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", false);
+            } catch (Exception ignore) {}
+            var builder = dbf.newDocumentBuilder();
+            builder.setEntityResolver((publicId, systemId) -> new InputSource(new StringReader("")));
+            Document doc = builder.parse(in);
+            doc.getDocumentElement().normalize();
+
+            Map<String, Object> out = new LinkedHashMap<>();
+
+            // Secciones "simples": tomamos todas sus Properties
+            out.put("computer", byEntryFrom(node(doc, "/HWINFO/COMPUTER")));
+            out.put("cpu",      byEntryFrom(node(doc, "//CPU")));
+            out.put("mobo",     byEntryFrom(node(doc, "//MOBO")));
+            out.put("memory",   byEntryFrom(node(doc, "//MEMORY")));
+
+            // Secciones con múltiples dispositivos: submapa por SubNode (NodeName)
+            out.put("video",   byEntryPerDevice(doc, "//VIDEO"));
+            out.put("monitor", byEntryPerDevice(doc, "//MONITOR"));
+            out.put("sound",   byEntryPerDevice(doc, "//SOUND"));
+            out.put("network", byEntryPerDevice(doc, "//NETWORK"));
+
+            // DRIVES: combinamos ATA y NVMe, cada unidad como submapa
+            Map<String, Map<String,String>> drives = new LinkedHashMap<>();
+            drives.putAll(byEntryPerDevice(doc, "//DRIVES/SubNode[NodeName='ATA Drives']"));
+            drives.putAll(byEntryPerDevice(doc, "//DRIVES/SubNode[NodeName='Unidades NVMe']"));
+            out.put("drives", drives);
+
+            return out;
+        } catch (Exception e) {
+            throw new RuntimeException("Error agrupando byEntry", e);
+        }
+    }
+
+// --- helpers privados ---
+
+    // Extrae Entry→Description bajo un contexto (sección o SubNode)
+    private Map<String,String> byEntryFrom(Node context) {
+        Map<String,String> m = new LinkedHashMap<>();
+        if (context == null) return m;
+        try {
+            NodeList props = (NodeList) xp.evaluate(".//Property", context, XPathConstants.NODESET);
+            for (int i = 0; i < props.getLength(); i++) {
+                Node p = props.item(i);
+                String k = eval(p, "./Entry");
+                String v = eval(p, "./Description");
+                if (k != null && !k.isBlank() && v != null && !v.isBlank()) {
+                    m.put(k, v);
+                }
+            }
+        } catch (Exception ignore) {}
+        return m;
+    }
+
+    // Recorre los SubNode hijos de una sección y crea un submapa por dispositivo
+    private Map<String, Map<String,String>> byEntryPerDevice(Document doc, String sectionXPath) {
+        Map<String, Map<String,String>> out = new LinkedHashMap<>();
+        Node section = node(doc, sectionXPath);
+        if (section == null) return out;
+
+        try {
+            NodeList subs = (NodeList) xp.evaluate("./SubNode", section, XPathConstants.NODESET);
+            for (int i = 0; i < subs.getLength(); i++) {
+                Node sub = subs.item(i);
+                String name = firstNonNull(eval(sub, "./NodeName"), "device#" + (i+1));
+                Map<String,String> props = byEntryFrom(sub);
+                if (!props.isEmpty()) out.put(name, props);
+            }
+        } catch (Exception ignore) {}
+        return out;
+    }
+
+    private static String text(org.w3c.dom.Element parent, String tag) {
+        org.w3c.dom.NodeList nl = parent.getElementsByTagName(tag);
+        if (nl.getLength() == 0) return null;
+        String s = nl.item(0).getTextContent();
+        return (s == null) ? null : s.trim();
+    }
+
 }

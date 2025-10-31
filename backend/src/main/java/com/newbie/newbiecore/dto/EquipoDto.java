@@ -1,5 +1,6 @@
 package com.newbie.newbiecore.dto;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import lombok.Builder;
 import lombok.Data;
 
@@ -11,4 +12,5 @@ public class EquipoDto {
     private String modelo;
     private String marca;
     private String cedulaCliente;
+    private JsonNode hardwareJson;
 }

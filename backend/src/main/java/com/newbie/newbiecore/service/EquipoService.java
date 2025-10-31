@@ -15,6 +15,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.InputStream;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -65,31 +66,34 @@ public class EquipoService {
                 .modelo(equipo.getModelo())
                 .marca(equipo.getMarca())
                 .cedulaCliente(equipo.getUsuario().getCedula())
+                .hardwareJson(equipo.getHardwareJson())
                 .build();
     }
 
     @Transactional
     public Equipo procesarXmlYActualizar(Long equipoId, MultipartFile xml) {
         return equipoRepository.findById(equipoId).map(eq -> {
-            try (InputStream in = xml.getInputStream()) {
-                var hw = parser.parse(in);
+            try {
+                // Leer una sola vez y reutilizar
+                byte[] bytes = xml.getBytes();
+                try (InputStream in1 = new java.io.ByteArrayInputStream(bytes)) {
 
-                // Campos principales del equipo
-                eq.setHostname(hw.general.hostname);
-                eq.setMarca(firstNonNull(hw.mobo.fabricante, hw.general.marca));
-                eq.setModelo(firstNonNull(hw.mobo.modelo, hw.cpu.nombre));
-                if (hw.mobo.serie != null && !hw.mobo.serie.isBlank()) {
-                    eq.setNumeroSerie(hw.mobo.serie);
+                    // 👉 Construir solo el mapa byEntry
+                    // (usa el método collectByEntry que ya agregamos en HwiXmlParser)
+                    Map<String, String> byEntry = parser.collectByEntry(in1);
+
+                    // (Opcional) Aun puedes actualizar columnas del equipo si quieres
+                    // usando valores específicos de byEntry, por ejemplo:
+                    eq.setHostname(byEntry.getOrDefault("Nombre del computadora", eq.getHostname()));
+                    eq.setSistemaOperativo(byEntry.getOrDefault("Sistema operativo", eq.getSistemaOperativo()));
+                    eq.setFechaRegistro(Instant.now());
+
+                    // 👉 Guardar SOLO el byEntry en JSONB
+                    com.fasterxml.jackson.databind.JsonNode jsonOnlyByEntry = mapper.valueToTree(byEntry);
+                    eq.setHardwareJson(jsonOnlyByEntry);
+
+                    return equipoRepository.save(eq);
                 }
-                eq.setSistemaOperativo(hw.general.so);
-                eq.setFechaRegistro(Instant.now());
-
-                // Snapshot completo en JSON (usa JsonNode en la entidad con
-                // @JdbcTypeCode(JSON))
-                JsonNode json = mapper.valueToTree(hw);
-                eq.setHardwareJson(json);
-
-                return equipoRepository.save(eq);
             } catch (Exception e) {
                 throw new RuntimeException("No se pudo procesar/guardar el XML", e);
             }
