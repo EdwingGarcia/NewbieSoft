@@ -57,4 +57,5 @@ public class EquipoController {
         Equipo actualizado = equipoService.procesarXmlYActualizar(equipoId, file);
         return ResponseEntity.ok(actualizado);
     }
+
 }
