@@ -13,8 +13,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
-import com.newbie.newbiecore.config.JwtAuthenticationFilter;  // tu filtro JWT
-import com.newbie.newbiecore.service.CustomUserDetailsService; // tu servicio UserDetailsService
+import com.newbie.newbiecore.service.CustomUserDetailsService;
 
 @Configuration
 public class SecurityConfig {
@@ -22,10 +21,15 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final CustomUserDetailsService userDetailsService;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter, CustomUserDetailsService userDetailsService) {
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
+                          CustomUserDetailsService userDetailsService) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.userDetailsService = userDetailsService;
     }
+
+    // -------------------------------
+    // Beans de autenticación
+    // -------------------------------
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -45,21 +49,47 @@ public class SecurityConfig {
         return authConfig.getAuthenticationManager();
     }
 
+    // -------------------------------
+    // Configuración de seguridad HTTP
+    // -------------------------------
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+
         http
-            .csrf(csrf -> csrf.disable())
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**").permitAll()  // login y registro
-                .requestMatchers("/consultas/**").permitAll()
-                    .requestMatchers("/api/otp/**").permitAll()
-                .requestMatchers("/api/**").authenticated()  // protege otros endpoints de la API
-                .requestMatchers(HttpMethod.POST, "/api/equipo/*/hardware/upload-xml").permitAll()
-                .requestMatchers("/", "/index.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                .anyRequest().authenticated()
-            )
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+                .csrf(csrf -> csrf.disable())
+                .authorizeHttpRequests(auth -> auth
+                        // Endpoints públicos
+                        .requestMatchers(
+                                "/api/auth/**",
+                                "/consultas/**",
+                                "/api/otp/**",
+                                "/",
+                                "/index.html",
+                                "/swagger-ui/**",
+                                "/v3/api-docs/**"
+                        ).permitAll()
+
+                        // Permitir subir XML desde dispositivos
+                        .requestMatchers(HttpMethod.POST, "/api/equipo/*/hardware/upload-xml").permitAll()
+
+                        // 🔒 Endpoints exclusivos del ADMIN
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+
+                        // 🔒 Endpoints exclusivos del TÉCNICO
+                        .requestMatchers("/api/tecnico/**").hasRole("TECNICO")
+
+                        // 🔒 Cualquier otro endpoint de la API requiere autenticación
+                        .requestMatchers("/api/**").authenticated()
+
+                        // 🚫 Bloquear todo lo que no coincida
+                        .anyRequest().denyAll()
+                )
+
+                // Autenticación JWT sin sesiones
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authenticationProvider(authenticationProvider())
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

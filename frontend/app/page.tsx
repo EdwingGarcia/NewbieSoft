@@ -18,26 +18,27 @@ export default function Home() {
         try {
             const response = await fetch("http://localhost:8080/api/auth/login", {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ correo, password }),
             });
 
-            if (!response.ok) {
-                throw new Error("Credenciales incorrectas");
-            }
+            if (!response.ok) throw new Error("Credenciales incorrectas");
 
             const data = await response.json();
             console.log("✅ Login exitoso:", data);
 
-            // Guardar el token
-            localStorage.setItem("token", data.token);
+            // ✅ Guardar token y rol en cookies
+            document.cookie = `token=${data.token}; path=/`;
+            document.cookie = `rol=${data.rol}; path=/`;
 
             setMensaje("✅ Login exitoso, redirigiendo...");
+
+            // ✅ Redirigir según el rol
             setTimeout(() => {
-                router.push("/dashboard");
-            }, 1500);
+                if (data.rol === "ROLE_ADMIN") router.push("/dashboard/administrador");
+                else if (data.rol === "ROLE_TECNICO") router.push("/dashboard/tecnico");
+                else router.push("/dashboard"); // fallback
+            }, 1200);
         } catch (error: any) {
             console.error("❌ Error en login:", error);
             setMensaje("Usuario o contraseña incorrectos");

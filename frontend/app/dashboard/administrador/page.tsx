@@ -1,8 +1,4 @@
-import { requireAuth } from "@/app/utils/authGuard";
-
 export default function AdminDashboardPage() {
-    requireAuth("ROLE_ADMIN");
-
     return (
         <div>
             <h1>📊 Panel de Administración</h1>

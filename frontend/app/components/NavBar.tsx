@@ -11,13 +11,16 @@ function hasToken() {
             const p = JSON.parse(raw);
             if (p?.token) return true;
         }
-    } catch { }
+    } catch {}
     return !!(localStorage.getItem("nb.auth.token") || localStorage.getItem("token"));
 }
 
 export default function NavBar() {
     const pathname = usePathname();
-    const [logged, setLogged] = useState<boolean>(false);
+    const [logged, setLogged] = useState(false);
+
+    // Ocultar NavBar en rutas del dashboard
+    const hideNavbar = pathname.startsWith("/dashboard");
 
     useEffect(() => {
         setLogged(hasToken());
@@ -26,16 +29,28 @@ export default function NavBar() {
         return () => window.removeEventListener("storage", onStorage);
     }, []);
 
+    // 👉 Si está en el dashboard, no renderiza nada
+    if (hideNavbar) return null;
+
     return (
         <header className="navbar">
             <div className="navbar-title">Newbie Data Control</div>
             <nav className="navbar-links">
-                <Link href="/" className={`navbar-link ${pathname === "/" ? "active" : ""}`}>Inicio</Link>
-                <Link href="/consultas" className={`navbar-link ${pathname === "/consultas" ? "active" : ""}`}>Consultas</Link>
+                <Link href="/" className={`navbar-link ${pathname === "/" ? "active" : ""}`}>
+                    Inicio
+                </Link>
+                <Link
+                    href="/consultas"
+                    className={`navbar-link ${pathname === "/consultas" ? "active" : ""}`}
+                >
+                    Consultas
+                </Link>
                 {logged && (
                     <Link
                         href="/dashboard/xml-prueba"
-                        className={`navbar-link ${pathname === "/dashboard/xml-prueba" ? "active" : ""}`}
+                        className={`navbar-link ${
+                            pathname === "/dashboard/xml-prueba" ? "active" : ""
+                        }`}
                     >
                         Prueba XML
                     </Link>
