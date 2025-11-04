@@ -5,26 +5,10 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="ddf03273-e7ff-4622-aed3-f486321b3a50" name="Changes" comment="Otp module">
-      <change afterPath="$PROJECT_DIR$/frontend/app/api/logout/route.ts" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/app/dashboard/administrador/agendar/page.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/app/dashboard/administrador/ajustes/page.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/app/dashboard/administrador/historial/page.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/app/dashboard/administrador/layout.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/app/dashboard/administrador/page.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/app/dashboard/administrador/roles/page.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/app/dashboard/administrador/styles/admin-dashboard.css" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/app/dashboard/administrador/usuarios/page.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/app/dashboard/tecnico/layout.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/app/dashboard/tecnico/page.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/app/middleware.ts" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/app/utils/authGuard.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/app/utils/api.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/config/SecurityConfig.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/config/SecurityConfig.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/src/main/resources/application.properties" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/resources/application.properties" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/app/components/NavBar.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/app/components/NavBar.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/app/dashboard/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/app/dashboard/page.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/app/globals.css" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/app/globals.css" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/app/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/app/page.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/app/dashboard/administrador/layout.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/app/dashboard/administrador/layout.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/app/dashboard/administrador/usuarios/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/app/dashboard/administrador/usuarios/page.tsx" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -55,7 +39,7 @@
     </option>
   </component>
   <component name="ProblemsViewState">
-    <option name="selectedTabId" value="CurrentFile" />
+    <option name="selectedTabId" value="ProjectErrors" />
   </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 3
