@@ -51,22 +51,7 @@ public class AuthController {
         }
     }
 
-    @Operation(summary = "Registro de usuario", description = "Crea un nuevo usuario en la base de datos")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Usuario registrado correctamente",
-                    content = @Content(mediaType = "application/json",
-                            schema = @Schema(implementation = Usuario.class))),
-            @ApiResponse(responseCode = "400", description = "Error en los datos enviados")
-    })
-    @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
-        try {
-            Usuario usuario = authService.register(request);
-            return ResponseEntity.ok(usuario);
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
-    }
+
 
     @Operation(summary = "Refrescar token JWT", description = "Genera un nuevo token a partir de un refresh token válido")
     @ApiResponses(value = {

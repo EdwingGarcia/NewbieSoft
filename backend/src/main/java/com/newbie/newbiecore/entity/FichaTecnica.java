@@ -1,5 +1,6 @@
 package com.newbie.newbiecore.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -19,33 +20,27 @@ public class FichaTecnica {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    /** Técnico responsable de la ficha */
+    // técnico (LAZY)
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "tecnico_id", nullable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Usuario tecnico;
 
-    /** Equipo al que pertenece esta ficha técnica */
+    // equipo (LAZY)
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "equipo_id", nullable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Equipo equipo;
 
-    /** ID del archivo en Google Drive */
-    @Column(name = "imagen_drive_file_id", length = 128)
-    private String imagenDriveFileId;
 
-    /** URL directa pública de la imagen (uc?id=...) */
-    @Column(name = "imagen_url", length = 512)
-    private String imagenUrl;
+    @OneToMany(mappedBy = "fichaTecnica", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnoreProperties({"fichaTecnica"})   // para no hacer bucle
+    private java.util.List<FichaTecnicaImagen> imagenes = new java.util.ArrayList<>();
 
-    /** Enlace de vista en Drive (webViewLink) */
-    @Column(name = "imagen_webview_link", length = 512)
-    private String imagenWebViewLink;
 
-    /** Observaciones del técnico */
     @Column(columnDefinition = "TEXT")
     private String observaciones;
 
-    /** Fecha de creación */
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private Instant fechaCreacion;

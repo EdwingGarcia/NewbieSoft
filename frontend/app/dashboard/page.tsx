@@ -2,16 +2,21 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import styles from "../styles/Dashboard.module.css";
+import dynamic from "next/dynamic";
+
+// Carga dinámica del módulo de Ficha Técnica
+const FichaTecnicaModule = dynamic(() => import("./FichasTecnicasPage"), { ssr: false });
 
 export default function DashboardPage() {
     const router = useRouter();
 
+    // 🧭 Verificación de sesión (token)
     useEffect(() => {
         const token = localStorage.getItem("token");
         if (!token) router.push("/");
     }, [router]);
 
-    // 🔹 Función para cerrar sesión correctamente
+    // 🔹 Cerrar sesión correctamente
     const handleLogout = async () => {
         const token = localStorage.getItem("token");
         try {
@@ -26,18 +31,16 @@ export default function DashboardPage() {
         } catch (error) {
             console.error("Error al cerrar sesión:", error);
         } finally {
-            // Limpia cualquier dato del login
             localStorage.removeItem("token");
             localStorage.removeItem("nb.auth");
             localStorage.removeItem("nb.auth.token");
-
-            // Redirige al inicio o login
             router.push("/");
         }
     };
 
     return (
         <div className={styles.container}>
+            {/* ===== Sidebar ===== */}
             <aside className={styles.sidebar}>
                 <h2>Newbie Data Control</h2>
                 <nav>
@@ -48,10 +51,12 @@ export default function DashboardPage() {
                         <li>Agendar visita</li>
                         <li>Historial</li>
                         <li>Ajustes</li>
+                        <li style={{ fontWeight: "bold", color: "#fff" }}>Ficha Técnica</li>
                     </ul>
                 </nav>
             </aside>
 
+            {/* ===== Main content ===== */}
             <main className={styles.main}>
                 <header className={styles.header}>
                     <span>Administrador</span> |{" "}
@@ -71,9 +76,10 @@ export default function DashboardPage() {
                     </button>
                 </header>
 
+                {/* ===== Contenido dinámico ===== */}
                 <section className={styles.content}>
-                    <h1>Bienvenido al Dashboard 🎉</h1>
-                    <p>Contenido vacío por ahora.</p>
+                    <h1>Gestión de Fichas Técnicas 🧰</h1>
+                    <FichaTecnicaModule />
                 </section>
             </main>
         </div>
