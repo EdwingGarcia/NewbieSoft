@@ -50,10 +50,14 @@ public class SecurityConfig {
         http
             .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**").permitAll()  // login y registro
+                .requestMatchers("/api/auth/**", "api/firmas/**").permitAll()  // login y registro
                 .requestMatchers("/consultas/**").permitAll()
                     .requestMatchers("/api/otp/**").permitAll()
-                .requestMatchers("/api/**").authenticated()  // protege otros endpoints de la API
+                    .requestMatchers("/api/pdf/**").permitAll()
+                    .requestMatchers("/error").permitAll()
+                    .requestMatchers("/api/firmas/**").permitAll()
+                    .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                    .requestMatchers("/api/**").authenticated()  // protege otros endpoints de la API
                 .requestMatchers(HttpMethod.POST, "/api/equipo/*/hardware/upload-xml").permitAll()
                 .requestMatchers("/", "/index.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 .anyRequest().authenticated()
