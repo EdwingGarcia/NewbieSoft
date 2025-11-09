@@ -13,8 +13,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
-import com.newbie.newbiecore.config.JwtAuthenticationFilter;  // tu filtro JWT
-import com.newbie.newbiecore.service.CustomUserDetailsService; // tu servicio UserDetailsService
+import com.newbie.newbiecore.service.CustomUserDetailsService;
+import com.newbie.newbiecore.config.JwtAuthenticationFilter;
 
 @Configuration
 public class SecurityConfig {
@@ -22,7 +22,8 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final CustomUserDetailsService userDetailsService;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter, CustomUserDetailsService userDetailsService) {
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
+                          CustomUserDetailsService userDetailsService) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.userDetailsService = userDetailsService;
     }
@@ -48,22 +49,29 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(csrf -> csrf.disable())
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**", "api/firmas/**").permitAll()  // login y registro
-                .requestMatchers("/consultas/**").permitAll()
-                    .requestMatchers("/api/otp/**").permitAll()
-                    .requestMatchers("/api/pdf/**").permitAll()
-                    .requestMatchers("/error").permitAll()
-                    .requestMatchers("/api/firmas/**").permitAll()
-                    .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                    .requestMatchers("/api/**").authenticated()  // protege otros endpoints de la API
-                .requestMatchers(HttpMethod.POST, "/api/equipo/*/hardware/upload-xml").permitAll()
-                .requestMatchers("/", "/index.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                .anyRequest().authenticated()
-            )
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+                .csrf(csrf -> csrf.disable())
+                .authorizeHttpRequests(auth -> auth
+                        // públicos
+                        .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/otp/**").permitAll()
+                        .requestMatchers("/consultas/**").permitAll()
+                        .requestMatchers("/", "/index.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+
+                        // 👇 servir archivos subidos (IMPORTANTE)
+                        .requestMatchers("/uploads/**").permitAll()
+
+                        // tus endpoints de prueba
+                        .requestMatchers("/api/fichas/**").permitAll()
+                        .requestMatchers("/api/firmas/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/equipo/*/hardware/upload-xml").permitAll()
+
+                        // lo demás de /api necesita token
+                        .requestMatchers("/api/**").authenticated()
+
+                        .anyRequest().authenticated()
+                )
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 
         return http.build();
     }

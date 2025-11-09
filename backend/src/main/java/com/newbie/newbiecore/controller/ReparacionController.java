@@ -93,35 +93,5 @@ public class ReparacionController {
         return ResponseEntity.ok(reparacionService.historialPorEquipo(equipoId));
     }
 
-    // 🖊️ Firma de aceptación
-    @PutMapping("/{id}/firma-aceptacion")
-    public ResponseEntity<Reparacion> registrarFirmaAceptacion(@PathVariable Long id, @RequestBody String firma) {
-        return fichaTecnicaService.registrarFirmaAceptacion(id, firma)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
-    }
 
-    // 🖊️ Firma de conformidad
-    @PutMapping("/{id}/firma-conformidad")
-    public ResponseEntity<Reparacion> registrarFirmaConformidad(@PathVariable Long id, @RequestBody String firma) {
-        return fichaTecnicaService.registrarFirmaConformidad(id, firma)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
-    }
-
-    // 📄 Subir XML técnico
-    @PostMapping("/{id}/xml-tecnico")
-    public ResponseEntity<Reparacion> subirXmlDatos(@PathVariable Long id, @RequestParam MultipartFile file) throws IOException {
-        return fichaTecnicaService.subirXmlDatos(id, file)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
-    }
-
-    // 📸 Subir fotos
-    @PostMapping("/{id}/fotos")
-    public ResponseEntity<Reparacion> subirFotos(@PathVariable Long id, @RequestBody String fotosJson) {
-        return fichaTecnicaService.subirFotos(id, fotosJson)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
-    }
 }

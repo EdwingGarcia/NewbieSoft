@@ -1,5 +1,6 @@
 package com.newbie.newbiecore.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.persistence.*;
 import lombok.*;
@@ -10,16 +11,22 @@ import java.time.Instant;
 
 @Entity
 @Table(name = "equipos")
-@Data @NoArgsConstructor @AllArgsConstructor @Builder
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Equipo {
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name="id_equipo")
     private Long idEquipo;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "cedula", nullable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Usuario usuario;
-
 
     @Column(name="numero_serie")
     private String numeroSerie;
@@ -29,13 +36,14 @@ public class Equipo {
 
     @Column(name="fecha_registro")
     private Instant fechaRegistro;
+
     @Column(name="hostname")
     private String hostname;
 
     @Column(name="sistema_operativo")
     private String sistemaOperativo;
 
-    @JdbcTypeCode(SqlTypes.JSON)                // 👈 clave para JSON/JSONB
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "hardware_json", columnDefinition = "jsonb")
     private JsonNode hardwareJson;
 }
