@@ -4,34 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="ddf03273-e7ff-4622-aed3-f486321b3a50" name="Changes" comment="Otp module">
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/config/WebConfig.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/controller/FichaTecnicaController.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/dto/FichaTecnicaDTO.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/dto/FichaTecnicaMapper.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/entity/FichaTecnicaImagen.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/repository/FichaTecnicaImagenRepository.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/repository/FichaTecnicaRepository.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/repository/FirmaDigitalRepository.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/service/FirmaDigitalService.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/resources/credentials.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/app/dashboard/FichaTecnicaForm.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/app/dashboard/FichasTecnicasPage.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/backend/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/config/SecurityConfig.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/config/SecurityConfig.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/controller/AuthController.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/controller/AuthController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/controller/ReparacionController.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/controller/ReparacionController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/dto/FichaTecnicaDto.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/entity/Equipo.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/entity/Equipo.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/entity/FichaTecnica.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/entity/FichaTecnica.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/entity/FirmaDigital.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/entity/FirmaDigital.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/entity/Usuario.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/entity/Usuario.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/service/FichaTecnicaService.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/service/FichaTecnicaService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/src/main/resources/application.properties" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/resources/application.properties" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/src/test/java/com/newbie/newbiecore/NewbieCoreApplicationTests.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/test/java/com/newbie/newbiecore/NewbieCoreApplicationTests.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/app/dashboard/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/app/dashboard/page.tsx" afterDir="false" />
-    </list>
+    <list default="true" id="ddf03273-e7ff-4622-aed3-f486321b3a50" name="Changes" comment="Otp module" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -78,7 +51,7 @@
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "Merging firma",
+    "git-widget-placeholder": "firma",
     "ignore.virus.scanning.warn.message": "true",
     "kotlin-language-version-configured": "true",
     "last_opened_file_path": "C:/Users/Usuario/Documents/Proyectos/NewbieSoft",
