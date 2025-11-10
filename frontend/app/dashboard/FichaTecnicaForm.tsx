@@ -3,12 +3,17 @@ import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import {
+    Card,
+    CardHeader,
+    CardTitle,
+    CardDescription,
+    CardContent,
+} from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
     Loader2,
     Upload,
-    CheckCircle2,
     Image,
     Plus,
     Trash2,
@@ -24,7 +29,7 @@ export default function FichaTecnicaModule() {
     const [equipoId, setEquipoId] = useState("");
     const [cedulaTecnico, setCedulaTecnico] = useState("");
     const [observaciones, setObservaciones] = useState("");
-    const [ficha, setFicha] = useState<any>(null);
+    const [fichaId, setFichaId] = useState<number | null>(null);
     const [files, setFiles] = useState<File[]>([]);
     const [previewUrls, setPreviewUrls] = useState<string[]>([]);
     const [msg, setMsg] = useState<string | null>(null);
@@ -32,7 +37,8 @@ export default function FichaTecnicaModule() {
     const [loading, setLoading] = useState(false);
     const [selectedImg, setSelectedImg] = useState<string | null>(null);
 
-    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    const token =
+        typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
     /** 🧱 Crear ficha técnica */
     const crearFicha = useCallback(async () => {
@@ -43,7 +49,12 @@ export default function FichaTecnicaModule() {
         setLoading(true);
         setError(null);
         try {
-            const params = new URLSearchParams({ cedulaTecnico, equipoId, observaciones });
+            const params = new URLSearchParams({
+                cedulaTecnico,
+                equipoId,
+                observaciones,
+            });
+
             const res = await fetch(buildUrl(""), {
                 method: "POST",
                 headers: {
@@ -52,10 +63,19 @@ export default function FichaTecnicaModule() {
                 },
                 body: params,
             });
+
             if (!res.ok) throw new Error(`Error ${res.status}`);
-            const data = await res.json();
-            setFicha(data);
+
+            // ✅ ya no hay JSON; solo confirmamos éxito
             animateSuccess("Ficha técnica creada correctamente ✅");
+
+            // opcional: podrías refrescar para ver la lista actualizada
+            // router.refresh();
+
+            // ⚙️ como el backend ya no devuelve la ficha,
+            // puedes obtener el ID más reciente con un GET (si lo necesitas)
+            // o mostrar mensaje de que ahora puedes subir imágenes
+            setFichaId(Number(equipoId)); // temporal si tu ID coincide, sino podrías consultarlo luego
         } catch (e: any) {
             setError(e.message || "Error creando ficha técnica");
         } finally {
@@ -65,7 +85,7 @@ export default function FichaTecnicaModule() {
 
     /** 🖼️ Subir imágenes */
     const subirImagenes = useCallback(async () => {
-        if (!ficha?.id) {
+        if (!fichaId) {
             setError("Primero crea una ficha técnica");
             return;
         }
@@ -79,27 +99,27 @@ export default function FichaTecnicaModule() {
             const formData = new FormData();
             files.forEach((f) => formData.append("files", f));
 
-            const res = await fetch(buildUrl(`/${ficha.id}/uploadImg`), {
+            const res = await fetch(buildUrl(`/${fichaId}/uploadImg`), {
                 method: "POST",
                 body: formData,
                 headers: { Authorization: `Bearer ${token}` },
             });
 
             if (!res.ok) throw new Error(`Error ${res.status}`);
-            const data = await res.json();
-            setFicha(data);
+
+            // ✅ ya no hay JSON
             setFiles([]);
             setPreviewUrls([]);
             animateSuccess("Imágenes subidas correctamente ✅");
 
-            // 🔁 Refrescar lista de fichas técnicas después de 2 segundos
+            // 🔁 Refrescar lista o navegar
             setTimeout(() => router.refresh(), 2000);
         } catch (e: any) {
             setError(e.message || "Error subiendo imágenes");
         } finally {
             setLoading(false);
         }
-    }, [files, ficha, token, router]);
+    }, [files, fichaId, token, router]);
 
     /** 🎨 Mostrar previsualización local */
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -174,7 +194,7 @@ export default function FichaTecnicaModule() {
                 </CardContent>
             </Card>
 
-            {ficha && (
+            {fichaId && (
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
@@ -208,7 +228,9 @@ export default function FichaTecnicaModule() {
                                             className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-1"
                                             onClick={() => {
                                                 setFiles((prev) => prev.filter((_, x) => x !== i));
-                                                setPreviewUrls((prev) => prev.filter((_, x) => x !== i));
+                                                setPreviewUrls((prev) =>
+                                                    prev.filter((_, x) => x !== i)
+                                                );
                                             }}
                                         >
                                             <Trash2 className="h-4 w-4" />
@@ -230,20 +252,6 @@ export default function FichaTecnicaModule() {
                             )}
                             Subir imágenes
                         </Button>
-
-                        {ficha.imagenes?.length > 0 && (
-                            <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
-                                {ficha.imagenes.map((img: any) => (
-                                    <img
-                                        key={img.id}
-                                        src={`http://localhost:8080${img.ruta}`}
-                                        alt="Imagen ficha"
-                                        className="h-32 w-full object-cover rounded-lg border cursor-pointer hover:scale-105 transition-transform"
-                                        onClick={() => setSelectedImg(`http://localhost:8080${img.ruta}`)}
-                                    />
-                                ))}
-                            </div>
-                        )}
                     </CardContent>
                 </Card>
             )}

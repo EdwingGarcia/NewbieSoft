@@ -57,5 +57,15 @@ public class EquipoController {
         Equipo actualizado = equipoService.procesarXmlYActualizar(equipoId, file);
         return ResponseEntity.ok(actualizado);
     }
+    // Obtener detalles de un equipo por ID
+    @GetMapping("/{id}")
+    public ResponseEntity<EquipoDto> obtenerPorId(@PathVariable Long id) {
+        try {
+            EquipoDto equipo = equipoService.obtenerPorId(id);
+            return ResponseEntity.ok(equipo);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
 
 }

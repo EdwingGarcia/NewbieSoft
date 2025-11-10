@@ -21,63 +21,63 @@ public class FichaTecnicaController {
         this.fichaTecnicaService = fichaTecnicaService;
     }
 
+    /** 🆕 Crear nueva ficha técnica */
     @PostMapping
-    public ResponseEntity<FichaTecnica> crearFichaTecnica(
+    public ResponseEntity<Void> crearFichaTecnica(
             @RequestParam String cedulaTecnico,
             @RequestParam Long equipoId,
             @RequestParam(required = false) String observaciones) {
-
-        FichaTecnica ficha = fichaTecnicaService.crearNueva(cedulaTecnico, equipoId, observaciones);
-        return ResponseEntity.ok(ficha);
+        fichaTecnicaService.crearNueva(cedulaTecnico, equipoId, observaciones);
+        return ResponseEntity.ok().build(); // ✅ Solo OK
     }
 
-
+    /** 🖼️ Subir múltiples imágenes a una ficha técnica */
     @PostMapping("/{id}/uploadImg")
-    public ResponseEntity<?> subirImagenes(
+    public ResponseEntity<Void> subirImagenes(
             @PathVariable Long id,
             @RequestParam("files") List<MultipartFile> files) {
         try {
-            FichaTecnica ficha = fichaTecnicaService.subirImagenesLocal(id, files);
-            return ResponseEntity.ok(ficha);
+            fichaTecnicaService.subirImagenesLocal(id, files);
+            return ResponseEntity.ok().build(); // ✅ Solo OK
         } catch (IOException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Error al guardar las imágenes: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().build();
         }
     }
 
+    /** 📋 Listar todas las fichas técnicas */
     @GetMapping
     public ResponseEntity<List<FichaTecnicaDTO>> listarTodas() {
         return ResponseEntity.ok(fichaTecnicaService.listarDTO());
     }
 
+    /** 🔍 Listar fichas técnicas por equipo */
     @GetMapping("/equipo/{equipoId}")
     public ResponseEntity<List<FichaTecnica>> listarPorEquipo(@PathVariable Long equipoId) {
         return ResponseEntity.ok(fichaTecnicaService.listarPorEquipo(equipoId));
     }
 
+    /** 🔍 Listar fichas técnicas por técnico */
     @GetMapping("/tecnico/{cedulaTecnico}")
     public ResponseEntity<List<FichaTecnica>> listarPorTecnico(@PathVariable String cedulaTecnico) {
         return ResponseEntity.ok(fichaTecnicaService.listarPorTecnico(cedulaTecnico));
     }
 
+    /** 📝 Actualizar observaciones */
     @PutMapping("/{id}/observaciones")
-    public ResponseEntity<FichaTecnica> actualizarObservaciones(
+    public ResponseEntity<Void> actualizarObservaciones(
             @PathVariable Long id,
             @RequestBody String observaciones) {
-        return fichaTecnicaService.actualizarObservaciones(id, observaciones)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+        boolean updated = fichaTecnicaService.actualizarObservaciones(id, observaciones).isPresent();
+        return updated ? ResponseEntity.ok().build() : ResponseEntity.notFound().build(); // ✅ Solo OK
     }
 
+    /** 🔍 Obtener ficha técnica con DTO */
     @GetMapping("/{id}")
     public ResponseEntity<FichaTecnicaDTO> obtenerPorId(@PathVariable Long id) {
         return fichaTecnicaService.obtenerDTO(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
-
-
-
 }

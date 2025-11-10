@@ -1,5 +1,6 @@
 package com.newbie.newbiecore.service;
 
+import com.newbie.newbiecore.dto.UsuarioDto;
 import com.newbie.newbiecore.entity.Usuario;
 import com.newbie.newbiecore.repository.UsuarioRepository;
 import org.springframework.http.HttpStatus;
@@ -41,15 +42,28 @@ public class UsuarioService {
         return usuarioRepository.findById(cedula);
     }
 
-    public Optional<Usuario> actualizarUsuario(String cedula, Usuario datosActualizados) {
+    public Optional<UsuarioDto> actualizarUsuario(String cedula, Usuario datosActualizados) {
         return usuarioRepository.findById(cedula).map(usuario -> {
+            // campos que SÍ quieres actualizar
             usuario.setNombre(datosActualizados.getNombre());
             usuario.setCorreo(datosActualizados.getCorreo());
+            usuario.setTelefono(datosActualizados.getTelefono());
+            usuario.setDireccion(datosActualizados.getDireccion());
             usuario.setRol(datosActualizados.getRol());
             usuario.setEstado(datosActualizados.getEstado());
-            return usuarioRepository.save(usuario);
+
+            // contraseña: solo si viene y no está vacía
+            if (datosActualizados.getPassword() != null && !datosActualizados.getPassword().isBlank()) {
+                String encoded = passwordEncoder.encode(datosActualizados.getPassword());
+                usuario.setPassword(encoded);
+            }
+            // si viene null o vacío → se deja la que ya estaba
+
+            Usuario guardado = usuarioRepository.save(usuario);
+            return convertirADto(guardado); // el que te pasé antes
         });
     }
+
 
     public ResponseEntity<?> desactivarUsuario(String cedula) {
         try {
@@ -66,5 +80,24 @@ public class UsuarioService {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error al desactivar usuario");
         }
+    }
+
+
+    private UsuarioDto convertirADto(Usuario usuario) {
+        UsuarioDto dto = new UsuarioDto();
+        dto.setCedula(usuario.getCedula());
+        dto.setNombre(usuario.getNombre());
+        dto.setCorreo(usuario.getCorreo());
+        dto.setTelefono(usuario.getTelefono());
+        dto.setDireccion(usuario.getDireccion());
+        dto.setEstado(usuario.getEstado());
+
+        UsuarioDto.RolDto rolDto = new UsuarioDto.RolDto();
+        rolDto.setIdRol(usuario.getRol().getIdRol());
+        rolDto.setNombre(usuario.getRol().getNombre());
+        rolDto.setDescripcion(usuario.getRol().getDescripcion());
+        dto.setRol(rolDto);
+
+        return dto;
     }
 }

@@ -48,6 +48,11 @@ public class EquipoService {
                 .build();
         return equipoRepository.save(e);
     }
+    public EquipoDto obtenerPorId(Long id) {
+        return equipoRepository.findById(id)
+                .map(this::mapToDto)
+                .orElseThrow(() -> new IllegalArgumentException("Equipo no encontrado con ID: " + id));
+    }
 
     public List<EquipoDto> listarPorCliente(String clienteCedula) {
         return equipoRepository.findByUsuario_Cedula(clienteCedula)

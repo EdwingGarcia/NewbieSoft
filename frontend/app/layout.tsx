@@ -7,16 +7,16 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({
-                                       children,
-                                   }: {
+    children,
+}: {
     children: React.ReactNode;
 }) {
     return (
         <html lang="es">
-        <body>
-        <NavBar />
-        <main style={{ paddingTop: "64px" }}>{children}</main>
-        </body>
+            <body>
+                <NavBar />
+                <main style={{ paddingTop: "64px" }}>{children}</main>
+            </body>
         </html>
     );
 }

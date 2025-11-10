@@ -1,31 +1,33 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import styles from "../styles/Dashboard.module.css";
 import dynamic from "next/dynamic";
+import styles from "../styles/Dashboard.module.css";
 
-// Carga dinámica del módulo de Ficha Técnica
+// 🔹 Carga dinámica de los módulos (sin SSR)
 const FichaTecnicaModule = dynamic(() => import("./FichasTecnicasPage"), { ssr: false });
+const EquipoModule = dynamic(() => import("./EquipoPage"), { ssr: false });
+const UsuarioModule = dynamic(() => import("./GestionUsuario"), { ssr: false });
+// const RolModule = dynamic(() => import("./GestionRol"), { ssr: false }); // opcional si lo creas después
 
 export default function DashboardPage() {
     const router = useRouter();
+    const [activeSection, setActiveSection] = useState("fichas"); // fichas | equipo | usuarios
 
-    // 🧭 Verificación de sesión (token)
+    // 🔑 Verificar sesión activa
     useEffect(() => {
         const token = localStorage.getItem("token");
         if (!token) router.push("/");
     }, [router]);
 
-    // 🔹 Cerrar sesión correctamente
+    // 🔒 Cerrar sesión
     const handleLogout = async () => {
         const token = localStorage.getItem("token");
         try {
             if (token) {
                 await fetch("http://localhost:8080/api/auth/logout", {
                     method: "POST",
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
+                    headers: { Authorization: `Bearer ${token}` },
                 });
             }
         } catch (error) {
@@ -45,13 +47,61 @@ export default function DashboardPage() {
                 <h2>Newbie Data Control</h2>
                 <nav>
                     <ul>
-                        <li>Dashboard</li>
-                        <li>Crear rol</li>
-                        <li>Crear usuario</li>
-                        <li>Agendar visita</li>
-                        <li>Historial</li>
-                        <li>Ajustes</li>
-                        <li style={{ fontWeight: "bold", color: "#fff" }}>Ficha Técnica</li>
+                        <li
+                            style={{
+                                color: "#bbb",
+                                fontWeight: "bold",
+                                marginBottom: "1rem",
+                                cursor: "default",
+                            }}
+                        >
+                            Dashboard
+                        </li>
+
+                        {/* Secciones */}
+                        <li
+                            onClick={() => setActiveSection("equipo")}
+                            style={{
+                                fontWeight: activeSection === "equipo" ? "bold" : "normal",
+                                color: "#fff",
+                                cursor: "pointer",
+                            }}
+                        >
+                            Equipos
+                        </li>
+
+                        <li
+                            onClick={() => setActiveSection("fichas")}
+                            style={{
+                                fontWeight: activeSection === "fichas" ? "bold" : "normal",
+                                color: "#fff",
+                                cursor: "pointer",
+                            }}
+                        >
+                            Fichas Técnicas
+                        </li>
+
+                        <li
+                            onClick={() => setActiveSection("usuarios")}
+                            style={{
+                                fontWeight: activeSection === "usuarios" ? "bold" : "normal",
+                                color: "#fff",
+                                cursor: "pointer",
+                            }}
+                        >
+                            Usuarios
+                        </li>
+
+                        <li
+                            onClick={() => setActiveSection("roles")}
+                            style={{
+                                fontWeight: activeSection === "roles" ? "bold" : "normal",
+                                color: "#fff",
+                                cursor: "pointer",
+                            }}
+                        >
+                            Crear Rol
+                        </li>
                     </ul>
                 </nav>
             </aside>
@@ -65,7 +115,7 @@ export default function DashboardPage() {
                         style={{
                             background: "none",
                             border: "none",
-                            color: "#0070f3",
+                            color: "#edededff",
                             cursor: "pointer",
                             padding: 0,
                             font: "inherit",
@@ -78,8 +128,10 @@ export default function DashboardPage() {
 
                 {/* ===== Contenido dinámico ===== */}
                 <section className={styles.content}>
-                    <h1>Gestión de Fichas Técnicas 🧰</h1>
-                    <FichaTecnicaModule />
+                    {activeSection === "fichas" && <FichaTecnicaModule />}
+                    {activeSection === "equipo" && <EquipoModule />}
+                    {activeSection === "usuarios" && <UsuarioModule />}
+                    {/* {activeSection === "roles" && <RolModule />} */}
                 </section>
             </main>
         </div>
