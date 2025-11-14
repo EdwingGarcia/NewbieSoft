@@ -2,19 +2,11 @@ package com.newbie.newbiecore.entity;
 
 import java.time.Instant;
 
+import jakarta.persistence.*;
 import org.hibernate.annotations.CreationTimestamp;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -33,6 +25,10 @@ public class OrdenTrabajo {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    @OneToMany(mappedBy = "ordenTrabajo", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnoreProperties({"ordenTrabajo"})
+    @Builder.Default
+    private java.util.List<Imagen> imagenes = new java.util.ArrayList<>();
 
     // ORDEN Nro. 0001550
     @Column(name = "numero_orden", nullable = false, unique = true, length = 20)

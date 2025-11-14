@@ -1,4 +1,5 @@
 "use client";
+
 import { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,8 +14,6 @@ import {
     Loader2,
     Plus,
     CalendarDays,
-    User2,
-    Laptop2,
     Upload,
     X,
     FileUp,
@@ -25,116 +24,73 @@ import XmlUploader from "./XmlUploader";
 const API_BASE = "http://localhost:8080/api/fichas";
 const buildUrl = (p: string = "") => `${API_BASE}${p}`;
 
+/** === DTO QUE VIENE DEL BACKEND === */
+interface FichaTecnicaDTO {
+    id: number;
+    fechaCreacion: string; // ISO string
+    observaciones: string | null;
+
+    equipoId: number;
+    ordenTrabajoId: number;
+    tecnicoId: string;
+
+    adaptadorRed: string | null;
+    arranqueUefiPresente: boolean | null;
+    biosEsUefiCapaz: boolean | null;
+    biosFabricante: string | null;
+    biosFechaStr: string | null;
+    biosVersion: string | null;
+    chipset: string | null;
+
+    cpuLogicos: number | null;
+    cpuNombre: string | null;
+    cpuNucleos: number | null;
+
+    discoCapacidadMb: number | null;
+    discoCapacidadStr: string | null;
+    discoModelo: string | null;
+    discoNumeroSerie: string | null;
+    discoRpm: number | null;
+    discoTipo: string | null;
+
+    gpuNombre: string | null;
+    macAddress: string | null;
+    mainboardModelo: string | null;
+
+    ramCapacidadGb: number | null;
+    ramFrecuenciaMhz: number | null;
+    ramTecnologiaModulo: string | null;
+    ramTipo: string | null;
+
+    secureBootActivo: boolean | null;
+    soDescripcion: string | null;
+
+    wifiLinkSpeedActual: string | null;
+    wifiLinkSpeedMax: string | null;
+}
+
 export default function FichasTecnicasPage() {
-    const [fichas, setFichas] = useState<any[]>([]);
+    const [fichas, setFichas] = useState<FichaTecnicaDTO[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [showForm, setShowForm] = useState(false);
-    const [detalle, setDetalle] = useState<any | null>(null);
+    const [detalle, setDetalle] = useState<FichaTecnicaDTO | null>(null);
     const [editObservaciones, setEditObservaciones] = useState("");
-    const [newFiles, setNewFiles] = useState<File[]>([]);
-    const [selectedImg, setSelectedImg] = useState<string | null>(null);
     const [hardwareSearch, setHardwareSearch] = useState("");
     const [showXml, setShowXml] = useState(false);
-    const [brokenImgs, setBrokenImgs] = useState<string[]>([]);
-    const [showUpload, setShowUpload] = useState(false);
+    const [showUpload, setShowUpload] = useState(false); // lo dejamos para futuro uso
+    const [newFiles] = useState<File[]>([]); // placeholder para no romper UI
+    const [selectedImg, setSelectedImg] = useState<string | null>(null); // igual, placeholder
 
     const token =
         typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
-    // ===== helper tabla de hardware =====
-    const renderHardwareTable = (data: any, searchTerm: string = "") => {
-        if (!data) {
-            return <div className="text-sm text-gray-400">Sin datos de hardware.</div>;
-        }
+    // ===== tiny helper: formatea booleanos / null =====
+    const fmtBool = (v: boolean | null): string =>
+        v === null ? "-" : v ? "Sí" : "No";
 
-        const term = searchTerm.trim().toLowerCase();
-
-        if (Array.isArray(data)) {
-            const filtered = data.filter((item) =>
-                JSON.stringify(item).toLowerCase().includes(term)
-            );
-
-            return (
-                <div className="border rounded-lg overflow-hidden">
-                    <table className="w-full text-sm">
-                        <thead className="bg-gray-100">
-                            <tr>
-                                <th className="px-3 py-2 text-left">#</th>
-                                <th className="px-3 py-2 text-left">Valor</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filtered.length === 0 ? (
-                                <tr>
-                                    <td colSpan={2} className="text-center text-gray-500 py-2">
-                                        No se encontraron coincidencias.
-                                    </td>
-                                </tr>
-                            ) : (
-                                filtered.map((item, idx) => (
-                                    <tr key={idx} className="border-t">
-                                        <td className="px-3 py-2">{idx + 1}</td>
-                                        <td className="px-3 py-2 break-words">
-                                            {typeof item === "object"
-                                                ? JSON.stringify(item)
-                                                : String(item)}
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            );
-        }
-
-        if (typeof data === "object") {
-            const entries = Object.entries(data).filter(([key, value]) => {
-                const valStr =
-                    typeof value === "object" ? JSON.stringify(value) : String(value);
-                return (
-                    key.toLowerCase().includes(term) ||
-                    valStr.toLowerCase().includes(term)
-                );
-            });
-
-            return (
-                <div className="border rounded-lg overflow-hidden max-h-[320px] overflow-y-auto">
-                    <table className="w-full text-sm">
-                        <thead className="bg-gray-100 sticky top-0">
-                            <tr>
-                                <th className="px-3 py-2 text-left w-2/5">Clave</th>
-                                <th className="px-3 py-2 text-left">Valor</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {entries.length === 0 ? (
-                                <tr>
-                                    <td colSpan={2} className="text-center text-gray-500 py-2">
-                                        No se encontraron coincidencias.
-                                    </td>
-                                </tr>
-                            ) : (
-                                entries.map(([key, value]) => (
-                                    <tr key={key} className="border-t">
-                                        <td className="px-3 py-2 font-medium">{key}</td>
-                                        <td className="px-3 py-2 break-words">
-                                            {typeof value === "object"
-                                                ? JSON.stringify(value)
-                                                : String(value)}
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            );
-        }
-
-        return <div className="text-sm">{String(data)}</div>;
-    };
+    const fmtVal = (v: unknown): string =>
+        v === null || v === undefined || v === "" ? "-" : String(v);
 
     // ===== fetch =====
     const fetchFichas = useCallback(async () => {
@@ -164,12 +120,10 @@ export default function FichasTecnicasPage() {
                 headers: { Authorization: `Bearer ${token}` },
             });
             if (!res.ok) throw new Error("Error al cargar detalles");
-            const data = await res.json();
+            const data: FichaTecnicaDTO = await res.json();
             setDetalle(data);
             setEditObservaciones(data.observaciones || "");
             setShowForm(false);
-            setNewFiles([]);
-            setBrokenImgs([]); // limpiar errores previos
         } catch (e: any) {
             setError(e.message);
         }
@@ -194,24 +148,74 @@ export default function FichasTecnicasPage() {
         }
     };
 
-    const subirMasImagenes = async () => {
-        if (!detalle || newFiles.length === 0) return;
-        try {
-            const formData = new FormData();
-            newFiles.forEach((f) => formData.append("files", f));
-            const res = await fetch(buildUrl(`/${detalle.id}/uploadImg`), {
-                method: "POST",
-                headers: { Authorization: `Bearer ${token}` },
-                body: formData,
-            });
-            if (!res.ok) throw new Error("Error subiendo imágenes");
-            setNewFiles([]);
-            await fetchFichas();
-            setDetalle(null);
-            alert("📸 Imágenes agregadas correctamente");
-        } catch (e: any) {
-            alert("❌ " + e.message);
+    // ===== Render de specs técnicas desde el DTO =====
+    const renderSpecsFromDTO = (f: FichaTecnicaDTO) => {
+        const term = hardwareSearch.trim().toLowerCase();
+
+        const rows: { label: string; value: string }[] = [
+            { label: "Adaptador de red", value: fmtVal(f.adaptadorRed) },
+            { label: "Chipset", value: fmtVal(f.chipset) },
+            { label: "CPU nombre", value: fmtVal(f.cpuNombre) },
+            { label: "CPU núcleos", value: fmtVal(f.cpuNucleos) },
+            { label: "CPU lógicos", value: fmtVal(f.cpuLogicos) },
+            { label: "GPU nombre", value: fmtVal(f.gpuNombre) },
+            { label: "RAM capacidad (GB)", value: fmtVal(f.ramCapacidadGb) },
+            { label: "RAM frecuencia (MHz)", value: fmtVal(f.ramFrecuenciaMhz) },
+            { label: "RAM tecnología", value: fmtVal(f.ramTecnologiaModulo) },
+            { label: "RAM tipo", value: fmtVal(f.ramTipo) },
+            { label: "Disco modelo", value: fmtVal(f.discoModelo) },
+            { label: "Disco N° serie", value: fmtVal(f.discoNumeroSerie) },
+            { label: "Disco tipo", value: fmtVal(f.discoTipo) },
+            { label: "Disco capacidad (MB)", value: fmtVal(f.discoCapacidadMb) },
+            { label: "Disco capacidad (str)", value: fmtVal(f.discoCapacidadStr) },
+            { label: "Disco RPM", value: fmtVal(f.discoRpm) },
+            { label: "Placa madre", value: fmtVal(f.mainboardModelo) },
+            { label: "MAC Address", value: fmtVal(f.macAddress) },
+            { label: "SO descripción", value: fmtVal(f.soDescripcion) },
+            { label: "BIOS fabricante", value: fmtVal(f.biosFabricante) },
+            { label: "BIOS versión", value: fmtVal(f.biosVersion) },
+            { label: "BIOS fecha", value: fmtVal(f.biosFechaStr) },
+            { label: "UEFI capaz", value: fmtBool(f.biosEsUefiCapaz) },
+            { label: "Arranque UEFI", value: fmtBool(f.arranqueUefiPresente) },
+            { label: "Secure Boot activo", value: fmtBool(f.secureBootActivo) },
+            { label: "WiFi link actual", value: fmtVal(f.wifiLinkSpeedActual) },
+            { label: "WiFi link máx.", value: fmtVal(f.wifiLinkSpeedMax) },
+        ];
+
+        const filtered = rows.filter(
+            (r) =>
+                r.label.toLowerCase().includes(term) ||
+                r.value.toLowerCase().includes(term)
+        );
+
+        if (filtered.length === 0) {
+            return (
+                <div className="text-gray-500 text-sm">
+                    No se encontraron coincidencias con el filtro.
+                </div>
+            );
         }
+
+        return (
+            <div className="border rounded-lg overflow-hidden max-h-[320px] overflow-y-auto">
+                <table className="w-full text-sm">
+                    <thead className="bg-gray-100 sticky top-0">
+                        <tr>
+                            <th className="px-3 py-2 text-left w-2/5">Campo</th>
+                            <th className="px-3 py-2 text-left">Valor</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {filtered.map((row, idx) => (
+                            <tr key={idx} className="border-t">
+                                <td className="px-3 py-2 font-medium">{row.label}</td>
+                                <td className="px-3 py-2 break-words">{row.value}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        );
     };
 
     return (
@@ -238,65 +242,44 @@ export default function FichasTecnicasPage() {
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {fichas.map((ficha) => {
-                        // 🆕 filtramos las imágenes vacías/espacios
-                        const thumbs =
-                            (ficha.imagenes || []).filter(
-                                (img: string) => img && img.trim() !== ""
-                            ) || [];
-
-                        return (
-                            <Card
-                                key={ficha.id}
-                                onDoubleClick={() => abrirDetalle(ficha.id)}
-                                className="transition hover:shadow-md cursor-pointer"
-                            >
-                                <CardHeader>
-                                    <CardTitle>Ficha #{ficha.id}</CardTitle>
-                                    <CardDescription>
-                                        <div className="text-sm flex flex-col gap-1 mt-1">
-                                            <div className="flex items-center gap-1 text-gray-600">
-                                                <User2 className="h-4 w-4" />{" "}
-                                                {ficha.tecnicoNombre || "Técnico desconocido"}
-                                            </div>
-                                            <div className="flex items-center gap-1 text-gray-600">
-                                                <Laptop2 className="h-4 w-4" />{" "}
-                                                {ficha.modelo || "Equipo desconocido"}
-                                            </div>
-                                            <div className="flex items-center gap-1 text-gray-500 text-xs">
-                                                <CalendarDays className="h-4 w-4" />{" "}
-                                                {ficha.fechaCreacion
-                                                    ? new Date(ficha.fechaCreacion).toLocaleString()
-                                                    : ""}
-                                            </div>
+                    {fichas.map((ficha) => (
+                        <Card
+                            key={ficha.id}
+                            onDoubleClick={() => abrirDetalle(ficha.id)}
+                            className="transition hover:shadow-md cursor-pointer"
+                        >
+                            <CardHeader>
+                                <CardTitle>Ficha #{ficha.id}</CardTitle>
+                                <CardDescription>
+                                    <div className="text-sm flex flex-col gap-1 mt-1 text-gray-700">
+                                        <div>
+                                            <span className="font-semibold">Técnico: </span>
+                                            {ficha.tecnicoId}
                                         </div>
-                                    </CardDescription>
-                                </CardHeader>
-                                <CardContent>
-                                    {thumbs.length > 0 ? (
-                                        <div className="grid grid-cols-3 gap-1">
-                                            {thumbs.slice(0, 3).map((img: string, idx: number) => (
-                                                <img
-                                                    key={idx}
-                                                    src={`http://localhost:8080${img}`}
-                                                    alt="img"
-                                                    className="h-20 w-full object-cover rounded"
-                                                    onError={(e) => {
-                                                        // si una en la lista principal falla, la quitamos visualmente
-                                                        (e.target as HTMLImageElement).style.display = "none";
-                                                    }}
-                                                />
-                                            ))}
+                                        <div>
+                                            <span className="font-semibold">Equipo ID: </span>
+                                            {ficha.equipoId}
                                         </div>
-                                    ) : (
-                                        <div className="text-gray-400 text-sm italic">
-                                            Imágenes aún no cargadas
+                                        <div>
+                                            <span className="font-semibold">Orden de trabajo: </span>
+                                            {ficha.ordenTrabajoId}
                                         </div>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        );
-                    })}
+                                        <div className="flex items-center gap-1 text-gray-500 text-xs mt-1">
+                                            <CalendarDays className="h-4 w-4" />
+                                            {ficha.fechaCreacion
+                                                ? new Date(ficha.fechaCreacion).toLocaleString()
+                                                : ""}
+                                        </div>
+                                    </div>
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-xs text-gray-600 line-clamp-3">
+                                    {ficha.observaciones || "Sin observaciones"}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ))}
                 </div>
             )}
 
@@ -327,7 +310,9 @@ export default function FichasTecnicasPage() {
                         </button>
 
                         <div className="flex justify-between items-center mb-2 pr-10">
-                            <h2 className="text-xl font-bold">Ficha #{detalle.id}</h2>
+                            <h2 className="text-xl font-bold">
+                                Ficha #{detalle.id} – Equipo {detalle.equipoId}
+                            </h2>
                             <div className="flex gap-2">
                                 <Button
                                     variant="outline"
@@ -337,6 +322,8 @@ export default function FichasTecnicasPage() {
                                 >
                                     <FileUp className="h-4 w-4" /> Cargar XML del equipo
                                 </Button>
+
+                                {/* Dejamos este botón para futuras imágenes, aunque el DTO no las devuelve */}
                                 <Button
                                     variant="outline"
                                     size="sm"
@@ -350,107 +337,43 @@ export default function FichasTecnicasPage() {
                         </div>
 
                         <p className="text-sm text-gray-600 mb-4">
-                            Técnico: {detalle.tecnicoNombre || "Desconocido"} <br />
-                            Equipo: {detalle.modelo || "Desconocido"}{" "}
-                            {detalle.numeroSerie ? `(${detalle.numeroSerie})` : ""}
+                            Técnico: <span className="font-semibold">{detalle.tecnicoId}</span>
                             <br />
-                            Cliente: {detalle.clienteNombre || "Desconocido"} ({detalle.clienteCedula})
+                            Equipo ID: {detalle.equipoId} <br />
+                            Orden de trabajo ID: {detalle.ordenTrabajoId}
                         </p>
 
-                        {/* 🔽 las dos columnas alineadas en altura */}
                         <div className="flex flex-col lg:flex-row gap-5 items-stretch">
-                            {/* izquierda */}
+                            {/* izquierda: specs */}
                             <div className="lg:basis-3/5 flex flex-col gap-3 min-h-[320px]">
                                 <div className="flex items-center justify-between">
-                                    <h3 className="text-sm font-semibold">Especificaciones detectadas:</h3>
+                                    <h3 className="text-sm font-semibold">Especificaciones:</h3>
                                     <Input
-                                        placeholder="Buscar en hardware..."
+                                        placeholder="Buscar en especificaciones..."
                                         value={hardwareSearch}
                                         onChange={(e) => setHardwareSearch(e.target.value)}
                                         className="w-60 h-8 text-sm"
                                     />
                                 </div>
-                                {/* tu tabla ya tiene max-h */}
-                                {renderHardwareTable(detalle.hardwareJson, hardwareSearch)}
+                                {renderSpecsFromDTO(detalle)}
                             </div>
 
-                            {/* derecha */}
+                            {/* derecha: placeholder para imágenes / futuro */}
                             <div className="lg:basis-2/5 flex flex-col gap-3 min-h-[320px]">
                                 <h3 className="text-sm font-semibold">Imágenes registradas:</h3>
-
-                                {/* 🟣 contenedor que iguala la altura y hace scroll */}
                                 <div className="flex-1 max-h-[320px] overflow-y-auto">
-                                    {detalle.imagenes?.length > 0 ? (
-                                        (() => {
-                                            const validImgs = detalle.imagenes.filter(
-                                                (img: string) => !brokenImgs.includes(img)
-                                            );
-                                            return validImgs.length > 0 ? (
-                                                <div className="grid grid-cols-2 gap-3">
-                                                    {validImgs.map((img: any, idx: number) => (
-                                                        <img
-                                                            key={idx}
-                                                            src={`http://localhost:8080${img}`}
-                                                            alt="img"
-                                                            className="h-28 w-full object-cover rounded border cursor-pointer hover:scale-105 transition-transform"
-                                                            onClick={() =>
-                                                                setSelectedImg(`http://localhost:8080${img}`)
-                                                            }
-                                                            onError={() =>
-                                                                setBrokenImgs((prev) =>
-                                                                    prev.includes(img) ? prev : [...prev, img]
-                                                                )
-                                                            }
-                                                        />
-                                                    ))}
-                                                </div>
-                                            ) : (
-                                                <div className="text-gray-400 text-sm">
-                                                    Imágenes no encontradas.
-                                                </div>
-                                            );
-                                        })()
-                                    ) : (
-                                        <div className="text-gray-400 text-sm">Sin imágenes</div>
-                                    )}
+                                    <div className="text-gray-400 text-sm">
+                                        La visualización de imágenes se implementará cuando el
+                                        backend exponga las rutas en el DTO.
+                                    </div>
                                 </div>
 
-                                {/* panel de subida ocultable */}
                                 {showUpload && (
                                     <div className="border-t pt-3">
-                                        {newFiles.length > 0 && (
-                                            <div className="mb-2">
-                                                <p className="text-xs text-gray-500 mb-1">
-                                                    Imágenes nuevas (previsualización):
-                                                </p>
-                                                <div className="grid grid-cols-3 gap-2">
-                                                    {newFiles.map((file, i) => (
-                                                        <img
-                                                            key={i}
-                                                            src={URL.createObjectURL(file)}
-                                                            alt={file.name}
-                                                            className="h-20 w-full object-cover rounded border"
-                                                        />
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        <Input
-                                            type="file"
-                                            accept="image/*"
-                                            multiple
-                                            onChange={(e) =>
-                                                setNewFiles(Array.from(e.target.files || []))
-                                            }
-                                        />
-                                        <Button
-                                            onClick={subirMasImagenes}
-                                            disabled={newFiles.length === 0}
-                                            className="flex items-center gap-2 mt-2"
-                                        >
-                                            <Upload className="h-4 w-4" /> Subir imágenes seleccionadas
-                                        </Button>
+                                        <div className="text-xs text-gray-500 mb-1">
+                                            Panel de carga de imágenes pendiente de integración con
+                                            backend.
+                                        </div>
                                     </div>
                                 )}
                             </div>
@@ -471,7 +394,8 @@ export default function FichasTecnicasPage() {
                             </Button>
                         </div>
                     </div>
-                    {/* === MODAL DE XML === */}
+
+                    {/* MODAL XML */}
                     {showXml && (
                         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
                             <div className="bg-white rounded-xl p-6 w-full max-w-3xl relative shadow-xl">
@@ -486,6 +410,7 @@ export default function FichasTecnicasPage() {
                         </div>
                     )}
 
+                    {/* Modal imagen ampliada (placeholder, por si luego se usa) */}
                     {selectedImg && (
                         <div
                             className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] backdrop-blur-sm"
@@ -508,9 +433,6 @@ export default function FichasTecnicasPage() {
                     )}
                 </div>
             )}
-
-
         </div>
     );
 }
-

@@ -1,14 +1,16 @@
 package com.newbie.newbiecore.service;
 
-import com.newbie.newbiecore.dto.FichaTecnicaDTO;
-import com.newbie.newbiecore.dto.FichaTecnicaMapper;
+import com.newbie.newbiecore.dto.FichaTecnica.FichaTecnicaDTO;
+import com.newbie.newbiecore.dto.FichaTecnica.FichaTecnicaMapper;
 import com.newbie.newbiecore.entity.Equipo;
 import com.newbie.newbiecore.entity.FichaTecnica;
-import com.newbie.newbiecore.entity.FichaTecnicaImagen;
+import com.newbie.newbiecore.entity.OrdenTrabajo;
 import com.newbie.newbiecore.entity.Usuario;
 import com.newbie.newbiecore.repository.EquipoRepository;
 import com.newbie.newbiecore.repository.FichaTecnicaRepository;
+import com.newbie.newbiecore.repository.OrdenTrabajoRepository;
 import com.newbie.newbiecore.repository.UsuarioRepository;
+import com.newbie.newbiecore.util.FichaTecnicaAutoFillHelper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,44 +29,68 @@ public class FichaTecnicaService {
     private final FichaTecnicaRepository fichaTecnicaRepository;
     private final UsuarioRepository usuarioRepository;
     private final EquipoRepository equipoRepository;
+    private final OrdenTrabajoRepository ordenTrabajoRepository;
 
-    // Carpeta donde se guardan los archivos localmente
-    private final Path uploadPath;
+
 
     public FichaTecnicaService(FichaTecnicaRepository fichaTecnicaRepository,
                                UsuarioRepository usuarioRepository,
                                EquipoRepository equipoRepository,
-                               @Value("${app.upload-dir:uploads}") String uploadDir) {
+                               OrdenTrabajoRepository ordenTrabajoRepository
+                              ) {
         this.fichaTecnicaRepository = fichaTecnicaRepository;
         this.usuarioRepository = usuarioRepository;
         this.equipoRepository = equipoRepository;
-        this.uploadPath = Paths.get(uploadDir).toAbsolutePath().normalize();
+        this.ordenTrabajoRepository = ordenTrabajoRepository;
 
-        try {
-            Files.createDirectories(this.uploadPath);
-        } catch (IOException e) {
-            throw new RuntimeException("No se pudo crear la carpeta de uploads", e);
-        }
     }
 
-    /** 🆕 Crear una nueva ficha técnica */
+    /**
+     * 🆕 Crear una nueva ficha técnica AUTORRELLENADA
+     *
+     * @param cedulaTecnico   cédula del técnico que crea la ficha
+     * @param equipoId        id del equipo
+     * @param ordenTrabajoId  id de la orden de trabajo asociada
+     * @param observaciones   observaciones escritas por el técnico
+     */
     @Transactional
-    public FichaTecnica crearNueva(String cedulaTecnico, Long equipoId, String observaciones) {
+    public FichaTecnica crearONegociar(String cedulaTecnico,
+                                       Long equipoId,
+                                       Long ordenTrabajoId,
+                                       String observaciones) {
+
         Usuario tecnico = usuarioRepository.findById(cedulaTecnico)
                 .orElseThrow(() -> new IllegalArgumentException("Técnico no encontrado"));
 
         Equipo equipo = equipoRepository.findById(equipoId)
                 .orElseThrow(() -> new IllegalArgumentException("Equipo no encontrado"));
 
+        OrdenTrabajo ordenTrabajo = null;
+        if (ordenTrabajoId != null) {
+            ordenTrabajo = ordenTrabajoRepository.findById(ordenTrabajoId)
+                    .orElseThrow(() -> new IllegalArgumentException("Orden de trabajo no encontrada"));
+
+            // 👇 Si ya hay ficha para esa OT, la devuelvo y no creo otra
+            var existente = fichaTecnicaRepository.findByOrdenTrabajoId(ordenTrabajoId);
+            if (existente.isPresent()) {
+                return existente.get();
+            }
+        }
+
         FichaTecnica ficha = FichaTecnica.builder()
                 .tecnico(tecnico)
                 .equipo(equipo)
+                .ordenTrabajo(ordenTrabajo)
                 .observaciones(observaciones)
                 .fechaCreacion(Instant.now())
                 .build();
 
+        FichaTecnicaAutoFillHelper.rellenarDesdeHardwareJson(ficha, equipo);
+
         return fichaTecnicaRepository.save(ficha);
     }
+
+
 
     /** 📝 Actualizar observaciones */
     @Transactional
@@ -87,41 +113,7 @@ public class FichaTecnicaService {
         return fichaTecnicaRepository.findByTecnico_Cedula(cedulaTecnico);
     }
 
-    /** 📸 Subir una o más imágenes locales */
-    @Transactional
-    public FichaTecnica subirImagenesLocal(Long fichaId, List<MultipartFile> files) throws IOException {
-        if (files == null || files.isEmpty()) {
-            throw new IllegalArgumentException("Debes enviar al menos un archivo");
-        }
 
-        FichaTecnica ficha = fichaTecnicaRepository.findById(fichaId)
-                .orElseThrow(() -> new IllegalArgumentException("Ficha técnica no encontrada"));
-
-        // Crear carpeta: fichaId-modeloEquipo(idEquipo)
-        String folderName = ficha.getId() + "-" + ficha.getEquipo().getModelo()
-                + "(" + ficha.getEquipo().getIdEquipo() + ")";
-        Path folderPath = uploadPath.resolve(folderName);
-        Files.createDirectories(folderPath);
-
-        for (MultipartFile file : files) {
-            if (file.isEmpty()) continue;
-
-            String fileName = UUID.randomUUID() + "-" + file.getOriginalFilename();
-            Path filePath = folderPath.resolve(fileName);
-            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
-
-            String relativeUrl = "/uploads/" + folderName + "/" + fileName;
-
-            FichaTecnicaImagen img = FichaTecnicaImagen.builder()
-                    .fichaTecnica(ficha)
-                    .ruta(relativeUrl)
-                    .build();
-
-            ficha.getImagenes().add(img);
-        }
-
-        return fichaTecnicaRepository.save(ficha);
-    }
 
     /** 📋 Listar todas las fichas en formato DTO */
     @Transactional(readOnly = true)

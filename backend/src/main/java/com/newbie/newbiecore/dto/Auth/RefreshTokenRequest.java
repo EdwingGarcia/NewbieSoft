@@ -1,4 +1,4 @@
-package com.newbie.newbiecore.dto;
+package com.newbie.newbiecore.dto.Auth;
 
 public class RefreshTokenRequest {
     private String refreshToken;

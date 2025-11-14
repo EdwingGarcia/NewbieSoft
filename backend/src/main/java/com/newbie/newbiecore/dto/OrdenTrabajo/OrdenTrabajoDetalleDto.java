@@ -1,8 +1,6 @@
 package com.newbie.newbiecore.dto.OrdenTrabajo;
 
 import java.time.Instant;
-import java.util.List;
-
 import com.fasterxml.jackson.databind.JsonNode;
 
 public record OrdenTrabajoDetalleDto(
@@ -58,11 +56,10 @@ public record OrdenTrabajoDetalleDto(
         boolean firmaClienteEntrega,
         boolean recibeASatisfaccion,
 
-        // Ficha técnica
+        // Ficha técnica (meta)
         Long fichaId,
         Instant fechaFicha,
         String observacionesFicha,
         String tecnicoFichaCedula,
-        String tecnicoFichaNombre,
-        List<String> urlsImagenesFicha
+        String tecnicoFichaNombre
 ) {}

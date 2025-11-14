@@ -5,8 +5,8 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
-import com.newbie.newbiecore.dto.LoginRequest;
-import com.newbie.newbiecore.dto.LoginResponse;
+import com.newbie.newbiecore.dto.Auth.LoginRequest;
+import com.newbie.newbiecore.dto.Auth.LoginResponse;
 import com.newbie.newbiecore.dto.RegisterRequest;
 import com.newbie.newbiecore.entity.BlacklistedToken;
 import com.newbie.newbiecore.entity.Rol;

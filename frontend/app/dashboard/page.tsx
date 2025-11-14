@@ -1,18 +1,29 @@
 "use client";
+
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import styles from "../styles/Dashboard.module.css";
 
 // 🔹 Carga dinámica de los módulos (sin SSR)
-const FichaTecnicaModule = dynamic(() => import("./FichasTecnicasPage"), { ssr: false });
+const FichaTecnicaModule = dynamic(() => import("./FichasTecnicasPage"), {
+    ssr: false,
+});
 const EquipoModule = dynamic(() => import("./EquipoPage"), { ssr: false });
-const UsuarioModule = dynamic(() => import("./GestionUsuario"), { ssr: false });
-// const RolModule = dynamic(() => import("./GestionRol"), { ssr: false }); // opcional si lo creas después
+const UsuarioModule = dynamic(() => import("./GestionUsuario"), {
+    ssr: false,
+});
+const OrdenTrabajoModule = dynamic(
+    () => import("./OrdenesTrabajoPage"),
+    { ssr: false }
+);
+// const RolModule = dynamic(() => import("./GestionRol"), { ssr: false }); // opcional
+
+type Section = "ordenes" | "fichas" | "equipo" | "usuarios" | "roles";
 
 export default function DashboardPage() {
     const router = useRouter();
-    const [activeSection, setActiveSection] = useState("fichas"); // fichas | equipo | usuarios
+    const [activeSection, setActiveSection] = useState<Section>("ordenes");
 
     // 🔑 Verificar sesión activa
     useEffect(() => {
@@ -60,9 +71,22 @@ export default function DashboardPage() {
 
                         {/* Secciones */}
                         <li
+                            onClick={() => setActiveSection("ordenes")}
+                            style={{
+                                fontWeight:
+                                    activeSection === "ordenes" ? "bold" : "normal",
+                                color: "#fff",
+                                cursor: "pointer",
+                            }}
+                        >
+                            Órdenes de Trabajo
+                        </li>
+
+                        <li
                             onClick={() => setActiveSection("equipo")}
                             style={{
-                                fontWeight: activeSection === "equipo" ? "bold" : "normal",
+                                fontWeight:
+                                    activeSection === "equipo" ? "bold" : "normal",
                                 color: "#fff",
                                 cursor: "pointer",
                             }}
@@ -73,7 +97,8 @@ export default function DashboardPage() {
                         <li
                             onClick={() => setActiveSection("fichas")}
                             style={{
-                                fontWeight: activeSection === "fichas" ? "bold" : "normal",
+                                fontWeight:
+                                    activeSection === "fichas" ? "bold" : "normal",
                                 color: "#fff",
                                 cursor: "pointer",
                             }}
@@ -84,7 +109,8 @@ export default function DashboardPage() {
                         <li
                             onClick={() => setActiveSection("usuarios")}
                             style={{
-                                fontWeight: activeSection === "usuarios" ? "bold" : "normal",
+                                fontWeight:
+                                    activeSection === "usuarios" ? "bold" : "normal",
                                 color: "#fff",
                                 cursor: "pointer",
                             }}
@@ -95,7 +121,8 @@ export default function DashboardPage() {
                         <li
                             onClick={() => setActiveSection("roles")}
                             style={{
-                                fontWeight: activeSection === "roles" ? "bold" : "normal",
+                                fontWeight:
+                                    activeSection === "roles" ? "bold" : "normal",
                                 color: "#fff",
                                 cursor: "pointer",
                             }}
@@ -128,6 +155,7 @@ export default function DashboardPage() {
 
                 {/* ===== Contenido dinámico ===== */}
                 <section className={styles.content}>
+                    {activeSection === "ordenes" && <OrdenTrabajoModule />}
                     {activeSection === "fichas" && <FichaTecnicaModule />}
                     {activeSection === "equipo" && <EquipoModule />}
                     {activeSection === "usuarios" && <UsuarioModule />}

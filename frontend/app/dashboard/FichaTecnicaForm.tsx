@@ -23,12 +23,14 @@ import {
 const API_BASE = "http://localhost:8080/api/fichas";
 const buildUrl = (p: string) => `${API_BASE}${p}`;
 
-export default function FichaTecnicaModule() {
+export default function FichaTecnicaForm() {
     const router = useRouter();
 
     const [equipoId, setEquipoId] = useState("");
     const [cedulaTecnico, setCedulaTecnico] = useState("");
+    const [ordenTrabajoId, setOrdenTrabajoId] = useState(""); // 🆕 OT
     const [observaciones, setObservaciones] = useState("");
+
     const [fichaId, setFichaId] = useState<number | null>(null);
     const [files, setFiles] = useState<File[]>([]);
     const [previewUrls, setPreviewUrls] = useState<string[]>([]);
@@ -40,10 +42,33 @@ export default function FichaTecnicaModule() {
     const token =
         typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
+    /** ✨ animación de éxito */
+    const animateSuccess = (message: string) => {
+        setMsg(message);
+        const el = document.createElement("div");
+        el.className =
+            "fixed inset-0 flex items-center justify-center bg-black/50 z-50";
+        el.innerHTML = `
+      <div class="bg-green-600 text-white px-6 py-4 rounded-lg flex items-center gap-3 shadow-lg">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+        </svg>
+        <span class="text-lg font-semibold">${message}</span>
+      </div>
+    `;
+        document.body.appendChild(el);
+        setTimeout(() => {
+            el.remove();
+            setMsg(null);
+        }, 2000);
+    };
+
     /** 🧱 Crear ficha técnica */
     const crearFicha = useCallback(async () => {
-        if (!cedulaTecnico || !equipoId) {
-            setError("Debe ingresar la cédula del técnico y el ID del equipo");
+        if (!cedulaTecnico || !equipoId || !ordenTrabajoId) {
+            setError(
+                "Debe ingresar la cédula del técnico, el ID del equipo y el ID de la orden de trabajo"
+            );
             return;
         }
         setLoading(true);
@@ -52,6 +77,7 @@ export default function FichaTecnicaModule() {
             const params = new URLSearchParams({
                 cedulaTecnico,
                 equipoId,
+                ordenTrabajoId, // 🆕 lo enviamos al backend
                 observaciones,
             });
 
@@ -64,29 +90,43 @@ export default function FichaTecnicaModule() {
                 body: params,
             });
 
-            if (!res.ok) throw new Error(`Error ${res.status}`);
+            if (!res.ok) {
+                // si el backend devuelve texto de error, lo leemos
+                const text = await res.text().catch(() => null);
+                throw new Error(text || `Error ${res.status}`);
+            }
 
-            // ✅ ya no hay JSON; solo confirmamos éxito
+            // ✅ creada correctamente
             animateSuccess("Ficha técnica creada correctamente ✅");
 
-            // opcional: podrías refrescar para ver la lista actualizada
-            // router.refresh();
-
-            // ⚙️ como el backend ya no devuelve la ficha,
-            // puedes obtener el ID más reciente con un GET (si lo necesitas)
-            // o mostrar mensaje de que ahora puedes subir imágenes
-            setFichaId(Number(equipoId)); // temporal si tu ID coincide, sino podrías consultarlo luego
+            // 🆕 obtenemos la última ficha para recuperar el ID real
+            try {
+                const listRes = await fetch(buildUrl(""), {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                if (listRes.ok) {
+                    const list = await listRes.json();
+                    if (Array.isArray(list) && list.length > 0) {
+                        const last = list[list.length - 1];
+                        if (last?.id) {
+                            setFichaId(last.id);
+                        }
+                    }
+                }
+            } catch {
+                // si falla, solo no seteamos fichaId
+            }
         } catch (e: any) {
             setError(e.message || "Error creando ficha técnica");
         } finally {
             setLoading(false);
         }
-    }, [cedulaTecnico, equipoId, observaciones, token]);
+    }, [cedulaTecnico, equipoId, ordenTrabajoId, observaciones, token]);
 
     /** 🖼️ Subir imágenes */
     const subirImagenes = useCallback(async () => {
         if (!fichaId) {
-            setError("Primero crea una ficha técnica");
+            setError("Primero crea una ficha técnica (o no se pudo obtener el ID)");
             return;
         }
         if (files.length === 0) {
@@ -105,14 +145,15 @@ export default function FichaTecnicaModule() {
                 headers: { Authorization: `Bearer ${token}` },
             });
 
-            if (!res.ok) throw new Error(`Error ${res.status}`);
+            if (!res.ok) {
+                const text = await res.text().catch(() => null);
+                throw new Error(text || `Error ${res.status}`);
+            }
 
-            // ✅ ya no hay JSON
             setFiles([]);
             setPreviewUrls([]);
             animateSuccess("Imágenes subidas correctamente ✅");
 
-            // 🔁 Refrescar lista o navegar
             setTimeout(() => router.refresh(), 2000);
         } catch (e: any) {
             setError(e.message || "Error subiendo imágenes");
@@ -121,33 +162,12 @@ export default function FichaTecnicaModule() {
         }
     }, [files, fichaId, token, router]);
 
-    /** 🎨 Mostrar previsualización local */
+    /** 🎨 Previsualización local */
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const selected = Array.from(e.target.files || []);
         setFiles(selected);
         const previews = selected.map((f) => URL.createObjectURL(f));
         setPreviewUrls(previews);
-    };
-
-    /** ✨ Animación de éxito */
-    const animateSuccess = (message: string) => {
-        setMsg(message);
-        const el = document.createElement("div");
-        el.className =
-            "fixed inset-0 flex items-center justify-center bg-black/50 z-50 animate-fade";
-        el.innerHTML = `
-      <div class="bg-green-600 text-white px-6 py-4 rounded-lg flex items-center gap-3 shadow-lg animate-bounce-in">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-        </svg>
-        <span class="text-lg font-semibold">${message}</span>
-      </div>
-    `;
-        document.body.appendChild(el);
-        setTimeout(() => {
-            el.remove();
-            setMsg(null);
-        }, 2000);
     };
 
     return (
@@ -168,6 +188,7 @@ export default function FichaTecnicaModule() {
                             <AlertDescription>{error}</AlertDescription>
                         </Alert>
                     )}
+
                     <Input
                         placeholder="Cédula del técnico"
                         value={cedulaTecnico}
@@ -179,10 +200,16 @@ export default function FichaTecnicaModule() {
                         onChange={(e) => setEquipoId(e.target.value)}
                     />
                     <Input
+                        placeholder="ID de la orden de trabajo"
+                        value={ordenTrabajoId}
+                        onChange={(e) => setOrdenTrabajoId(e.target.value)}
+                    />
+                    <Input
                         placeholder="Observaciones"
                         value={observaciones}
                         onChange={(e) => setObservaciones(e.target.value)}
                     />
+
                     <Button onClick={crearFicha} disabled={loading}>
                         {loading ? (
                             <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -191,6 +218,12 @@ export default function FichaTecnicaModule() {
                         )}
                         Crear ficha técnica
                     </Button>
+
+                    {msg && (
+                        <p className="text-sm text-green-600 mt-2">
+                            {msg}
+                        </p>
+                    )}
                 </CardContent>
             </Card>
 
@@ -198,7 +231,7 @@ export default function FichaTecnicaModule() {
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            <Image className="h-5 w-5" /> Subir Imágenes
+                            <Image className="h-5 w-5" /> Subir Imágenes (Ficha #{fichaId})
                         </CardTitle>
                         <CardDescription>
                             Adjunta imágenes relacionadas con la ficha.
@@ -213,7 +246,6 @@ export default function FichaTecnicaModule() {
                             className="max-w-md"
                         />
 
-                        {/* 🖼️ Previsualización local */}
                         {previewUrls.length > 0 && (
                             <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3">
                                 {previewUrls.map((url, i) => (
@@ -256,7 +288,6 @@ export default function FichaTecnicaModule() {
                 </Card>
             )}
 
-            {/* 🪟 Modal de imagen ampliada */}
             {selectedImg && (
                 <div
                     className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"

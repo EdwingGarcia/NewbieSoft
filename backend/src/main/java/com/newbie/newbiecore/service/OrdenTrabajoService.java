@@ -3,21 +3,15 @@ package com.newbie.newbiecore.service;
 import java.time.Instant;
 import java.util.List;
 
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import com.newbie.newbiecore.dto.OrdenTrabajo.ActualizarEntregaRequest;
-import com.newbie.newbiecore.dto.OrdenTrabajo.CrearOrdenTrabajoRequest;
-import com.newbie.newbiecore.dto.OrdenTrabajo.OrdenTrabajoDetalleDto;
-import com.newbie.newbiecore.dto.OrdenTrabajo.OrdenTrabajoIngresoDto;
-import com.newbie.newbiecore.entity.FichaTecnicaImagen;
+import com.newbie.newbiecore.dto.OrdenTrabajo.*;
 import com.newbie.newbiecore.entity.OrdenTrabajo;
 import com.newbie.newbiecore.repository.EquipoRepository;
 import com.newbie.newbiecore.repository.FichaTecnicaRepository;
 import com.newbie.newbiecore.repository.OrdenTrabajoRepository;
 import com.newbie.newbiecore.repository.UsuarioRepository;
-
 import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -47,7 +41,7 @@ public class OrdenTrabajoService {
         var equipo = equipoRepository.findById(request.getEquipoId())
                 .orElseThrow(() -> new RuntimeException("Equipo no encontrado"));
 
-        // ⚠️ AQUÍ SE GENERA EL NÚMERO DE ORDEN (antes faltaba la variable)
+        // Generar número de orden
         String numeroOrden = generarNumeroOrden();
 
         OrdenTrabajo orden = OrdenTrabajo.builder()
@@ -85,7 +79,6 @@ public class OrdenTrabajoService {
         var tecnico = orden.getTecnicoAsignado();
         var equipo  = orden.getEquipo();
 
-        // OJO: aquí NO usamos builder(), usamos el constructor del DTO (es un record/clase normal)
         return new OrdenTrabajoIngresoDto(
                 orden.getId(),
                 orden.getNumeroOrden(),
@@ -169,6 +162,7 @@ public class OrdenTrabajoService {
         var tecnico = orden.getTecnicoAsignado();
         var equipo  = orden.getEquipo();
 
+        // Meta de ficha técnica (si existe) — sin imágenes
         var fichaOpt = fichaTecnicaRepository.findByOrdenTrabajoId(ordenId);
 
         Long fichaId = null;
@@ -176,7 +170,6 @@ public class OrdenTrabajoService {
         String observacionesFicha = null;
         String tecnicoFichaCedula = null;
         String tecnicoFichaNombre = null;
-        List<String> urlsImagenesFicha = List.of();
 
         if (fichaOpt.isPresent()) {
             var ficha = fichaOpt.get();
@@ -186,10 +179,6 @@ public class OrdenTrabajoService {
             var tecnicoFicha = ficha.getTecnico();
             tecnicoFichaCedula = tecnicoFicha.getCedula();
             tecnicoFichaNombre = tecnicoFicha.getNombre();
-            urlsImagenesFicha = ficha.getImagenes()
-                    .stream()
-                    .map(FichaTecnicaImagen::getRuta)   // ajusta si el campo se llama distinto
-                    .toList();
         }
 
         return new OrdenTrabajoDetalleDto(
@@ -244,13 +233,78 @@ public class OrdenTrabajoService {
                 orden.isFirmaClienteEntrega(),
                 orden.isRecibeASatisfaccion(),
 
-                // Ficha técnica
+                // Ficha técnica (solo meta, sin imágenes)
                 fichaId,
                 fechaFicha,
                 observacionesFicha,
                 tecnicoFichaCedula,
-                tecnicoFichaNombre,
-                urlsImagenesFicha
+                tecnicoFichaNombre
         );
     }
+
+
+
+        // ... lo que ya tienes arriba
+
+        /* =============================
+           LISTAR ÓRDENES (para el dashboard)
+           ============================= */
+        @Transactional(readOnly = true)
+        public List<OrdenTrabajoListaDto> listarOrdenes() {
+            return ordenTrabajoRepository.findAll()
+                    .stream()
+                    .map(this::mapToListaDto)
+                    .toList();
+        }
+
+        private OrdenTrabajoListaDto mapToListaDto(OrdenTrabajo orden) {
+
+            var cliente = orden.getCliente();
+            var tecnico = orden.getTecnicoAsignado();
+            var equipo  = orden.getEquipo();
+
+            List<ImagenDto> imagenes = orden.getImagenes()
+                    .stream()
+                    .map(img -> new ImagenDto(
+                            img.getId(),
+                            img.getRuta(),
+                            img.getCategoria() ,
+                            img.getDescripcion(),
+                            img.getFechaSubida()
+                    ))
+                    .toList();
+
+            return new OrdenTrabajoListaDto(
+                    orden.getId(),
+                    orden.getNumeroOrden(),
+                    orden.getEstado(),
+
+                    orden.getFechaHoraIngreso(),
+                    orden.getFechaHoraEntrega(),
+
+                    orden.getMedioContacto(),
+                    orden.getModalidad(),
+
+                    cliente != null ? cliente.getCedula()  : null,
+                    cliente != null ? cliente.getNombre()  : null,
+
+                    tecnico != null ? tecnico.getCedula()  : null,
+                    tecnico != null ? tecnico.getNombre()  : null,
+
+                    equipo != null ? equipo.getIdEquipo()      : null,
+                    equipo != null ? equipo.getModelo()       : null,
+                    equipo != null ? equipo.getHostname()     : null,
+
+                    orden.getProblemaReportado(),
+                    orden.getObservacionesIngreso(),
+                    orden.getDiagnosticoTrabajo(),
+                    orden.getObservacionesRecomendaciones(),
+
+                    imagenes
+            );
+        }
+
+        // ... el resto de métodos que ya tienes
+
+
 }

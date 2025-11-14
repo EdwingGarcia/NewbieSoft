@@ -63,7 +63,7 @@ public class SecurityConfig {
                         .requestMatchers("/uploads/**").permitAll()
 
                         // tus endpoints de prueba
-                        .requestMatchers("/api/fichas/**").permitAll()
+                        .requestMatchers("/api/ordenes/**").permitAll()
                         .requestMatchers("/api/firmas/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/equipo/*/hardware/upload-xml").permitAll()
 
