@@ -1,13 +1,26 @@
 package com.newbie.newbiecore.entity;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.databind.JsonNode;
-import jakarta.persistence.*;
-import lombok.*;
+import java.time.Instant;
+
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-import java.time.Instant;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.databind.JsonNode;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "equipos")
@@ -26,13 +39,16 @@ public class Equipo {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "cedula", nullable = false)
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
-    private Usuario usuario;
+    private Usuario usuario; // cliente
 
     @Column(name="numero_serie")
     private String numeroSerie;
 
     private String modelo;
     private String marca;
+
+    @Column(name = "tipo_equipo")
+    private String tipo; // Desktop / Laptop / All-in-One, etc.
 
     @Column(name="fecha_registro")
     private Instant fechaRegistro;
