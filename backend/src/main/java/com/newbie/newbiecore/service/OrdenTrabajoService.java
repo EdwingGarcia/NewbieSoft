@@ -5,6 +5,7 @@ import java.util.List;
 
 import com.newbie.newbiecore.dto.OrdenTrabajo.*;
 import com.newbie.newbiecore.entity.OrdenTrabajo;
+import com.newbie.newbiecore.entity.Usuario;
 import com.newbie.newbiecore.repository.EquipoRepository;
 import com.newbie.newbiecore.repository.FichaTecnicaRepository;
 import com.newbie.newbiecore.repository.OrdenTrabajoRepository;
@@ -150,8 +151,8 @@ public class OrdenTrabajoService {
     }
 
     /* =============================
-       DETALLE COMPLETO
-       ============================= */
+   DETALLE COMPLETO
+   ============================= */
 
     @Transactional(readOnly = true)
     public OrdenTrabajoDetalleDto obtenerDetalle(Long ordenId) {
@@ -176,9 +177,15 @@ public class OrdenTrabajoService {
             fichaId = ficha.getId();
             fechaFicha = ficha.getFechaCreacion();
             observacionesFicha = ficha.getObservaciones();
-            var tecnicoFicha = ficha.getTecnico();
-            tecnicoFichaCedula = tecnicoFicha.getCedula();
-            tecnicoFichaNombre = tecnicoFicha.getNombre();
+
+            // 🔁 Ahora la ficha solo tiene tecnicoId (cedula), no un objeto Usuario
+            tecnicoFichaCedula = ficha.getTecnicoId();
+
+            if (tecnicoFichaCedula != null) {
+                tecnicoFichaNombre = usuarioRepository.findById(tecnicoFichaCedula)
+                        .map(Usuario::getNombre)
+                        .orElse(null);
+            }
         }
 
         return new OrdenTrabajoDetalleDto(
@@ -233,7 +240,7 @@ public class OrdenTrabajoService {
                 orden.isFirmaClienteEntrega(),
                 orden.isRecibeASatisfaccion(),
 
-                // Ficha técnica (solo meta, sin imágenes)
+                // Ficha técnica (meta)
                 fichaId,
                 fechaFicha,
                 observacionesFicha,
@@ -243,8 +250,7 @@ public class OrdenTrabajoService {
     }
 
 
-
-        // ... lo que ya tienes arriba
+    // ... lo que ya tienes arriba
 
         /* =============================
            LISTAR ÓRDENES (para el dashboard)
