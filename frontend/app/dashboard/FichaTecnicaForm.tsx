@@ -229,62 +229,8 @@ export default function FichaTecnicaForm() {
 
             {fichaId && (
                 <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Image className="h-5 w-5" /> Subir Imágenes (Ficha #{fichaId})
-                        </CardTitle>
-                        <CardDescription>
-                            Adjunta imágenes relacionadas con la ficha.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Input
-                            type="file"
-                            accept="image/*"
-                            multiple
-                            onChange={handleFileChange}
-                            className="max-w-md"
-                        />
+                  
 
-                        {previewUrls.length > 0 && (
-                            <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3">
-                                {previewUrls.map((url, i) => (
-                                    <div key={i} className="relative">
-                                        <img
-                                            src={url}
-                                            alt={`preview-${i}`}
-                                            className="h-32 w-full object-cover rounded-lg border cursor-pointer hover:scale-105 transition-transform"
-                                            onClick={() => setSelectedImg(url)}
-                                        />
-                                        <button
-                                            className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-1"
-                                            onClick={() => {
-                                                setFiles((prev) => prev.filter((_, x) => x !== i));
-                                                setPreviewUrls((prev) =>
-                                                    prev.filter((_, x) => x !== i)
-                                                );
-                                            }}
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-
-                        <Button
-                            onClick={subirImagenes}
-                            className="mt-3"
-                            disabled={loading || files.length === 0}
-                        >
-                            {loading ? (
-                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                            ) : (
-                                <Upload className="h-4 w-4 mr-2" />
-                            )}
-                            Subir imágenes
-                        </Button>
-                    </CardContent>
                 </Card>
             )}
 

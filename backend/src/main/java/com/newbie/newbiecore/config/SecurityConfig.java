@@ -57,6 +57,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/usuarios/**").permitAll()
                         .requestMatchers("/api/otp/**").permitAll()
                         .requestMatchers("/consultas/**").permitAll()
+                        .requestMatchers("/api/pdf/**").permitAll() 
                         .requestMatchers("/", "/index.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
 
                         // 👇 servir archivos subidos (IMPORTANTE)
