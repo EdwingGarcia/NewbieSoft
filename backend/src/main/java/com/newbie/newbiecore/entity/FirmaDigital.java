@@ -1,10 +1,27 @@
 package com.newbie.newbiecore.entity;
 
-import jakarta.persistence.*;
-import lombok.*;
+import java.time.Instant;
+
 import org.hibernate.annotations.CreationTimestamp;
 
-import java.time.Instant;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.Lob;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 @Entity
 @Table(
         name = "firmas_digitales",
@@ -27,10 +44,6 @@ public class FirmaDigital {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // 1) puede ser una reparación
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "reparacion_id")
-    private Reparacion reparacion;
 
     // 2) o puede ser una ficha técnica
     @ManyToOne(fetch = FetchType.LAZY)

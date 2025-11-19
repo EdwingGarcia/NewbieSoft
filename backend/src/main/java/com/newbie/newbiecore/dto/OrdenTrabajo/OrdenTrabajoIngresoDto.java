@@ -2,13 +2,14 @@ package com.newbie.newbiecore.dto.OrdenTrabajo;
 
 import java.time.Instant;
 
-
 public record OrdenTrabajoIngresoDto(
         // Orden
         Long ordenId,
         String numeroOrden,
         String medioContacto,
         Instant fechaHoraIngreso,
+        String tipoServicio,   // 👈 NUEVO
+        String prioridad,      // 👈 NUEVO
 
         // Técnico asignado
         String tecnicoCedula,

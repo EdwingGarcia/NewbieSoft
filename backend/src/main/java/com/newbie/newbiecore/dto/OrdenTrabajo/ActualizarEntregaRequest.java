@@ -2,7 +2,6 @@ package com.newbie.newbiecore.dto.OrdenTrabajo;
 
 import java.time.Instant;
 
-
 public record ActualizarEntregaRequest(
         String diagnosticoTrabajo,
         String observacionesRecomendaciones,

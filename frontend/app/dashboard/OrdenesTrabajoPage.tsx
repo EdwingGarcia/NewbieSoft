@@ -27,6 +27,7 @@ import {
     SelectItem,
     SelectValue,
 } from "@/components/ui/select";
+
 const API_BASE = "http://localhost:8080/api/ordenes";
 const buildUrl = (p: string = "") => `${API_BASE}${p}`;
 
@@ -45,6 +46,9 @@ interface OrdenTrabajoListaDTO {
     id: number;
     numeroOrden: string;
     estado: string | null;
+
+    tipoServicio: string | null;
+    prioridad: string | null;
 
     fechaHoraIngreso: string;
     fechaHoraEntrega?: string | null;
@@ -69,9 +73,36 @@ interface OrdenTrabajoListaDTO {
 /** DTO que devuelve GET /api/ordenes/{id}/detalle */
 interface OrdenTrabajoDetalleDTO extends OrdenTrabajoListaDTO {
     ordenId: number;
+
     diagnosticoTrabajo?: string | null;
     observacionesRecomendaciones?: string | null;
     imagenes?: ImagenDTO[];
+
+    // 🧮 Campos económicos
+    costoManoObra?: number | null;
+    costoRepuestos?: number | null;
+    costoOtros?: number | null;
+    descuento?: number | null;
+    subtotal?: number | null;
+    iva?: number | null;
+    total?: number | null;
+
+    // 🛠️ Tiempos de diagnóstico / reparación
+    fechaHoraInicioDiagnostico?: string | null;
+    fechaHoraFinDiagnostico?: string | null;
+    fechaHoraInicioReparacion?: string | null;
+    fechaHoraFinReparacion?: string | null;
+
+    // 🧾 Garantía y cierre
+    esEnGarantia?: boolean | null;
+    referenciaOrdenGarantia?: number | null;
+    motivoCierre?: string | null;
+    cerradaPor?: string | null;
+
+    // 🔐 OTP
+    otpCodigo?: string | null;
+    otpValidado?: boolean | null;
+    otpFechaValidacion?: string | null;
 }
 
 /** Payload para crear OT */
@@ -84,6 +115,8 @@ interface CrearOrdenPayload {
     accesorios: string;
     problemaReportado: string;
     observacionesIngreso: string;
+    tipoServicio: string;
+    prioridad: string;
 }
 
 /** Estado del form (equipoId como string para el input) */
@@ -96,7 +129,11 @@ interface CrearOrdenFormState {
     accesorios: string;
     problemaReportado: string;
     observacionesIngreso: string;
+    tipoServicio: string;
+    prioridad: string;
 }
+
+type Paso = 1 | 2 | 3 | 4;
 
 export default function OrdenesTrabajoPage() {
     const router = useRouter();
@@ -114,6 +151,33 @@ export default function OrdenesTrabajoPage() {
     const [selectedImg, setSelectedImg] = useState<string | null>(null);
     const [imgFilterCategoria, setImgFilterCategoria] = useState<string>("");
 
+    // === PASOS DEL FLUJO ===
+    const [pasoActivo, setPasoActivo] = useState<Paso>(1);
+
+    // === CAMPOS EDITABLES EN DETALLE ===
+    const [tipoServicioEdit, setTipoServicioEdit] = useState<string>("DIAGNOSTICO");
+    const [prioridadEdit, setPrioridadEdit] = useState<string>("MEDIA");
+    const [estadoEdit, setEstadoEdit] = useState<string>("INGRESO");
+
+    const [diagEdit, setDiagEdit] = useState<string>("");
+    const [obsRecEdit, setObsRecEdit] = useState<string>("");
+
+    const [costoManoObra, setCostoManoObra] = useState<number>(0);
+    const [costoRepuestos, setCostoRepuestos] = useState<number>(0);
+    const [costoOtros, setCostoOtros] = useState<number>(0);
+    const [descuento, setDescuento] = useState<number>(0);
+    const [iva, setIva] = useState<number>(0); // puedes dejar que el técnico lo ajuste o calcularlo
+
+    const [esEnGarantia, setEsEnGarantia] = useState<boolean>(false);
+    const [referenciaGarantia, setReferenciaGarantia] = useState<string>("");
+    const [motivoCierre, setMotivoCierre] = useState<string>("");
+    const [cerradaPor, setCerradaPor] = useState<string>("");
+
+    const [otpCodigo, setOtpCodigo] = useState<string>("");
+    const [otpValidado, setOtpValidado] = useState<boolean>(false);
+
+    const [guardando, setGuardando] = useState(false);
+
     // === CREAR OT ===
     const [showCrear, setShowCrear] = useState(false);
     const [crearLoading, setCrearLoading] = useState(false);
@@ -126,6 +190,8 @@ export default function OrdenesTrabajoPage() {
         accesorios: "",
         problemaReportado: "",
         observacionesIngreso: "",
+        tipoServicio: "DIAGNOSTICO",
+        prioridad: "MEDIA",
     });
 
     const token =
@@ -138,6 +204,18 @@ export default function OrdenesTrabajoPage() {
         if (!iso) return "-";
         return new Date(iso).toLocaleString();
     };
+
+    const fmtMoney = (n?: number | null) => {
+        if (n === null || n === undefined) return "-";
+        return n.toFixed(2);
+    };
+
+    const toNumber = (value: string): number =>
+        value.trim() === "" || isNaN(Number(value)) ? 0 : Number(value);
+
+    const subtotalCalculado =
+        costoManoObra + costoRepuestos + costoOtros - descuento;
+    const totalCalculado = subtotalCalculado + iva;
 
     /* ===== GET lista de órdenes ===== */
     const fetchOrdenes = useCallback(async () => {
@@ -194,6 +272,36 @@ export default function OrdenesTrabajoPage() {
         [token]
     );
 
+    /* ===== Sincronizar estados editables con detalle ===== */
+    const sincronizarDetalleEditable = (data: OrdenTrabajoDetalleDTO) => {
+        setTipoServicioEdit(data.tipoServicio ?? "DIAGNOSTICO");
+        setPrioridadEdit(data.prioridad ?? "MEDIA");
+        setEstadoEdit(data.estado ?? "INGRESO");
+
+        setDiagEdit(data.diagnosticoTrabajo ?? "");
+        setObsRecEdit(data.observacionesRecomendaciones ?? "");
+
+        setCostoManoObra(data.costoManoObra ?? 0);
+        setCostoRepuestos(data.costoRepuestos ?? 0);
+        setCostoOtros(data.costoOtros ?? 0);
+        setDescuento(data.descuento ?? 0);
+        setIva(data.iva ?? 0);
+
+        setEsEnGarantia(!!data.esEnGarantia);
+        setReferenciaGarantia(
+            data.referenciaOrdenGarantia != null
+                ? String(data.referenciaOrdenGarantia)
+                : ""
+        );
+        setMotivoCierre(data.motivoCierre ?? "");
+        setCerradaPor(data.cerradaPor ?? "");
+
+        setOtpCodigo(data.otpCodigo ?? "");
+        setOtpValidado(!!data.otpValidado);
+
+        setPasoActivo(1);
+    };
+
     /* ===== GET detalle ===== */
     const abrirDetalle = async (id: number) => {
         try {
@@ -212,10 +320,119 @@ export default function OrdenesTrabajoPage() {
             setSelectedImg(null);
             setImgFilterCategoria("");
 
+            sincronizarDetalleEditable(data);
             await fetchImagenes(id);
         } catch (e: any) {
             setError(e.message ?? "Error al cargar detalles de la orden");
         }
+    };
+
+    /* ===== PUT /{id}/entrega – guardar todo lo editable ===== */
+    const guardarCambiosOrden = async (esCierre: boolean = false) => {
+        if (!detalle) return;
+        if (!token) {
+            alert("No hay token de autenticación");
+            return;
+        }
+
+        const payload = {
+            // info de servicio / estado
+            tipoServicio: tipoServicioEdit,
+            prioridad: prioridadEdit,
+            estado: estadoEdit,
+
+            // diagnóstico y recomendaciones
+            diagnosticoTrabajo: diagEdit.trim(),
+            observacionesRecomendaciones: obsRecEdit.trim(),
+
+            // costos
+            costoManoObra,
+            costoRepuestos,
+            costoOtros,
+            descuento,
+            subtotal: subtotalCalculado,
+            iva,
+            total: totalCalculado,
+
+            // garantía / cierre
+            esEnGarantia,
+            referenciaOrdenGarantia: referenciaGarantia
+                ? Number(referenciaGarantia)
+                : null,
+            motivoCierre: motivoCierre.trim() || null,
+            cerradaPor: cerradaPor.trim() || null,
+
+            // OTP
+            otpCodigo: otpCodigo.trim() || null,
+            otpValidado,
+        };
+
+        try {
+            setGuardando(true);
+            const res = await fetch(buildUrl(`/${detalle.ordenId}/entrega`), {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify(payload),
+            });
+
+            if (!res.ok) {
+                throw new Error(
+                    `Error guardando datos de la orden (HTTP ${res.status})`
+                );
+            }
+
+            alert(esCierre ? "✅ Orden cerrada correctamente" : "✅ Cambios guardados");
+            await abrirDetalle(detalle.ordenId);
+            await fetchOrdenes();
+        } catch (e: any) {
+            console.error(e);
+            alert(e?.message ?? "Error guardando datos de la orden");
+        } finally {
+            setGuardando(false);
+        }
+    };
+
+    /* ===== Cerrar OT (flujo guiado) ===== */
+    const cerrarOrden = async () => {
+        if (!detalle) return;
+
+        if (!diagEdit.trim()) {
+            alert("Debes registrar un diagnóstico antes de cerrar la orden.");
+            setPasoActivo(2);
+            return;
+        }
+
+        if (totalCalculado <= 0 && !esEnGarantia) {
+            const seguir = window.confirm(
+                "El total es 0 y la orden no está marcada como garantía. ¿Cerrar igualmente?"
+            );
+            if (!seguir) {
+                setPasoActivo(3);
+                return;
+            }
+        }
+
+        if (!motivoCierre.trim()) {
+            alert("Debes indicar un motivo de cierre.");
+            setPasoActivo(4);
+            return;
+        }
+
+        if (!otpValidado) {
+            const seguir = window.confirm(
+                "La OTP no está marcada como validada. ¿Cerrar de todas formas?"
+            );
+            if (!seguir) {
+                setPasoActivo(4);
+                return;
+            }
+        }
+
+        setEstadoEdit("CERRADA");
+        await guardarCambiosOrden(true);
     };
 
     /* ===== Subir imágenes a la OT ===== */
@@ -281,6 +498,8 @@ export default function OrdenesTrabajoPage() {
             accesorios: "",
             problemaReportado: "",
             observacionesIngreso: "",
+            tipoServicio: "DIAGNOSTICO",
+            prioridad: "MEDIA",
         });
     };
 
@@ -296,11 +515,19 @@ export default function OrdenesTrabajoPage() {
             return;
         }
         if (!formCrear.equipoId.trim() || isNaN(Number(formCrear.equipoId))) {
-            alert("El equipoId debe ser un número válido");
+            alert("El ID de equipo debe ser un número válido");
             return;
         }
         if (!formCrear.problemaReportado.trim()) {
             alert("El problema reportado es obligatorio");
+            return;
+        }
+        if (!formCrear.tipoServicio) {
+            alert("El tipo de servicio es obligatorio");
+            return;
+        }
+        if (!formCrear.prioridad) {
+            alert("La prioridad es obligatoria");
             return;
         }
 
@@ -313,6 +540,8 @@ export default function OrdenesTrabajoPage() {
             accesorios: formCrear.accesorios.trim(),
             problemaReportado: formCrear.problemaReportado.trim(),
             observacionesIngreso: formCrear.observacionesIngreso.trim(),
+            tipoServicio: formCrear.tipoServicio,
+            prioridad: formCrear.prioridad,
         };
 
         try {
@@ -347,8 +576,16 @@ export default function OrdenesTrabajoPage() {
     /* ===== RENDER ===== */
     return (
         <div className="p-6 space-y-6">
+            {/* HEADER PÁGINA */}
             <div className="flex items-center justify-between gap-4">
-                <h1 className="text-2xl font-bold">Órdenes de Trabajo</h1>
+                <div>
+                    <h1 className="text-2xl font-bold tracking-tight">
+                        Órdenes de Trabajo
+                    </h1>
+                    <p className="text-sm text-slate-500">
+                        Gestiona los ingresos, diagnósticos, costos y cierres de cada equipo.
+                    </p>
+                </div>
 
                 <Button
                     size="sm"
@@ -364,12 +601,15 @@ export default function OrdenesTrabajoPage() {
             {showCrear && (
                 <Card className="border border-slate-200 shadow-sm">
                     <CardHeader>
-                        <CardTitle className="text-lg">Crear nueva Orden de Trabajo</CardTitle>
-                        <CardDescription>
-                            Completa los datos de ingreso del equipo para generar la OT.
+                        <CardTitle className="text-lg">
+                            Crear nueva Orden de Trabajo
+                        </CardTitle>
+                        <CardDescription className="text-sm text-slate-500">
+                            Completa los datos de ingreso y clasificación del servicio.
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
+                        {/* Primera fila: cliente / técnico / equipo */}
                         <div className="grid gap-4 md:grid-cols-3">
                             <div className="space-y-1">
                                 <label className="text-xs font-medium text-slate-700">
@@ -409,6 +649,7 @@ export default function OrdenesTrabajoPage() {
                             </div>
                         </div>
 
+                        {/* Segunda fila: medio / tipo / prioridad */}
                         <div className="grid gap-4 md:grid-cols-3">
                             <div className="space-y-1">
                                 <label className="text-xs font-medium text-slate-700">
@@ -422,6 +663,72 @@ export default function OrdenesTrabajoPage() {
                                     className="h-9 text-sm"
                                 />
                             </div>
+
+                            <div className="space-y-1">
+                                <label className="text-xs font-medium text-slate-700">
+                                    Tipo de servicio *
+                                </label>
+                                <Select
+                                    value={formCrear.tipoServicio}
+                                    onValueChange={(value) =>
+                                        setFormCrear((prev) => ({
+                                            ...prev,
+                                            tipoServicio: value,
+                                        }))
+                                    }
+                                >
+                                    <SelectTrigger className="h-9 text-xs">
+                                        <SelectValue placeholder="Selecciona tipo" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="DIAGNOSTICO">
+                                            Diagnóstico
+                                        </SelectItem>
+                                        <SelectItem value="REPARACION">
+                                            Reparación
+                                        </SelectItem>
+                                        <SelectItem value="MANTENIMIENTO">
+                                            Mantenimiento
+                                        </SelectItem>
+                                        <SelectItem value="FORMATEO">
+                                            Formateo / SO
+                                        </SelectItem>
+                                        <SelectItem value="INSTALACION_SO">
+                                            Instalación de SO
+                                        </SelectItem>
+                                        <SelectItem value="OTRO">Otro</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="space-y-1">
+                                <label className="text-xs font-medium text-slate-700">
+                                    Prioridad *
+                                </label>
+                                <Select
+                                    value={formCrear.prioridad}
+                                    onValueChange={(value) =>
+                                        setFormCrear((prev) => ({
+                                            ...prev,
+                                            prioridad: value,
+                                        }))
+                                    }
+                                >
+                                    <SelectTrigger className="h-9 text-xs">
+                                        <SelectValue placeholder="Selecciona prioridad" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="BAJA">Baja</SelectItem>
+                                        <SelectItem value="MEDIA">Media</SelectItem>
+                                        <SelectItem value="ALTA">Alta</SelectItem>
+                                        <SelectItem value="URGENTE">Urgente</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+
+                        {/* Tercera fila: credenciales / accesorios */}
+                        <div className="grid gap-4 md:grid-cols-3">
                             <div className="space-y-1">
                                 <label className="text-xs font-medium text-slate-700">
                                     Contraseña equipo
@@ -434,7 +741,7 @@ export default function OrdenesTrabajoPage() {
                                     className="h-9 text-sm"
                                 />
                             </div>
-                            <div className="space-y-1">
+                            <div className="md:col-span-2 space-y-1">
                                 <label className="text-xs font-medium text-slate-700">
                                     Accesorios
                                 </label>
@@ -442,12 +749,13 @@ export default function OrdenesTrabajoPage() {
                                     name="accesorios"
                                     value={formCrear.accesorios}
                                     onChange={handleCrearChange}
-                                    placeholder="Cargador, mouse..."
+                                    placeholder="Cargador, mouse, base, etc."
                                     className="h-9 text-sm"
                                 />
                             </div>
                         </div>
 
+                        {/* Descripción problema & observaciones */}
                         <div className="grid gap-4 md:grid-cols-2">
                             <div className="space-y-1">
                                 <label className="text-xs font-medium text-slate-700">
@@ -477,7 +785,7 @@ export default function OrdenesTrabajoPage() {
                             </div>
                         </div>
 
-                        <div className="flex justify-end gap-2">
+                        <div className="flex justify-end gap-2 pt-2">
                             <Button
                                 variant="outline"
                                 size="sm"
@@ -506,6 +814,7 @@ export default function OrdenesTrabajoPage() {
 
             {error && <div className="text-red-600 text-sm">{error}</div>}
 
+            {/* LISTA DE ÓRDENES */}
             {loading ? (
                 <div className="flex justify-center py-10">
                     <Loader2 className="h-6 w-6 animate-spin text-gray-600" />
@@ -523,28 +832,45 @@ export default function OrdenesTrabajoPage() {
                             className="transition hover:shadow-md cursor-pointer"
                         >
                             <CardHeader>
-                                <CardTitle className="flex items-center justify-between">
-                                    <span>{ot.numeroOrden}</span>
-                                    <span className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-700">
-                                        {fmt(ot.estado)}
+                                <CardTitle className="flex items-center justify-between gap-2">
+                                    <span className="truncate">
+                                        {ot.numeroOrden}
                                     </span>
+                                    <div className="flex gap-1">
+                                        {ot.tipoServicio && (
+                                            <span className="text-[10px] px-2 py-1 rounded-full bg-slate-100 text-slate-700 uppercase">
+                                                {ot.tipoServicio}
+                                            </span>
+                                        )}
+                                        {ot.prioridad && (
+                                            <span className="text-[10px] px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 uppercase">
+                                                {ot.prioridad}
+                                            </span>
+                                        )}
+                                    </div>
                                 </CardTitle>
                                 <CardDescription>
                                     <div className="text-sm flex flex-col gap-1 mt-1 text-gray-700">
                                         <div>
-                                            <span className="font-semibold">Cliente: </span>
+                                            <span className="font-semibold">
+                                                Cliente:{" "}
+                                            </span>
                                             {fmt(ot.clienteNombre)}{" "}
                                             {ot.clienteCedula
                                                 ? `(${ot.clienteCedula})`
                                                 : ""}
                                         </div>
                                         <div>
-                                            <span className="font-semibold">Técnico: </span>
+                                            <span className="font-semibold">
+                                                Técnico:{" "}
+                                            </span>
                                             {fmt(ot.tecnicoNombre) ||
                                                 fmt(ot.tecnicoCedula)}
                                         </div>
                                         <div>
-                                            <span className="font-semibold">Equipo: </span>
+                                            <span className="font-semibold">
+                                                Equipo:{" "}
+                                            </span>
                                             {fmt(ot.equipoModelo)}{" "}
                                             {ot.equipoHostname
                                                 ? `(${ot.equipoHostname})`
@@ -558,11 +884,19 @@ export default function OrdenesTrabajoPage() {
                                 </CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-3">
-                                <div className="text-xs text_gray-600 line-clamp-3">
-                                    <span className="font-semibold">Problema: </span>
+                                <div className="text-xs text-gray-600 line-clamp-3">
+                                    <span className="font-semibold">
+                                        Problema:{" "}
+                                    </span>
                                     {fmt(ot.problemaReportado)}
                                 </div>
                                 <div className="flex justify-between items-center">
+                                    <span className="text-[11px] text-slate-500">
+                                        Estado:{" "}
+                                        <span className="font-medium">
+                                            {fmt(ot.estado)}
+                                        </span>
+                                    </span>
                                     <Button
                                         variant="outline"
                                         size="sm"
@@ -580,7 +914,7 @@ export default function OrdenesTrabajoPage() {
                 </div>
             )}
 
-            {/* MODAL DETALLE */}
+            {/* MODAL DETALLE – PANEL COMPLETO TÉCNICO */}
             {detalle && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
                     {/* Contenedor principal del modal */}
@@ -604,7 +938,8 @@ export default function OrdenesTrabajoPage() {
                                     <h2 className="text-lg font-semibold text-white leading-tight">
                                         Orden #{detalle.numeroOrden} · Equipo{" "}
                                         <span className="font-bold">
-                                            {detalle.equipoModelo ?? detalle.equipoId}
+                                            {detalle.equipoModelo ??
+                                                detalle.equipoId}
                                         </span>
                                     </h2>
                                     <p className="text-xs text-white/80">
@@ -612,7 +947,9 @@ export default function OrdenesTrabajoPage() {
                                         <span className="font-medium text-white">
                                             {fmt(detalle.clienteNombre)}
                                         </span>{" "}
-                                        {detalle.clienteCedula ? `(${detalle.clienteCedula})` : ""}{" "}
+                                        {detalle.clienteCedula
+                                            ? `(${detalle.clienteCedula})`
+                                            : ""}{" "}
                                         · Técnico:{" "}
                                         <span className="font-medium text-white">
                                             {fmt(detalle.tecnicoNombre) ||
@@ -622,83 +959,599 @@ export default function OrdenesTrabajoPage() {
                                 </div>
 
                                 <div className="flex flex-wrap items-center gap-2">
-                                    <span className="inline-flex items-center rounded-full bg-emerald-600/20 px-3 py-1 text-xs font-semibold text-emerald-300 border border-emerald-500/40">
-                                        Estado: {fmt(detalle.estado)}
-                                    </span>
+                                    <Select
+                                        value={tipoServicioEdit}
+                                        onValueChange={setTipoServicioEdit}
+                                    >
+                                        <SelectTrigger className="h-8 text-[11px] bg-slate-800/60 border-slate-500 text-slate-100">
+                                            <SelectValue placeholder="Tipo" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="DIAGNOSTICO">
+                                                DIAGNOSTICO
+                                            </SelectItem>
+                                            <SelectItem value="REPARACION">
+                                                REPARACION
+                                            </SelectItem>
+                                            <SelectItem value="MANTENIMIENTO">
+                                                MANTENIMIENTO
+                                            </SelectItem>
+                                            <SelectItem value="FORMATEO">
+                                                FORMATEO
+                                            </SelectItem>
+                                            <SelectItem value="INSTALACION_SO">
+                                                INSTALACION_SO
+                                            </SelectItem>
+                                            <SelectItem value="OTRO">
+                                                OTRO
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+
+                                    <Select
+                                        value={prioridadEdit}
+                                        onValueChange={setPrioridadEdit}
+                                    >
+                                        <SelectTrigger className="h-8 text-[11px] bg-emerald-700/40 border-emerald-400 text-emerald-50">
+                                            <SelectValue placeholder="Prioridad" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="BAJA">BAJA</SelectItem>
+                                            <SelectItem value="MEDIA">MEDIA</SelectItem>
+                                            <SelectItem value="ALTA">ALTA</SelectItem>
+                                            <SelectItem value="URGENTE">
+                                                URGENTE
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+
+                                    <Select
+                                        value={estadoEdit}
+                                        onValueChange={setEstadoEdit}
+                                    >
+                                        <SelectTrigger className="h-8 text-[11px] bg-blue-700/40 border-blue-400 text-blue-50">
+                                            <SelectValue placeholder="Estado" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="INGRESO">
+                                                INGRESO
+                                            </SelectItem>
+                                            <SelectItem value="EN_DIAGNOSTICO">
+                                                EN_DIAGNOSTICO
+                                            </SelectItem>
+                                            <SelectItem value="EN_REPARACION">
+                                                EN_REPARACION
+                                            </SelectItem>
+                                            <SelectItem value="LISTA_ENTREGA">
+                                                LISTA_ENTREGA
+                                            </SelectItem>
+                                            <SelectItem value="CERRADA">
+                                                CERRADA
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+
+                                    {esEnGarantia && (
+                                        <span className="inline-flex items-center rounded-full bg-yellow-500/20 px-3 py-1 text-xs font-semibold text-yellow-100 border border-yellow-400/60">
+                                            Garantía
+                                        </span>
+                                    )}
 
                                     <Button
                                         variant="ghost"
                                         size="sm"
                                         className="flex items-center gap-2 text-white border border-white/40 bg-transparent hover:bg-white/20 shadow-none"
                                         onClick={() =>
-                                            irAFichaTecnica(detalle.ordenId, detalle.equipoId)
+                                            irAFichaTecnica(
+                                                detalle.ordenId,
+                                                detalle.equipoId
+                                            )
                                         }
                                     >
-                                        <FileText className="h-4 w-4 text-white" /> Ir a Ficha Técnica
+                                        <FileText className="h-4 w-4 text-white" />{" "}
+                                        Ir a Ficha Técnica
                                     </Button>
-
                                 </div>
                             </div>
 
                             <div className="flex flex-wrap gap-3 text-[11px] text-white/70">
                                 <span>
-                                    <span className="font-semibold text-white">Ingreso:</span>{" "}
+                                    <span className="font-semibold text-white">
+                                        Ingreso:
+                                    </span>{" "}
                                     {fmtFecha(detalle.fechaHoraIngreso)}
                                 </span>
-                                <span className="hidden sm:inline text-white/40">·</span>
+                                <span className="hidden sm:inline text-white/40">
+                                    ·
+                                </span>
                                 <span>
-                                    <span className="font-semibold text-white">Entrega:</span>{" "}
+                                    <span className="font-semibold text-white">
+                                        Entrega:
+                                    </span>{" "}
                                     {fmtFecha(detalle.fechaHoraEntrega)}
                                 </span>
+                                {detalle.medioContacto && (
+                                    <>
+                                        <span className="hidden sm:inline text-white/40">
+                                            ·
+                                        </span>
+                                        <span>
+                                            <span className="font-semibold text-white">
+                                                Medio:
+                                            </span>{" "}
+                                            {detalle.medioContacto}
+                                        </span>
+                                    </>
+                                )}
+                            </div>
+
+                            {/* STEPPER DE PASOS */}
+                            <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
+                                {[
+                                    {
+                                        paso: 1,
+                                        label: "1. Contexto",
+                                        desc: "Datos de ingreso",
+                                    },
+                                    {
+                                        paso: 2,
+                                        label: "2. Diagnóstico",
+                                        desc: "Trabajo realizado",
+                                    },
+                                    {
+                                        paso: 3,
+                                        label: "3. Costos",
+                                        desc: "Valores económicos",
+                                    },
+                                    {
+                                        paso: 4,
+                                        label: "4. Cierre / OTP",
+                                        desc: "Motivo y firma",
+                                    },
+                                ].map((p) => (
+                                    <button
+                                        key={p.paso}
+                                        type="button"
+                                        onClick={() =>
+                                            setPasoActivo(p.paso as Paso)
+                                        }
+                                        className={`flex items-center gap-2 rounded-full border px-3 py-1 transition ${
+                                            pasoActivo === p.paso
+                                                ? "border-white bg-white/20 text-white"
+                                                : "border-white/30 bg-slate-800/40 text-white/70 hover:bg-white/10"
+                                        }`}
+                                    >
+                                        <span className="text-[10px] font-semibold">
+                                            {p.label}
+                                        </span>
+                                        <span className="hidden sm:inline text-[10px] opacity-80">
+                                            {p.desc}
+                                        </span>
+                                    </button>
+                                ))}
                             </div>
                         </header>
-
 
                         {/* CONTENIDO SCROLLABLE */}
                         <div className="flex-1 overflow-y-auto px-6 py-4">
                             <div className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-                                {/* IZQUIERDA: Info & observaciones */}
+                                {/* IZQUIERDA: Pasos del flujo */}
                                 <div className="flex flex-col gap-4">
-                                    <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
-                                        <h3 className="text-xs font-semibold text-slate-700 uppercase tracking-wide">
-                                            Problema reportado
+                                    {/* PASO 1: CONTEXTO / INGRESO */}
+                                    <div
+                                        className={`rounded-xl border p-3 transition ${
+                                            pasoActivo === 1
+                                                ? "border-slate-400 bg-slate-50"
+                                                : "border-slate-100 bg-slate-50/60"
+                                        }`}
+                                    >
+                                        <h3 className="text-xs font-semibold text-slate-700 uppercase tracking-wide flex items-center justify-between">
+                                            <span>Datos de ingreso</span>
+                                            <span className="text-[10px] text-slate-400">
+                                                Paso 1 de 4
+                                            </span>
                                         </h3>
-                                        <p className="mt-2 text-sm text-slate-800 whitespace-pre-wrap">
-                                            {fmt(detalle.problemaReportado)}
+                                        <p className="mt-2 text-xs text-slate-600">
+                                            Revisa la información de entrada antes de
+                                            continuar con el diagnóstico.
                                         </p>
+
+                                        <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                                            <div>
+                                                <span className="font-semibold text-slate-700">
+                                                    Problema reportado:
+                                                </span>
+                                                <p className="mt-1 text-slate-800 whitespace-pre-wrap">
+                                                    {fmt(detalle.problemaReportado)}
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <span className="font-semibold text-slate-700">
+                                                    Observaciones de ingreso:
+                                                </span>
+                                                <p className="mt-1 text-slate-800 whitespace-pre-wrap">
+                                                    {fmt(detalle.observacionesIngreso)}
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <span className="font-semibold text-slate-700">
+                                                    Equipo:
+                                                </span>
+                                                <p className="mt-1 text-slate-800">
+                                                    {fmt(detalle.equipoModelo)}{" "}
+                                                    {detalle.equipoHostname &&
+                                                        `(${detalle.equipoHostname})`}
+                                                </p>
+                                            </div>
+                                        </div>
                                     </div>
 
-                                    <div className="rounded-xl border border-slate-100 bg-white p-3 shadow-sm">
-                                        <h3 className="text-xs font-semibold text-slate-700 uppercase tracking-wide">
-                                            Observaciones de ingreso
+                                    {/* PASO 2: DIAGNÓSTICO */}
+                                    <div
+                                        className={`rounded-xl border p-3 transition ${
+                                            pasoActivo === 2
+                                                ? "border-slate-400 bg-white"
+                                                : "border-slate-100 bg-white"
+                                        }`}
+                                    >
+                                        <h3 className="text-xs font-semibold text-slate-700 uppercase tracking-wide flex items-center justify-between">
+                                            <span>Diagnóstico y trabajo realizado</span>
+                                            <span className="text-[10px] text-slate-400">
+                                                Paso 2 de 4
+                                            </span>
                                         </h3>
-                                        <p className="mt-2 text-sm text-slate-800 whitespace-pre-wrap">
-                                            {fmt(detalle.observacionesIngreso)}
+                                        <p className="mt-2 text-xs text-slate-600">
+                                            Registra tus pruebas, hallazgos y acciones
+                                            realizadas.
                                         </p>
+
+                                        <div className="mt-3 space-y-2">
+                                            <label className="text-[11px] font-medium text-slate-700">
+                                                Diagnóstico / trabajo realizado *
+                                            </label>
+                                            <textarea
+                                                value={diagEdit}
+                                                onChange={(e) =>
+                                                    setDiagEdit(e.target.value)
+                                                }
+                                                placeholder="Describe el diagnóstico, pruebas realizadas y trabajo ejecutado..."
+                                                className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 min-h-[80px]"
+                                            />
+
+                                            <label className="text-[11px] font-medium text-slate-700">
+                                                Observaciones / recomendaciones
+                                            </label>
+                                            <textarea
+                                                value={obsRecEdit}
+                                                onChange={(e) =>
+                                                    setObsRecEdit(e.target.value)
+                                                }
+                                                placeholder="Notas finales para el cliente, recomendaciones de uso, próximos mantenimientos, etc."
+                                                className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 min-h-[80px]"
+                                            />
+                                        </div>
                                     </div>
 
-                                    <div className="rounded-xl border border-slate-100 bg-white p-3 shadow-sm">
-                                        <h3 className="text-xs font-semibold text-slate-700 uppercase tracking-wide">
-                                            Diagnóstico / trabajo realizado
+                                    {/* PASO 3: COSTOS */}
+                                    <div
+                                        className={`rounded-xl border p-3 transition ${
+                                            pasoActivo === 3
+                                                ? "border-slate-400 bg-slate-50"
+                                                : "border-slate-100 bg-slate-50/80"
+                                        }`}
+                                    >
+                                        <h3 className="text-xs font-semibold text-slate-700 uppercase tracking-wide flex items-center justify-between">
+                                            <span>Costos de la orden</span>
+                                            <span className="text-[10px] text-slate-400">
+                                                Paso 3 de 4
+                                            </span>
                                         </h3>
-                                        <p className="mt-2 text-sm text-slate-800 whitespace-pre-wrap">
-                                            {fmt(detalle.diagnosticoTrabajo)}
+                                        <p className="mt-2 text-xs text-slate-600">
+                                            Ingresa los valores de mano de obra,
+                                            repuestos y otros conceptos.
                                         </p>
+
+                                        <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
+                                            <div className="space-y-1">
+                                                <label className="font-medium text-slate-700">
+                                                    Mano de obra
+                                                </label>
+                                                <Input
+                                                    type="number"
+                                                    step="0.01"
+                                                    value={costoManoObra}
+                                                    onChange={(e) =>
+                                                        setCostoManoObra(
+                                                            toNumber(e.target.value)
+                                                        )
+                                                    }
+                                                    className="h-8 text-xs"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="font-medium text-slate-700">
+                                                    Repuestos
+                                                </label>
+                                                <Input
+                                                    type="number"
+                                                    step="0.01"
+                                                    value={costoRepuestos}
+                                                    onChange={(e) =>
+                                                        setCostoRepuestos(
+                                                            toNumber(e.target.value)
+                                                        )
+                                                    }
+                                                    className="h-8 text-xs"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="font-medium text-slate-700">
+                                                    Otros costos
+                                                </label>
+                                                <Input
+                                                    type="number"
+                                                    step="0.01"
+                                                    value={costoOtros}
+                                                    onChange={(e) =>
+                                                        setCostoOtros(
+                                                            toNumber(e.target.value)
+                                                        )
+                                                    }
+                                                    className="h-8 text-xs"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="font-medium text-slate-700">
+                                                    Descuento
+                                                </label>
+                                                <Input
+                                                    type="number"
+                                                    step="0.01"
+                                                    value={descuento}
+                                                    onChange={(e) =>
+                                                        setDescuento(
+                                                            toNumber(e.target.value)
+                                                        )
+                                                    }
+                                                    className="h-8 text-xs"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="font-medium text-slate-700">
+                                                    IVA
+                                                </label>
+                                                <Input
+                                                    type="number"
+                                                    step="0.01"
+                                                    value={iva}
+                                                    onChange={(e) =>
+                                                        setIva(
+                                                            toNumber(e.target.value)
+                                                        )
+                                                    }
+                                                    className="h-8 text-xs"
+                                                />
+                                                <p className="text-[10px] text-slate-400">
+                                                    Puedes calcularlo según la tasa
+                                                    vigente.
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div className="mt-3 border-t border-slate-200 pt-2 space-y-1 text-xs">
+                                            <div className="flex justify-between">
+                                                <span className="text-slate-600">
+                                                    Subtotal:
+                                                </span>
+                                                <span className="font-semibold text-slate-800">
+                                                    {fmtMoney(subtotalCalculado)}
+                                                </span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-slate-600">
+                                                    IVA:
+                                                </span>
+                                                <span className="font-semibold text-slate-800">
+                                                    {fmtMoney(iva)}
+                                                </span>
+                                            </div>
+                                            <div className="flex justify-between text-sm">
+                                                <span className="text-slate-700">
+                                                    Total:
+                                                </span>
+                                                <span className="font-bold text-slate-900">
+                                                    {fmtMoney(totalCalculado)}
+                                                </span>
+                                            </div>
+                                        </div>
                                     </div>
 
-                                    <div className="rounded-xl border border-slate-100 bg-white p-3 shadow-sm">
-                                        <h3 className="text-xs font-semibold text-slate-700 uppercase tracking-wide">
-                                            Observaciones / recomendaciones
+                                    {/* PASO 4: CIERRE / GARANTÍA / OTP */}
+                                    <div
+                                        className={`rounded-xl border p-3 transition ${
+                                            pasoActivo === 4
+                                                ? "border-slate-400 bg-white"
+                                                : "border-slate-100 bg-white/90"
+                                        }`}
+                                    >
+                                        <h3 className="text-xs font-semibold text-slate-700 uppercase tracking-wide flex items-center justify-between">
+                                            <span>Cierre de la orden / OTP</span>
+                                            <span className="text-[10px] text-slate-400">
+                                                Paso 4 de 4
+                                            </span>
                                         </h3>
-                                        <p className="mt-2 text-sm text-slate-800 whitespace-pre-wrap">
-                                            {fmt(detalle.observacionesRecomendaciones)}
+                                        <p className="mt-2 text-xs text-slate-600">
+                                            Define si aplica garantía, registra OTP y
+                                            motivo de cierre.
                                         </p>
+
+                                        <div className="mt-3 space-y-3 text-xs">
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        setEsEnGarantia(
+                                                            (prev) => !prev
+                                                        )
+                                                    }
+                                                    className={`h-4 w-4 rounded border flex items-center justify-center ${
+                                                        esEnGarantia
+                                                            ? "border-emerald-500 bg-emerald-500"
+                                                            : "border-slate-400 bg-white"
+                                                    }`}
+                                                >
+                                                    {esEnGarantia && (
+                                                        <span className="text-[10px] text-white">
+                                                            ✓
+                                                        </span>
+                                                    )}
+                                                </button>
+                                                <span className="font-medium text-slate-700">
+                                                    Orden en garantía
+                                                </span>
+                                            </div>
+
+                                            {esEnGarantia && (
+                                                <div className="space-y-1">
+                                                    <label className="font-medium text-slate-700">
+                                                        Referencia orden de garantía
+                                                    </label>
+                                                    <Input
+                                                        value={referenciaGarantia}
+                                                        onChange={(e) =>
+                                                            setReferenciaGarantia(
+                                                                e.target.value
+                                                            )
+                                                        }
+                                                        placeholder="ID de la orden original"
+                                                        className="h-8 text-xs"
+                                                    />
+                                                </div>
+                                            )}
+
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                <div className="space-y-1">
+                                                    <label className="font-medium text-slate-700">
+                                                        Código OTP
+                                                    </label>
+                                                    <Input
+                                                        value={otpCodigo}
+                                                        onChange={(e) =>
+                                                            setOtpCodigo(
+                                                                e.target.value
+                                                            )
+                                                        }
+                                                        placeholder="OTP validada con el cliente"
+                                                        className="h-8 text-xs"
+                                                    />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <label className="font-medium text-slate-700">
+                                                        OTP validada
+                                                    </label>
+                                                    <div className="flex items-center gap-2 mt-1">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                setOtpValidado(
+                                                                    (prev) => !prev
+                                                                )
+                                                            }
+                                                            className={`h-4 w-4 rounded border flex items-center justify-center ${
+                                                                otpValidado
+                                                                    ? "border-emerald-500 bg-emerald-500"
+                                                                    : "border-slate-400 bg-white"
+                                                            }`}
+                                                        >
+                                                            {otpValidado && (
+                                                                <span className="text-[10px] text-white">
+                                                                    ✓
+                                                                </span>
+                                                            )}
+                                                        </button>
+                                                        <span className="text-xs text-slate-700">
+                                                            Confirmado con el cliente
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-1">
+                                                <label className="font-medium text-slate-700">
+                                                    Motivo de cierre *
+                                                </label>
+                                                <textarea
+                                                    value={motivoCierre}
+                                                    onChange={(e) =>
+                                                        setMotivoCierre(
+                                                            e.target.value
+                                                        )
+                                                    }
+                                                    placeholder="Ej: Equipo entregado conforme, cliente aprueba trabajo y costos."
+                                                    className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 min-h-[60px]"
+                                                />
+                                            </div>
+
+                                            <div className="space-y-1">
+                                                <label className="font-medium text-slate-700">
+                                                    Cerrada por
+                                                </label>
+                                                <Input
+                                                    value={cerradaPor}
+                                                    onChange={(e) =>
+                                                        setCerradaPor(e.target.value)
+                                                    }
+                                                    placeholder="Usuario / técnico que cierra la orden"
+                                                    className="h-8 text-xs"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex justify-between items-center pt-2 text-[11px] text-slate-500">
+                                        <span>
+                                            Paso actual: {pasoActivo} / 4 — sigue el
+                                            orden para no olvidar nada.
+                                        </span>
+                                        <div className="flex gap-2">
+                                            {pasoActivo > 1 && (
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="h-7 text-[11px]"
+                                                    onClick={() =>
+                                                        setPasoActivo(
+                                                            (prev) =>
+                                                                ((prev - 1) as Paso)
+                                                        )
+                                                    }
+                                                >
+                                                    Anterior
+                                                </Button>
+                                            )}
+                                            {pasoActivo < 4 && (
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="h-7 text-[11px]"
+                                                    onClick={() =>
+                                                        setPasoActivo(
+                                                            (prev) =>
+                                                                ((prev + 1) as Paso)
+                                                        )
+                                                    }
+                                                >
+                                                    Siguiente
+                                                </Button>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
 
                                 {/* DERECHA: Imágenes + subida */}
                                 <div className="flex flex-col gap-4">
-                                    {/* Título y pequeño filtro por categoría (si lo usas) */}
                                     <div className="flex flex-wrap items-center justify-between gap-2">
                                         <div>
                                             <h3 className="text-xs font-semibold text-slate-700 uppercase tracking-wide">
@@ -708,13 +1561,30 @@ export default function OrdenesTrabajoPage() {
                                                 Haz clic en una miniatura para ampliarla.
                                             </p>
                                         </div>
+
+                                        {/* Pequeño filtro por texto (categoría) */}
+                                        <div className="flex items-center gap-2">
+                                            <Input
+                                                placeholder="Filtrar por categoría..."
+                                                value={imgFilterCategoria}
+                                                onChange={(e) =>
+                                                    setImgFilterCategoria(
+                                                        e.target.value
+                                                    )
+                                                }
+                                                className="h-8 w-40 text-xs"
+                                            />
+                                        </div>
                                     </div>
 
                                     {/* LISTA DE IMÁGENES */}
                                     <div className="flex-1 rounded-xl border border-slate-100 bg-slate-50/60 p-2 max-h-[320px] overflow-y-auto">
-                                        {imagenesDetalle && imagenesDetalle.length > 0 ? (
+                                        {imagenesDetalle &&
+                                        imagenesDetalle.length > 0 ? (
                                             (() => {
-                                                const term = imgFilterCategoria.trim();
+                                                const term = imgFilterCategoria
+                                                    .trim()
+                                                    .toUpperCase();
 
                                                 const categorias = Array.from(
                                                     new Set(
@@ -727,8 +1597,8 @@ export default function OrdenesTrabajoPage() {
                                                     .filter((cat) =>
                                                         term
                                                             ? cat
-                                                                .toUpperCase()
-                                                                .includes(term)
+                                                                  .toUpperCase()
+                                                                  .includes(term)
                                                             : true
                                                     );
 
@@ -746,7 +1616,8 @@ export default function OrdenesTrabajoPage() {
                                                             const imgsCat =
                                                                 imagenesDetalle.filter(
                                                                     (img) =>
-                                                                        img.categoria === cat
+                                                                        img.categoria ===
+                                                                        cat
                                                                 );
                                                             if (imgsCat.length === 0)
                                                                 return null;
@@ -764,7 +1635,7 @@ export default function OrdenesTrabajoPage() {
                                                                             {imgsCat.length}{" "}
                                                                             imagen
                                                                             {imgsCat.length >
-                                                                                1
+                                                                            1
                                                                                 ? "es"
                                                                                 : ""}
                                                                         </span>
@@ -833,20 +1704,31 @@ export default function OrdenesTrabajoPage() {
                                         <div className="flex flex-col gap-2 sm:flex-row">
                                             <Select
                                                 value={categoriaImg}
-                                                onValueChange={(value) => setCategoriaImg(value)}
+                                                onValueChange={(value) =>
+                                                    setCategoriaImg(value)
+                                                }
                                             >
                                                 <SelectTrigger className="h-9 text-xs">
                                                     <SelectValue placeholder="Categoría" />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    <SelectItem value="INGRESO">INGRESO</SelectItem>
-                                                    <SelectItem value="DIAGNOSTICO">DIAGNOSTICO</SelectItem>
-                                                    <SelectItem value="REPARACION">REPARACION</SelectItem>
-                                                    <SelectItem value="ENTREGA">ENTREGA</SelectItem>
-                                                    <SelectItem value="OTRO">OTRO</SelectItem>
+                                                    <SelectItem value="INGRESO">
+                                                        INGRESO
+                                                    </SelectItem>
+                                                    <SelectItem value="DIAGNOSTICO">
+                                                        DIAGNOSTICO
+                                                    </SelectItem>
+                                                    <SelectItem value="REPARACION">
+                                                        REPARACION
+                                                    </SelectItem>
+                                                    <SelectItem value="ENTREGA">
+                                                        ENTREGA
+                                                    </SelectItem>
+                                                    <SelectItem value="OTRO">
+                                                        OTRO
+                                                    </SelectItem>
                                                 </SelectContent>
                                             </Select>
-
 
                                             <Input
                                                 type="file"
@@ -864,7 +1746,9 @@ export default function OrdenesTrabajoPage() {
                                         <div className="flex justify-end">
                                             <Button
                                                 onClick={subirImagenes}
-                                                disabled={imagenesNuevas.length === 0}
+                                                disabled={
+                                                    imagenesNuevas.length === 0
+                                                }
                                                 className="flex items-center gap-2 h-9 text-xs"
                                             >
                                                 <Upload className="h-4 w-4" /> Subir
@@ -875,6 +1759,41 @@ export default function OrdenesTrabajoPage() {
                                 </div>
                             </div>
                         </div>
+
+                        {/* FOOTER ACCIONES PRINCIPALES */}
+                        <footer className="border-t border-slate-200 bg-slate-50 px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+                            <div className="text-[11px] text-slate-500">
+                                Completa los 4 pasos y usa <b>Guardar borrador</b> o{" "}
+                                <b>Cerrar OT</b> cuando esté lista.
+                            </div>
+                            <div className="flex gap-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={guardando}
+                                    onClick={() => guardarCambiosOrden(false)}
+                                    className="flex items-center gap-2 h-8 text-[11px]"
+                                >
+                                    {guardando && (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    )}
+                                    Guardar borrador
+                                </Button>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    disabled={guardando}
+                                    onClick={cerrarOrden}
+                                    className="flex items-center gap-2 h-8 text-[11px]"
+                                >
+                                    {guardando && (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    )}
+                                    Cerrar OT
+                                </Button>
+                            </div>
+                        </footer>
 
                         {/* MODAL IMAGEN AMPLIADA */}
                         {selectedImg && (

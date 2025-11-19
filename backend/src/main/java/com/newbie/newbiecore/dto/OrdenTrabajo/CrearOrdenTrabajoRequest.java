@@ -11,6 +11,10 @@ public class CrearOrdenTrabajoRequest {
     private String problemaReportado;
     private String observacionesIngreso;
 
+    // NUEVOS CAMPOS
+    private String tipoServicio;   // DIAGNOSTICO, REPARACION, MANTENIMIENTO, etc.
+    private String prioridad;      // BAJA, MEDIA, ALTA, URGENTE
+
     public CrearOrdenTrabajoRequest() {
         // constructor vacío requerido por Jackson
     }
@@ -77,5 +81,23 @@ public class CrearOrdenTrabajoRequest {
 
     public void setObservacionesIngreso(String observacionesIngreso) {
         this.observacionesIngreso = observacionesIngreso;
+    }
+
+    // NUEVOS GETTERS/SETTERS
+
+    public String getTipoServicio() {
+        return tipoServicio;
+    }
+
+    public void setTipoServicio(String tipoServicio) {
+        this.tipoServicio = tipoServicio;
+    }
+
+    public String getPrioridad() {
+        return prioridad;
+    }
+
+    public void setPrioridad(String prioridad) {
+        this.prioridad = prioridad;
     }
 }

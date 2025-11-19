@@ -7,6 +7,8 @@ public record OrdenTrabajoListaDto(
         Long id,
         String numeroOrden,
         String estado,
+        String tipoServicio,    // 👈 NUEVO
+        String prioridad,       // 👈 NUEVO
 
         Instant fechaHoraIngreso,
         Instant fechaHoraEntrega,

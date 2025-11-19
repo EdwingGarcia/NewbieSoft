@@ -10,6 +10,8 @@ public record OrdenTrabajoDetalleDto(
         Instant fechaHoraIngreso,
         String medioContacto,
         String estado,
+        String tipoServicio,   // 👈 NUEVO
+        String prioridad,      // 👈 NUEVO
 
         // Técnico asignado (cabecera)
         String tecnicoCedula,

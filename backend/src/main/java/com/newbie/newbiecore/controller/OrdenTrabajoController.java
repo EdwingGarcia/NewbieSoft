@@ -20,25 +20,31 @@ public class OrdenTrabajoController {
     private final OrdenTrabajoService ordenTrabajoService;
     private final OrdenTrabajoImagenService ordenTrabajoImagenService;
 
-    /** Crear orden de trabajo (ingreso) */
+    /* =============================================================
+       CREAR ORDEN DE TRABAJO (INGRESO)
+       ============================================================= */
     @PostMapping
     public ResponseEntity<OrdenTrabajoIngresoDto> crear(
             @RequestBody CrearOrdenTrabajoRequest request
     ) {
         var dto = ordenTrabajoService.crearOrden(request);
-        // Puedes dejar 200 OK si ya lo consumes así en el frontend
         return ResponseEntity.ok(dto);
+        // Si quieres CREATED (201):
         // return ResponseEntity.status(HttpStatus.CREATED).body(dto);
     }
 
-    /** Obtener datos de ingreso de la orden */
+    /* =============================================================
+       OBTENER SOLO LA SECCIÓN DE INGRESO
+       ============================================================= */
     @GetMapping("/{id}/ingreso")
     public ResponseEntity<OrdenTrabajoIngresoDto> obtenerIngreso(@PathVariable Long id) {
         var dto = ordenTrabajoService.obtenerIngreso(id);
         return ResponseEntity.ok(dto);
     }
 
-    /** Actualizar datos de entrega de la orden */
+    /* =============================================================
+       ACTUALIZAR ENTREGA / CIERRE
+       ============================================================= */
     @PutMapping("/{id}/entrega")
     public ResponseEntity<Void> actualizarEntrega(
             @PathVariable Long id,
@@ -48,14 +54,18 @@ public class OrdenTrabajoController {
         return ResponseEntity.noContent().build();
     }
 
-    /** Obtener detalle completo de la orden (ingreso + entrega + equipo + cliente, etc.) */
+    /* =============================================================
+       OBTENER DETALLE COMPLETO (INGRESO + ENTREGA + EQUIPO + FICHA + META)
+       ============================================================= */
     @GetMapping("/{id}/detalle")
     public ResponseEntity<OrdenTrabajoDetalleDto> obtenerDetalle(@PathVariable Long id) {
         var dto = ordenTrabajoService.obtenerDetalle(id);
         return ResponseEntity.ok(dto);
     }
 
-    /** Subir imágenes asociadas a la orden de trabajo (ingreso/diagnóstico/entrega) */
+    /* =============================================================
+       SUBIR IMÁGENES DE LA ORDEN
+       ============================================================= */
     @PostMapping("/{id}/imagenes")
     public ResponseEntity<Void> subirImagenes(
             @PathVariable Long id,
@@ -72,19 +82,27 @@ public class OrdenTrabajoController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
-    /** Listar todas las órdenes para el dashboard */
+
+    /* =============================================================
+       LISTAR ÓRDENES PARA EL DASHBOARD
+       ============================================================= */
     @GetMapping
     public ResponseEntity<List<OrdenTrabajoListaDto>> listar() {
         var lista = ordenTrabajoService.listarOrdenes();
         return ResponseEntity.ok(lista);
     }
-    /** Listar imágenes de la orden de trabajo */
+
+    /* =============================================================
+       LISTAR IMÁGENES DE UNA ORDEN
+       ============================================================= */
     @GetMapping("/{id}/imagenes")
     public ResponseEntity<List<ImagenDto>> listarImagenes(@PathVariable Long id) {
         var imagenes = ordenTrabajoImagenService.listarImagenes(id);
+
         if (imagenes.isEmpty()) {
             return ResponseEntity.noContent().build();
         }
+
         return ResponseEntity.ok(imagenes);
     }
 }

@@ -24,7 +24,7 @@ public class OrdenTrabajoService {
     private final FichaTecnicaRepository fichaTecnicaRepository;
 
     /* =============================
-       CREAR ORDEN
+       CREAR ORDEN (INGRESO)
        ============================= */
     @Transactional
     public OrdenTrabajoIngresoDto crearOrden(CrearOrdenTrabajoRequest request) {
@@ -51,10 +51,18 @@ public class OrdenTrabajoService {
                 .tecnicoAsignado(tecnico)
                 .cliente(cliente)
                 .equipo(equipo)
+
+                // Información de ingreso
                 .contrasenaEquipo(request.getContrasenaEquipo())
                 .accesorios(request.getAccesorios())
                 .problemaReportado(request.getProblemaReportado())
                 .observacionesIngreso(request.getObservacionesIngreso())
+
+                // Clasificación de la orden
+                .tipoServicio(request.getTipoServicio())   // DIAGNOSTICO, REPARACION, etc.
+                .prioridad(request.getPrioridad())         // BAJA, MEDIA, ALTA, URGENTE
+
+                // Estado inicial
                 .estado("PENDIENTE")
                 .condicionesAceptadas(true)
                 .build();
@@ -85,6 +93,8 @@ public class OrdenTrabajoService {
                 orden.getNumeroOrden(),
                 orden.getMedioContacto(),
                 orden.getFechaHoraIngreso(),
+                orden.getTipoServicio(),
+                orden.getPrioridad(),
 
                 // Técnico
                 tecnico.getCedula(),
@@ -128,7 +138,7 @@ public class OrdenTrabajoService {
     }
 
     /* =============================
-       ACTUALIZAR ENTREGA
+       ACTUALIZAR ENTREGA / CIERRE
        ============================= */
 
     @Transactional
@@ -136,23 +146,32 @@ public class OrdenTrabajoService {
         var orden = ordenTrabajoRepository.findById(ordenId)
                 .orElseThrow(() -> new RuntimeException("Orden no encontrada"));
 
+        // Detalle de trabajo
         orden.setDiagnosticoTrabajo(request.diagnosticoTrabajo());
         orden.setObservacionesRecomendaciones(request.observacionesRecomendaciones());
         orden.setModalidad(request.modalidad());
-        orden.setFechaHoraEntrega(request.fechaHoraEntrega());
+
+        // Entrega (si no viene fecha, se usa ahora)
+        Instant fechaEntrega = request.fechaHoraEntrega() != null
+                ? request.fechaHoraEntrega()
+                : Instant.now();
+        orden.setFechaHoraEntrega(fechaEntrega);
+
         orden.setNumeroFactura(request.numeroFactura());
         orden.setFormaPago(request.formaPago());
         orden.setFirmaTecnicoEntrega(request.firmaTecnicoEntrega());
         orden.setFirmaClienteEntrega(request.firmaClienteEntrega());
         orden.setRecibeASatisfaccion(request.recibeASatisfaccion());
-        orden.setEstado("CERRADA");
+
+        // Estado final
+        orden.setEstado("CERRADO");
 
         ordenTrabajoRepository.save(orden);
     }
 
     /* =============================
-   DETALLE COMPLETO
-   ============================= */
+       DETALLE COMPLETO
+       ============================= */
 
     @Transactional(readOnly = true)
     public OrdenTrabajoDetalleDto obtenerDetalle(Long ordenId) {
@@ -178,7 +197,7 @@ public class OrdenTrabajoService {
             fechaFicha = ficha.getFechaCreacion();
             observacionesFicha = ficha.getObservaciones();
 
-            // 🔁 Ahora la ficha solo tiene tecnicoId (cedula), no un objeto Usuario
+            // Ahora la ficha solo tiene tecnicoId (cedula)
             tecnicoFichaCedula = ficha.getTecnicoId();
 
             if (tecnicoFichaCedula != null) {
@@ -194,6 +213,8 @@ public class OrdenTrabajoService {
                 orden.getFechaHoraIngreso(),
                 orden.getMedioContacto(),
                 orden.getEstado(),
+                orden.getTipoServicio(),
+                orden.getPrioridad(),
 
                 // Técnico asignado
                 tecnico.getCedula(),
@@ -249,68 +270,63 @@ public class OrdenTrabajoService {
         );
     }
 
+    /* =============================
+       LISTAR ÓRDENES (dashboard)
+       ============================= */
+    @Transactional(readOnly = true)
+    public List<OrdenTrabajoListaDto> listarOrdenes() {
+        return ordenTrabajoRepository.findAll()
+                .stream()
+                .map(this::mapToListaDto)
+                .toList();
+    }
 
-    // ... lo que ya tienes arriba
+    private OrdenTrabajoListaDto mapToListaDto(OrdenTrabajo orden) {
 
-        /* =============================
-           LISTAR ÓRDENES (para el dashboard)
-           ============================= */
-        @Transactional(readOnly = true)
-        public List<OrdenTrabajoListaDto> listarOrdenes() {
-            return ordenTrabajoRepository.findAll()
-                    .stream()
-                    .map(this::mapToListaDto)
-                    .toList();
-        }
+        var cliente = orden.getCliente();
+        var tecnico = orden.getTecnicoAsignado();
+        var equipo  = orden.getEquipo();
 
-        private OrdenTrabajoListaDto mapToListaDto(OrdenTrabajo orden) {
+        List<ImagenDto> imagenes = orden.getImagenes()
+                .stream()
+                .map(img -> new ImagenDto(
+                        img.getId(),
+                        img.getRuta(),
+                        img.getCategoria(),
+                        img.getDescripcion(),
+                        img.getFechaSubida()
+                ))
+                .toList();
 
-            var cliente = orden.getCliente();
-            var tecnico = orden.getTecnicoAsignado();
-            var equipo  = orden.getEquipo();
+        return new OrdenTrabajoListaDto(
+                orden.getId(),
+                orden.getNumeroOrden(),
+                orden.getEstado(),
+                orden.getTipoServicio(),
+                orden.getPrioridad(),
 
-            List<ImagenDto> imagenes = orden.getImagenes()
-                    .stream()
-                    .map(img -> new ImagenDto(
-                            img.getId(),
-                            img.getRuta(),
-                            img.getCategoria() ,
-                            img.getDescripcion(),
-                            img.getFechaSubida()
-                    ))
-                    .toList();
+                orden.getFechaHoraIngreso(),
+                orden.getFechaHoraEntrega(),
 
-            return new OrdenTrabajoListaDto(
-                    orden.getId(),
-                    orden.getNumeroOrden(),
-                    orden.getEstado(),
+                orden.getMedioContacto(),
+                orden.getModalidad(),
 
-                    orden.getFechaHoraIngreso(),
-                    orden.getFechaHoraEntrega(),
+                cliente != null ? cliente.getCedula() : null,
+                cliente != null ? cliente.getNombre() : null,
 
-                    orden.getMedioContacto(),
-                    orden.getModalidad(),
+                tecnico != null ? tecnico.getCedula() : null,
+                tecnico != null ? tecnico.getNombre() : null,
 
-                    cliente != null ? cliente.getCedula()  : null,
-                    cliente != null ? cliente.getNombre()  : null,
+                equipo != null ? equipo.getIdEquipo()  : null,
+                equipo != null ? equipo.getModelo()    : null,
+                equipo != null ? equipo.getHostname()  : null,
 
-                    tecnico != null ? tecnico.getCedula()  : null,
-                    tecnico != null ? tecnico.getNombre()  : null,
+                orden.getProblemaReportado(),
+                orden.getObservacionesIngreso(),
+                orden.getDiagnosticoTrabajo(),
+                orden.getObservacionesRecomendaciones(),
 
-                    equipo != null ? equipo.getIdEquipo()      : null,
-                    equipo != null ? equipo.getModelo()       : null,
-                    equipo != null ? equipo.getHostname()     : null,
-
-                    orden.getProblemaReportado(),
-                    orden.getObservacionesIngreso(),
-                    orden.getDiagnosticoTrabajo(),
-                    orden.getObservacionesRecomendaciones(),
-
-                    imagenes
-            );
-        }
-
-        // ... el resto de métodos que ya tienes
-
-
+                imagenes
+        );
+    }
 }
