@@ -1,12 +1,40 @@
 'use client';
+
 import { useRef, useState, useEffect } from 'react';
+import { useSearchParams } from "next/navigation";
 
 export default function FirmaPage() {
+    const searchParams = useSearchParams();
+    const ordenId = searchParams.get("ordenId");
+    const modo = searchParams.get("modo");
+
+    const [orden, setOrden] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+      if (!ordenId) return;
+
+      const fetchData = async () => {
+        try {
+          const res = await fetch(`http://localhost:8080/api/ordenes/${ordenId}/detalle`);
+          if (!res.ok) throw new Error("No se pudo cargar la orden");
+          const data = await res.json();
+          setOrden(data);
+        } catch (err) {
+          console.error("ERROR CARGANDO ORDEN:", err);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchData();
+    }, [ordenId]);
+
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [acuerdo, setAcuerdo] = useState(true);
 
-  // Configurar el canvas
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -55,16 +83,19 @@ export default function FirmaPage() {
   };
 
   const handleSubmit = async () => {
+      if (!orden) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const dataUrl = canvas.toDataURL("image/png");
+    const firmaBase64 = canvas.toDataURL("image/png");
 
-     const payload = {
-       cliente: "Juan Pérez",
-       equipo: "Equipo de Soporte",
-       procedimiento: "Instalación de software",
-       firma: dataUrl // 👈 aquí debe ir el base64
-     };
+  const payload = {
+    ordenId: orden.ordenId,
+    cliente: orden.clienteNombre,
+    equipo: orden.modelo ?? orden.equipoId,
+    procedimiento: orden.problemaReportado,
+    modo: modo, // "aceptacion" o "finalizacion"
+    firma: firmaBase64
+  };
 
     try {
       const response = await fetch('http://localhost:8080/api/firmas/confirmacion', {
@@ -79,22 +110,32 @@ export default function FirmaPage() {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = 'Confirmacion.pdf';
+      link.download = `Confirmacion_OT_${orden.ordenId}.pdf`;
       link.click();
 
-      alert('✅ PDF generado y enviado correctamente.');
+      alert("✅ Firma registrada y PDF generado correctamente");
+      window.location.href = "/dashboard";
     } catch (err) {
       console.error(err);
       alert('❌ Error al procesar la firma.');
     }
   };
+  if (loading) {
+    return <div className="p-6 text-center text-lg">Cargando información...</div>;
+  }
+
+  if (!orden) {
+      console.log("ORDEN CARGADA:", orden);
+    return <div className="p-6 text-center text-red-600">No se encontró la orden.</div>;
+  }
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
       <h1 className="text-3xl font-bold mb-6">Confirmación de Procedimiento</h1>
       <div className="bg-white shadow-md rounded-lg p-6 w-96 text-center">
-        <p><b>Equipo:</b> Equipo de calibración XYZ</p>
-        <p><b>Procedimiento:</b> Revisión y recalibración de sensores.</p>
+        <p><b>Equipo:</b> {orden.equipoModelo ?? orden.equipoId}</p>
+        <p><b>Procedimiento:</b> {orden.problemaReportado}</p>
+        <p><b>Cliente:</b> {orden.clienteNombre}</p>
 
         <div className="mt-4">
           <label className="block mb-2">¿Está de acuerdo con el procedimiento propuesto?</label>

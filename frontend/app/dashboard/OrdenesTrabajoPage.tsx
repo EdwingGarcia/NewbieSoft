@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { FileSignature } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -475,6 +476,10 @@ export default function OrdenesTrabajoPage() {
         router.push(
             `/dashboard/fichas?ordenTrabajoId=${ordenId}&equipoId=${equipoId}`
         );
+    };
+
+    const irAAprobacionProcedimiento = (ordenId: number) => {
+        router.push(`/firma?ordenId=${ordenId}&modo=aceptacion`);
     };
 
     /* ===== Handlers formulario crear OT ===== */
