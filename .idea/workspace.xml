@@ -4,14 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="ddf03273-e7ff-4622-aed3-f486321b3a50" name="Changes" comment="Otp module">
-      <change afterPath="$PROJECT_DIR$/frontend/app/client-layout.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/controller/FirmaController.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/controller/FirmaController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/src/main/resources/application.properties" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/resources/application.properties" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/app/dashboard/OrdenesTrabajoPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/app/dashboard/OrdenesTrabajoPage.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/app/firma/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/app/firma/page.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/app/layout.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/app/layout.tsx" afterDir="false" />
+    <list default="true" id="ddf03273-e7ff-4622-aed3-f486321b3a50" name="Changes" comment="Signature-module + navbar">
+      <change afterPath="$PROJECT_DIR$/package-lock.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -173,7 +168,15 @@
       <option name="project" value="LOCAL" />
       <updated>1761520946902</updated>
     </task>
-    <option name="localTasksCounter" value="10" />
+    <task id="LOCAL-00010" summary="Signature-module + navbar">
+      <option name="closed" value="true" />
+      <created>1763617912387</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1763617912387</updated>
+    </task>
+    <option name="localTasksCounter" value="11" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -183,6 +186,7 @@
     <MESSAGE value="refactor for crate frontend" />
     <MESSAGE value="for frontend" />
     <MESSAGE value="Otp module" />
-    <option name="LAST_COMMIT_MESSAGE" value="Otp module" />
+    <MESSAGE value="Signature-module + navbar" />
+    <option name="LAST_COMMIT_MESSAGE" value="Signature-module + navbar" />
   </component>
 </project>
