@@ -19,9 +19,12 @@ import {
     Trash2,
     X,
 } from "lucide-react";
+import { MessageCircle } from "lucide-react";
+
 
 const API_BASE = "http://localhost:8080/api/fichas";
 const buildUrl = (p: string) => `${API_BASE}${p}`;
+
 
 export default function FichaTecnicaForm() {
     const router = useRouter();

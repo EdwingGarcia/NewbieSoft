@@ -13,21 +13,37 @@ public class MailService {
         this.mailSender = mailSender;
     }
 
-    public void enviarOtp(String correoDestino, String codigo) {
+    // ===========================================
+    // MÉTODO GENERAL (usado en varios módulos)
+    // ===========================================
+    public void sendEmail(String to, String subject, String body) {
         SimpleMailMessage mensaje = new SimpleMailMessage();
-        mensaje.setTo(correoDestino);
-        mensaje.setSubject("Código OTP - Newbie Soporte Técnico");
-        mensaje.setText("Tu código OTP es: " + codigo + "\nEste código expira en 10 minutos.");
+        mensaje.setTo(to);
+        mensaje.setSubject(subject);
+        mensaje.setText(body);
         mailSender.send(mensaje);
     }
-    
-    public void enviarCorreoPrueba(String destinatario) {
-        SimpleMailMessage mensaje = new SimpleMailMessage();
-        mensaje.setTo(destinatario);
-        mensaje.setSubject("Correo de prueba");
-        mensaje.setText("¡Hola! Este es un correo de prueba desde Spring Boot.");
-        mensaje.setFrom("tu_correo@gmail.com");
 
-        mailSender.send(mensaje);
+    // ===========================================
+    // OTP (método que usa OtpService)
+    // ===========================================
+    public void enviarOtp(String correoDestino, String codigoOtp) {
+        SimpleMailMessage msg = new SimpleMailMessage();
+        msg.setTo(correoDestino);
+        msg.setSubject("Código OTP de verificación");
+        msg.setText("Su código OTP es: " + codigoOtp);
+        mailSender.send(msg);
+    }
+
+    // ===========================================
+    // PRUEBA DE CORREO (usado en TestEmailController)
+    // ===========================================
+    public String enviarCorreoPrueba(String correoDestino) {
+        SimpleMailMessage msg = new SimpleMailMessage();
+        msg.setTo(correoDestino);
+        msg.setSubject("Correo de prueba");
+        msg.setText("Este es un mensaje de prueba desde el backend de NewbieSoft.");
+        mailSender.send(msg);
+        return "Correo de prueba enviado a " + correoDestino;
     }
 }

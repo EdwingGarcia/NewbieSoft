@@ -3,7 +3,9 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { FileSignature } from "lucide-react";
-
+import { Signature } from "lucide-react";
+import { FileUp, MessageCircle, X } from "lucide-react"
+import ModalNotificacion from "../components/ModalNotificacion";
 import { Button } from "@/components/ui/button";
 import {
     Card,
@@ -17,7 +19,6 @@ import {
     Loader2,
     CalendarDays,
     Upload,
-    X,
     FileText,
     Plus,
 } from "lucide-react";
@@ -28,6 +29,7 @@ import {
     SelectItem,
     SelectValue,
 } from "@/components/ui/select";
+
 
 const API_BASE = "http://localhost:8080/api/ordenes";
 const buildUrl = (p: string = "") => `${API_BASE}${p}`;
@@ -138,6 +140,8 @@ type Paso = 1 | 2 | 3 | 4;
 
 export default function OrdenesTrabajoPage() {
     const router = useRouter();
+    const [showNotifModal, setShowNotifModal] = useState(false);
+    const [notifOtId, setNotifOtId] = useState<number | null>(null);
 
     const [ordenes, setOrdenes] = useState<OrdenTrabajoListaDTO[]>([]);
     const [loading, setLoading] = useState(true);
@@ -1056,6 +1060,43 @@ export default function OrdenesTrabajoPage() {
                                         <FileText className="h-4 w-4 text-white" />{" "}
                                         Ir a Ficha Técnica
                                     </Button>
+
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => {
+                                        console.log("CLICK EN APROBACION", detalle.ordenId);
+                                        router.push(`/firma?ordenId=${detalle.ordenId}&modo=aceptacion`);
+                                      }}
+                                      className="flex items-center gap-2 border border-gray-400 text-white hover:bg-gray-700 hover:border-gray-500 active:bg-gray-500 active:text-white active:border-gray-600
+
+                                        transition-all
+                                      "
+                                    >
+                                    <Signature className="h-4 w-4" />
+                                      Firma de Aprobación
+                                    </Button>
+                                    {ordenes.map((ot) => (
+                                        <div key={ot.id} className="...">
+
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => {
+                                                    setNotifOtId(ot.id);   // ✔ AHORA SÍ EXISTE
+                                                    setShowNotifModal(true);
+                                                }}
+                                                className="flex items-center gap-2 border border-gray-400 text-white hover:bg-gray-700 hover:border-gray-500 active:bg-gray-500 active:text-white active:border-gray-600"
+
+                                            >
+                                            <MessageCircle className="h-4 w-4" />
+                                                Enviar Notificación
+                                            </Button>
+
+                                        </div>
+                                    ))}
+
+
                                 </div>
                             </div>
 
@@ -1800,30 +1841,40 @@ export default function OrdenesTrabajoPage() {
                             </div>
                         </footer>
 
-                        {/* MODAL IMAGEN AMPLIADA */}
-                        {selectedImg && (
-                            <div
-                                className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm"
-                                onClick={() => setSelectedImg(null)}
-                            >
-                                <div
-                                    className="relative mx-4 max-w-5xl max-h-[90vh]"
-                                    onClick={(e) => e.stopPropagation()}
-                                >
-                                    <button
-                                        onClick={() => setSelectedImg(null)}
-                                        className="absolute right-2 top-2 rounded-full bg-black/70 p-2 text-white hover:bg-black/90 transition"
-                                    >
-                                        <X className="h-4 w-4" />
-                                    </button>
-                                    <img
-                                        src={selectedImg}
-                                        alt="Vista ampliada"
-                                        className="max-h-[90vh] w-full rounded-xl object-contain shadow-2xl"
-                                    />
-                                </div>
-                            </div>
+                         {selectedImg && (
+                             <div
+                                 className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm"
+                                 onClick={() => setSelectedImg(null)}
+                             >
+                                 <div
+                                     className="relative mx-4 max-w-5xl max-h-[90vh]"
+                                     onClick={(e) => e.stopPropagation()}
+                                 >
+                                     <button
+                                         onClick={() => setSelectedImg(null)}
+                                         className="absolute right-2 top-2 rounded-full bg-black/70 p-2 text-white hover:bg-black/90 transition"
+                                     >
+                                         <X className="h-4 w-4" />
+                                     </button>
+
+                                     <img
+                                         src={selectedImg}
+                                         alt="Vista ampliada"
+                                         className="max-h-[90vh] w-full rounded-xl object-contain shadow-2xl"
+                                     />
+                                 </div>
+                             </div>
+                         )}
+
+
+                        {showNotifModal && notifOtId !== null && (
+                            <ModalNotificacion
+                                otId={notifOtId ?? 0}
+                                open={showNotifModal}
+                                onClose={() => setShowNotifModal(false)}
+                            />
                         )}
+
                     </div>
                 </div>
             )}

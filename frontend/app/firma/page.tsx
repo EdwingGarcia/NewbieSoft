@@ -83,43 +83,46 @@ export default function FirmaPage() {
   };
 
   const handleSubmit = async () => {
-      if (!orden) return;
+    if (!orden) return;
+
     const canvas = canvasRef.current;
     if (!canvas) return;
     const firmaBase64 = canvas.toDataURL("image/png");
 
-  const payload = {
-    ordenId: orden.ordenId,
-    cliente: orden.clienteNombre,
-    equipo: orden.modelo ?? orden.equipoId,
-    procedimiento: orden.problemaReportado,
-    modo: modo, // "aceptacion" o "finalizacion"
-    firma: firmaBase64
-  };
+    const payload = {
+      ordenId: orden.ordenId,
+      numeroOrden: orden.numeroOrden,
+      cliente: orden.clienteNombre,
+      equipo: orden.equipoModelo ?? orden.equipoId,
+      procedimiento: orden.problemaReportado,
+      modo: modo,
+      firma: firmaBase64
+    };
 
     try {
-      const response = await fetch('http://localhost:8080/api/firmas/confirmacion', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+      const response = await fetch("http://localhost:8080/api/firmas/confirmacion", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
       });
 
       if (!response.ok) throw new Error(`Error HTTP ${response.status}`);
 
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = url;
       link.download = `Confirmacion_OT_${orden.ordenId}.pdf`;
       link.click();
 
       alert("✅ Firma registrada y PDF generado correctamente");
-      window.location.href = "/dashboard";
+      window.location.href = "/dashboard"; // 👈 Redirección al dashboard
     } catch (err) {
       console.error(err);
-      alert('❌ Error al procesar la firma.');
+      alert("❌ Error al procesar la firma.");
     }
   };
+
   if (loading) {
     return <div className="p-6 text-center text-lg">Cargando información...</div>;
   }
