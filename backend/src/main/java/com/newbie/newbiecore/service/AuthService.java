@@ -23,6 +23,9 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+
 
 @Service
 public class AuthService {
@@ -47,6 +50,20 @@ public class AuthService {
         this.authenticationManager = authenticationManager;
         this.jwtUtils = jwtUtils;
         this.blacklistedTokenRepository = blacklistedTokenRepository;
+    }
+
+    public Usuario getUsuarioAutenticado() {
+
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+
+        if (auth == null || !auth.isAuthenticated()) {
+            throw new RuntimeException("No hay usuario autenticado en el contexto");
+        }
+
+        String correo = auth.getName();
+
+        return usuarioRepository.findByCorreo(correo)
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado para correo: " + correo));
     }
 
     // Registro de usuario
@@ -105,7 +122,8 @@ public class AuthService {
                 usuario.getRol().getNombre(),
                 getRoles(usuario),
                 getPermissions(usuario),
-                getScreens(usuario)
+                getScreens(usuario),
+                usuario.getCedula()
         );
     }
 
@@ -167,7 +185,8 @@ public class AuthService {
                 usuario.getRol().getNombre(),
                 getRoles(usuario),
                 getPermissions(usuario),
-                getScreens(usuario)
+                getScreens(usuario),
+                usuario.getCedula()
         );
     }
 

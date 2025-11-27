@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { saveSession } from "@/app/utils/auth";
 import "./styles/login.css";
 
 export default function Home() {
@@ -31,14 +32,27 @@ export default function Home() {
             const data = await response.json();
             console.log("✅ Login exitoso:", data);
 
-            // Guardar el token
+            // 🔵 Guardar sesión (TOKEN + ROL + CÉDULA)
             localStorage.setItem("token", data.token);
+            localStorage.setItem("rol", data.rol);
+            localStorage.setItem("cedula", data.cedula); // 👈 **ÚNICA LÍNEA NUEVA**
+            // O si quieres seguir usando saveSession:
+            // saveSession(data);
 
-            setMensaje("✅ Login exitoso, redirigiendo...");
+            setMensaje("Login exitoso, redirigiendo...");
+
+            // 🔵 Redirección por rol
             setTimeout(() => {
-                router.push("/dashboard");
-            }, 1500);
-        } catch (error: any) {
+                if (data.rol === "ROLE_ADMIN") {
+                    router.push("/dashboard");
+                } else if (data.rol === "ROLE_TECNICO") {
+                    router.push("/dashboard-tecnico");
+                } else {
+                    router.push("/");
+                }
+            }, 1000);
+
+        } catch (error) {
             console.error("❌ Error en login:", error);
             setMensaje("Usuario o contraseña incorrectos");
         } finally {

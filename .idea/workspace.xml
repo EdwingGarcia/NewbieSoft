@@ -5,29 +5,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="ddf03273-e7ff-4622-aed3-f486321b3a50" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/controller/NotificacionController.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/dto/DatosCorreoDTO.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/dto/NotificacionRequestDTO.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/entity/NotificacionOt.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/repository/NotificacionOtRepository.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/service/EmailService.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/service/NotificacionEmailBuilder.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/service/NotificacionService.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/app/components/ModalNotificacion.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/app/components/dialog.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/components/ui/ModalNotificacion.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/components/ui/dialog.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/components/ui/textarea.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/app/components/ProtectedRoute.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/app/utils/auth.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/config/SecurityConfig.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/config/SecurityConfig.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/service/MailService.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/service/MailService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/src/main/resources/application.properties" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/resources/application.properties" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/app/dashboard/FichaTecnicaForm.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/app/dashboard/FichaTecnicaForm.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/app/dashboard/OrdenesTrabajoPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/app/dashboard/OrdenesTrabajoPage.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/app/firma/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/app/firma/page.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/node_modules/.package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/node_modules/.package-lock.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/package-lock.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/dto/Auth/LoginResponse.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/dto/Auth/LoginResponse.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/service/AuthService.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/java/com/newbie/newbiecore/service/AuthService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/app/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/app/page.tsx" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -75,7 +58,7 @@
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;gestion__roles&quot;,
     &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
     &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
     &quot;last_opened_file_path&quot;: &quot;C:/Users/sysin/IdeaProjects/NewbieSoft/frontend/app/components&quot;,
