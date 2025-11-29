@@ -2,7 +2,16 @@
 
 import React, { useEffect, useState, useCallback, ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Signature, MessageCircle, X, Loader2, CalendarDays, Upload, FileText, Plus } from "lucide-react";
+import {
+    Signature,
+    MessageCircle,
+    X,
+    Loader2,
+    CalendarDays,
+    Upload,
+    FileText,
+    Plus,
+} from "lucide-react";
 
 import ModalNotificacion from "../components/ModalNotificacion";
 
@@ -24,6 +33,7 @@ import {
 } from "@/components/ui/select";
 
 const API_BASE = "http://localhost:8080/api/ordenes";
+const OTP_API_BASE = "http://localhost:8080/api/otp";
 const buildUrl = (p: string = "") => `${API_BASE}${p}`;
 
 /* ===== DTOs ===== */
@@ -68,6 +78,9 @@ interface OrdenTrabajoListaDTO {
 /** DTO que devuelve GET /api/ordenes/{id}/detalle */
 interface OrdenTrabajoDetalleDTO extends OrdenTrabajoListaDTO {
     ordenId: number;
+
+    // correo del cliente para envío de OTP
+    clienteCorreo?: string | null;
 
     diagnosticoTrabajo?: string | null;
     observacionesRecomendaciones?: string | null;
@@ -196,6 +209,9 @@ export default function OrdenesTrabajoPage() {
 
     const [otpCodigo, setOtpCodigo] = useState<string>("");
     const [otpValidado, setOtpValidado] = useState<boolean>(false);
+    const [otpEnviando, setOtpEnviando] = useState<boolean>(false);
+    const [otpVerificando, setOtpVerificando] = useState<boolean>(false);
+    const [otpMensaje, setOtpMensaje] = useState<string | null>(null);
 
     const [guardando, setGuardando] = useState(false);
 
@@ -343,6 +359,9 @@ export default function OrdenesTrabajoPage() {
 
         setOtpCodigo(data.otpCodigo ?? "");
         setOtpValidado(!!data.otpValidado);
+        setOtpMensaje(null);
+        setOtpEnviando(false);
+        setOtpVerificando(false);
 
         // Paso inicial alineado con el estado actual
         setPasoActivo(mapEstadoToPaso(data.estado ?? "INGRESO"));
@@ -373,9 +392,13 @@ export default function OrdenesTrabajoPage() {
         }
     };
 
-    /* ===== Cambio de paso SIN modificar el estado ===== */
-    const handlePasoChange = (nuevoPaso: Paso) => {
-        setPasoActivo(nuevoPaso);
+    /* ===== Cambio de paso: SOLO secuencial con botones ===== */
+    const irSiguientePaso = () => {
+        setPasoActivo((prev) => (prev < 4 ? ((prev + 1) as Paso) : prev));
+    };
+
+    const irPasoAnterior = () => {
+        setPasoActivo((prev) => (prev > 1 ? ((prev - 1) as Paso) : prev));
     };
 
     /* ===== PUT /{id}/entrega – guardar todo lo editable ===== */
@@ -386,17 +409,19 @@ export default function OrdenesTrabajoPage() {
             return;
         }
 
+        // 👇 Solo si es cierre forzamos CERRADA
+        const estadoPayload = esCierre
+            ? "CERRADA"
+            : estadoEdit === "CERRADA"
+                ? detalle.estado ?? "LISTA_ENTREGA" // fallback por si acaso
+                : estadoEdit;
+
         const payload = {
-            // info de servicio / estado
             tipoServicio: tipoServicioEdit,
             prioridad: prioridadEdit,
-            estado: estadoEdit, // 👈 respeta lo que esté en el combo
-
-            // diagnóstico y recomendaciones
+            estado: estadoPayload,
             diagnosticoTrabajo: diagEdit.trim(),
             observacionesRecomendaciones: obsRecEdit.trim(),
-
-            // costos
             costoManoObra,
             costoRepuestos,
             costoOtros,
@@ -404,16 +429,12 @@ export default function OrdenesTrabajoPage() {
             subtotal: subtotalCalculado,
             iva,
             total: totalCalculado,
-
-            // garantía / cierre
             esEnGarantia,
             referenciaOrdenGarantia: referenciaGarantia
                 ? Number(referenciaGarantia)
                 : null,
             motivoCierre: motivoCierre.trim() || null,
             cerradaPor: cerradaPor.trim() || null,
-
-            // OTP
             otpCodigo: otpCodigo.trim() || null,
             otpValidado,
         };
@@ -446,47 +467,144 @@ export default function OrdenesTrabajoPage() {
         }
     };
 
+
     /* ===== Cerrar OT (flujo guiado) ===== */
-const cerrarOrden = async () => {
-    if (!detalle) return;
+    const cerrarOrden = async () => {
+        if (!detalle) return;
 
-    // ❌ No está en el paso 4 → NO se puede cerrar
-    if (pasoActivo !== 4) {
-        alert("Solo puedes cerrar la orden en el Paso 4. Se guardará como borrador.");
-        await guardarCambiosOrden(false); // guarda sin cerrar
-        return;
-    }
+        if (pasoActivo !== 4) {
+            alert("Solo puedes cerrar la orden en el Paso 4. Se guardará como borrador.");
+            await guardarCambiosOrden(false);
+            return;
+        }
 
-    // ✔️ Validaciones SOLO si ya está en paso 4
-    if (!diagEdit.trim()) {
-        alert("Debes registrar un diagnóstico antes de cerrar la orden.");
-        return;
-    }
+        if (!diagEdit.trim()) {
+            alert("Debes registrar un diagnóstico antes de cerrar la orden.");
+            return;
+        }
 
-    if (totalCalculado <= 0 && !esEnGarantia) {
-        const seguir = window.confirm(
-            "El total es 0 y la orden no está marcada como garantía. ¿Cerrar igualmente?"
-        );
-        if (!seguir) return;
-    }
+        if (totalCalculado <= 0 && !esEnGarantia) {
+            const seguir = window.confirm(
+                "El total es 0 y la orden no está marcada como garantía. ¿Cerrar igualmente?"
+            );
+            if (!seguir) return;
+        }
 
-    if (!motivoCierre.trim()) {
-        alert("Debes indicar un motivo de cierre.");
-        return;
-    }
+        if (!motivoCierre.trim()) {
+            alert("Debes indicar un motivo de cierre.");
+            return;
+        }
 
-    if (!otpValidado) {
-        const seguir = window.confirm(
-            "La OTP no está validada. ¿Cerrar de todas formas?"
-        );
-        if (!seguir) return;
-    }
+        if (!otpValidado) {
+            const seguir = window.confirm(
+                "La OTP no está validada. ¿Cerrar de todas formas?"
+            );
+            if (!seguir) return;
+        }
 
-    // 👇 Aquí sí se marca como CERRADA porque cumple todo
-    setEstadoEdit("CERRADA");
-    await guardarCambiosOrden(true);
-};
+        // 👇 Aquí ya marcamos CERRADA desde guardarCambiosOrden
+        await guardarCambiosOrden(true);
+    };
 
+
+    /* ===== OTP: enviar y validar ===== */
+
+    const handleEnviarOtp = async () => {
+        if (!detalle) return;
+
+        const cedula = detalle.clienteCedula;
+        const correo = detalle.clienteCorreo;
+
+        if (!cedula || !correo) {
+            setOtpMensaje(
+                "No se encontró la cédula o el correo del cliente para enviar el OTP."
+            );
+            return;
+        }
+
+        if (!token) {
+            setOtpMensaje("Sesión inválida. Inicia sesión nuevamente.");
+            return;
+        }
+
+        setOtpMensaje(null);
+        setOtpEnviando(true);
+
+        try {
+            const response = await fetch(`${OTP_API_BASE}/generar`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    cedula: Number(cedula),
+                    correo: correo,
+                }),
+            });
+
+            if (!response.ok) {
+                throw new Error("No se pudo enviar el OTP.");
+            }
+
+            setOtpMensaje("OTP enviado al correo del cliente.");
+        } catch (err: any) {
+            console.error("Error al enviar OTP:", err);
+            setOtpMensaje(err?.message || "Error al enviar OTP.");
+        } finally {
+            setOtpEnviando(false);
+        }
+    };
+
+    const handleValidarOtp = async () => {
+        if (!detalle) return;
+
+        const cedula = detalle.clienteCedula;
+
+        if (!cedula) {
+            setOtpMensaje("No se encontró la cédula del cliente.");
+            return;
+        }
+        if (!otpCodigo) {
+            setOtpMensaje("Ingrese el código OTP enviado al cliente.");
+            return;
+        }
+
+        if (!token) {
+            setOtpMensaje("Sesión inválida. Inicia sesión nuevamente.");
+            return;
+        }
+
+        setOtpMensaje(null);
+        setOtpVerificando(true);
+
+        try {
+            const response = await fetch(`${OTP_API_BASE}/validar`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    cedula: Number(cedula),
+                    codigo: otpCodigo,
+                }),
+            });
+
+            if (!response.ok) {
+                throw new Error("OTP inválido o expirado.");
+            }
+
+            setOtpValidado(true);
+            setOtpMensaje("OTP validado correctamente.");
+        } catch (err: any) {
+            console.error("Error al validar OTP:", err);
+            setOtpValidado(false);
+            setOtpMensaje(err?.message || "Error al validar OTP.");
+        } finally {
+            setOtpVerificando(false);
+        }
+    };
 
     /* ===== Subir imágenes a la OT ===== */
     const subirImagenes = async () => {
@@ -757,22 +875,11 @@ const cerrarOrden = async () => {
                                             <SelectValue placeholder="Selecciona tipo" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="DIAGNOSTICO">
-                                                Diagnóstico
-                                            </SelectItem>
-                                            <SelectItem value="REPARACION">
-                                                Reparación
-                                            </SelectItem>
-                                            <SelectItem value="MANTENIMIENTO">
-                                                Mantenimiento
-                                            </SelectItem>
-                                            <SelectItem value="FORMATEO">
-                                                Formateo / SO
-                                            </SelectItem>
-                                            <SelectItem value="INSTALACION_SO">
-                                                Instalación de SO
-                                            </SelectItem>
-                                            <SelectItem value="OTRO">Otro</SelectItem>
+                                            <SelectItem value="INGRESO">INGRESO</SelectItem>
+                                            <SelectItem value="EN_DIAGNOSTICO">EN_DIAGNOSTICO</SelectItem>
+                                            <SelectItem value="EN_REPARACION">EN_REPARACION</SelectItem>
+                                            <SelectItem value="LISTA_ENTREGA">LISTA_ENTREGA</SelectItem>
+                                            {/* CERRADA solo se pone desde el botón "Cerrar OT" */}
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -993,8 +1100,7 @@ const cerrarOrden = async () => {
                                                 irAFichaTecnica(ot.id, ot.equipoId)
                                             }
                                         >
-                                            <FileText className="h-4 w-4" /> Ficha
-                                            técnica
+                                            <FileText className="h-4 w-4" /> Ficha técnica
                                         </Button>
                                     </div>
                                 </CardContent>
@@ -1094,7 +1200,7 @@ const cerrarOrden = async () => {
                                             </SelectContent>
                                         </Select>
 
-                                        {/* Select estado SIN cambios automáticos extras */}
+                                        {/* Select estado */}
                                         <Select
                                             value={estadoEdit}
                                             onValueChange={(value) => {
@@ -1106,21 +1212,11 @@ const cerrarOrden = async () => {
                                                 <SelectValue placeholder="Estado" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="INGRESO">
-                                                    INGRESO
-                                                </SelectItem>
-                                                <SelectItem value="EN_DIAGNOSTICO">
-                                                    EN_DIAGNOSTICO
-                                                </SelectItem>
-                                                <SelectItem value="EN_REPARACION">
-                                                    EN_REPARACION
-                                                </SelectItem>
-                                                <SelectItem value="LISTA_ENTREGA">
-                                                    LISTA_ENTREGA
-                                                </SelectItem>
-                                                <SelectItem value="CERRADA">
-                                                    CERRADA
-                                                </SelectItem>
+                                                <SelectItem value="INGRESO">INGRESO</SelectItem>
+                                                <SelectItem value="EN_DIAGNOSTICO">EN_DIAGNOSTICO</SelectItem>
+                                                <SelectItem value="EN_REPARACION">EN_REPARACION</SelectItem>
+                                                <SelectItem value="LISTA_ENTREGA">LISTA_ENTREGA</SelectItem>
+                                                {/* CERRADA solo se pone desde el botón "Cerrar OT" */}
                                             </SelectContent>
                                         </Select>
 
@@ -1141,8 +1237,7 @@ const cerrarOrden = async () => {
                                                 )
                                             }
                                         >
-                                            <FileText className="h-4 w-4" /> Ficha
-                                            Técnica
+                                            <FileText className="h-4 w-4" /> Ficha Técnica
                                         </Button>
 
                                         <Button
@@ -1205,7 +1300,7 @@ const cerrarOrden = async () => {
                                     )}
                                 </div>
 
-                                {/* STEPPER DE PASOS */}
+                                {/* STEPPER DE PASOS (solo visual, sin onClick) */}
                                 <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
                                     {[
                                         {
@@ -1228,27 +1323,25 @@ const cerrarOrden = async () => {
                                             label: "4. Cierre / OTP",
                                             desc: "Motivo y firma",
                                         },
-                                    ].map((p) => (
-                                        <button
-                                            key={p.paso}
-                                            type="button"
-                                            onClick={() =>
-                                                handlePasoChange(p.paso as Paso)
-                                            }
-                                            className={`flex items-center gap-2 rounded-full border px-3 py-1 transition ${
-                                                pasoActivo === p.paso
+                                    ].map((p) => {
+                                        const isActive = pasoActivo === p.paso;
+                                        return (
+                                            <div
+                                                key={p.paso}
+                                                className={`flex items-center gap-2 rounded-full border px-3 py-1 transition ${isActive
                                                     ? "border-white bg-white/20 text-white"
-                                                    : "border-white/30 bg-slate-800/40 text-slate-200 hover:bg-white/10"
-                                            }`}
-                                        >
-                                            <span className="text-[10px] font-semibold">
-                                                {p.label}
-                                            </span>
-                                            <span className="hidden sm:inline text-[10px] opacity-80">
-                                                {p.desc}
-                                            </span>
-                                        </button>
-                                    ))}
+                                                    : "border-white/30 bg-slate-800/40 text-slate-200"
+                                                    }`}
+                                            >
+                                                <span className="text-[10px] font-semibold">
+                                                    {p.label}
+                                                </span>
+                                                <span className="hidden sm:inline text-[10px] opacity-80">
+                                                    {p.desc}
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </header>
 
@@ -1258,382 +1351,409 @@ const cerrarOrden = async () => {
                                     {/* IZQUIERDA: Pasos del flujo */}
                                     <div className="flex flex-col gap-4">
                                         {/* PASO 1: CONTEXTO / INGRESO */}
-                                        <div
-                                            className={`border p-3 text-xs transition ${
-                                                pasoActivo === 1
-                                                    ? "border-slate-400 bg-white"
-                                                    : "border-slate-200 bg-white"
-                                            }`}
-                                        >
-                                            <h3 className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-slate-700">
-                                                <span>Datos de ingreso</span>
-                                                <span className="text-[10px] text-slate-400">
-                                                    Paso 1 de 4
-                                                </span>
-                                            </h3>
-                                            <p className="mt-2 text-[11px] text-slate-600">
-                                                Revisa la información de entrada antes de
-                                                continuar con el diagnóstico.
-                                            </p>
+                                        {pasoActivo === 1 && (
+                                            <div className="border border-slate-400 bg-white p-3 text-xs transition">
+                                                <h3 className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-slate-700">
+                                                    <span>Datos de ingreso</span>
+                                                    <span className="text-[10px] text-slate-400">
+                                                        Paso 1 de 4
+                                                    </span>
+                                                </h3>
+                                                <p className="mt-2 text-[11px] text-slate-600">
+                                                    Revisa la información de entrada antes de
+                                                    continuar con el diagnóstico.
+                                                </p>
 
-                                            <div className="mt-3 grid grid-cols-1 gap-2 text-[11px] md:grid-cols-2">
-                                                <div>
-                                                    <span className="font-semibold text-slate-700">
-                                                        Problema reportado:
-                                                    </span>
-                                                    <p className="mt-1 whitespace-pre-wrap text-slate-800">
-                                                        {fmt(detalle.problemaReportado)}
-                                                    </p>
-                                                </div>
-                                                <div>
-                                                    <span className="font-semibold text-slate-700">
-                                                        Observaciones de ingreso:
-                                                    </span>
-                                                    <p className="mt-1 whitespace-pre-wrap text-slate-800">
-                                                        {fmt(
-                                                            detalle.observacionesIngreso
-                                                        )}
-                                                    </p>
-                                                </div>
-                                                <div>
-                                                    <span className="font-semibold text-slate-700">
-                                                        Equipo:
-                                                    </span>
-                                                    <p className="mt-1 text-slate-800">
-                                                        {fmt(detalle.equipoModelo)}{" "}
-                                                        {detalle.equipoHostname &&
-                                                            `(${detalle.equipoHostname})`}
-                                                    </p>
+                                                <div className="mt-3 grid grid-cols-1 gap-2 text-[11px] md:grid-cols-2">
+                                                    <div>
+                                                        <span className="font-semibold text-slate-700">
+                                                            Problema reportado:
+                                                        </span>
+                                                        <p className="mt-1 whitespace-pre-wrap text-slate-800">
+                                                            {fmt(
+                                                                detalle.problemaReportado
+                                                            )}
+                                                        </p>
+                                                    </div>
+                                                    <div>
+                                                        <span className="font-semibold text-slate-700">
+                                                            Observaciones de ingreso:
+                                                        </span>
+                                                        <p className="mt-1 whitespace-pre-wrap text-slate-800">
+                                                            {fmt(
+                                                                detalle.observacionesIngreso
+                                                            )}
+                                                        </p>
+                                                    </div>
+                                                    <div>
+                                                        <span className="font-semibold text-slate-700">
+                                                            Equipo:
+                                                        </span>
+                                                        <p className="mt-1 text-slate-800">
+                                                            {fmt(detalle.equipoModelo)}{" "}
+                                                            {detalle.equipoHostname &&
+                                                                `(${detalle.equipoHostname})`}
+                                                        </p>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
+                                        )}
 
                                         {/* PASO 2: DIAGNÓSTICO */}
-                                        <div
-                                            className={`border p-3 text-xs transition ${
-                                                pasoActivo === 2
-                                                    ? "border-slate-400 bg-white"
-                                                    : "border-slate-200 bg-white"
-                                            }`}
-                                        >
-                                            <h3 className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-slate-700">
-                                                <span>
-                                                    Diagnóstico y trabajo realizado
-                                                </span>
-                                                <span className="text-[10px] text-slate-400">
-                                                    Paso 2 de 4
-                                                </span>
-                                            </h3>
-                                            <p className="mt-2 text-[11px] text-slate-600">
-                                                Registra tus pruebas, hallazgos y acciones
-                                                realizadas.
-                                            </p>
+                                        {pasoActivo === 2 && (
+                                            <div className="border border-slate-400 bg-white p-3 text-xs transition">
+                                                <h3 className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-slate-700">
+                                                    <span>
+                                                        Diagnóstico y trabajo realizado
+                                                    </span>
+                                                    <span className="text-[10px] text-slate-400">
+                                                        Paso 2 de 4
+                                                    </span>
+                                                </h3>
+                                                <p className="mt-2 text-[11px] text-slate-600">
+                                                    Registra tus pruebas, hallazgos y acciones
+                                                    realizadas.
+                                                </p>
 
-                                            <div className="mt-3 space-y-2">
-                                                <label className="text-[11px] font-medium text-slate-700">
-                                                    Diagnóstico / trabajo realizado *
-                                                </label>
-                                                <textarea
-                                                    value={diagEdit}
-                                                    onChange={(e) =>
-                                                        setDiagEdit(e.target.value)
-                                                    }
-                                                    placeholder="Describe el diagnóstico, pruebas realizadas y trabajo ejecutado..."
-                                                    className="min-h-[80px] w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
-                                                />
-
-                                                <label className="text-[11px] font-medium text-slate-700">
-                                                    Observaciones / recomendaciones
-                                                </label>
-                                                <textarea
-                                                    value={obsRecEdit}
-                                                    onChange={(e) =>
-                                                        setObsRecEdit(e.target.value)
-                                                    }
-                                                    placeholder="Notas finales para el cliente, recomendaciones de uso, próximos mantenimientos, etc."
-                                                    className="min-h-[80px] w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        {/* PASO 3: COSTOS */}
-                                        <div
-                                            className={`border p-3 text-xs transition ${
-                                                pasoActivo === 3
-                                                    ? "border-slate-400 bg-white"
-                                                    : "border-slate-200 bg-white"
-                                            }`}
-                                        >
-                                            <h3 className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-slate-700">
-                                                <span>Costos de la orden</span>
-                                                <span className="text-[10px] text-slate-400">
-                                                    Paso 3 de 4
-                                                </span>
-                                            </h3>
-                                            <p className="mt-2 text-[11px] text-slate-600">
-                                                Ingresa los valores de mano de obra,
-                                                repuestos y otros conceptos.
-                                            </p>
-
-                                            <div className="mt-3 grid grid-cols-2 gap-3">
-                                                <div className="space-y-1.5">
+                                                <div className="mt-3 space-y-2">
                                                     <label className="text-[11px] font-medium text-slate-700">
-                                                        Mano de obra
-                                                    </label>
-                                                    <Input
-                                                        type="number"
-                                                        step="0.01"
-                                                        value={costoManoObra}
-                                                        onChange={(e) =>
-                                                            setCostoManoObra(
-                                                                toNumber(e.target.value)
-                                                            )
-                                                        }
-                                                        className="h-8 text-xs"
-                                                    />
-                                                </div>
-                                                <div className="space-y-1.5">
-                                                    <label className="text-[11px] font-medium text-slate-700">
-                                                        Repuestos
-                                                    </label>
-                                                    <Input
-                                                        type="number"
-                                                        step="0.01"
-                                                        value={costoRepuestos}
-                                                        onChange={(e) =>
-                                                            setCostoRepuestos(
-                                                                toNumber(e.target.value)
-                                                            )
-                                                        }
-                                                        className="h-8 text-xs"
-                                                    />
-                                                </div>
-                                                <div className="space-y-1.5">
-                                                    <label className="text-[11px] font-medium text-slate-700">
-                                                        Otros costos
-                                                    </label>
-                                                    <Input
-                                                        type="number"
-                                                        step="0.01"
-                                                        value={costoOtros}
-                                                        onChange={(e) =>
-                                                            setCostoOtros(
-                                                                toNumber(e.target.value)
-                                                            )
-                                                        }
-                                                        className="h-8 text-xs"
-                                                    />
-                                                </div>
-                                                <div className="space-y-1.5">
-                                                    <label className="text-[11px] font-medium text-slate-700">
-                                                        Descuento
-                                                    </label>
-                                                    <Input
-                                                        type="number"
-                                                        step="0.01"
-                                                        value={descuento}
-                                                        onChange={(e) =>
-                                                            setDescuento(
-                                                                toNumber(e.target.value)
-                                                            )
-                                                        }
-                                                        className="h-8 text-xs"
-                                                    />
-                                                </div>
-                                                <div className="space-y-1.5">
-                                                    <label className="text-[11px] font-medium text-slate-700">
-                                                        IVA
-                                                    </label>
-                                                    <Input
-                                                        type="number"
-                                                        step="0.01"
-                                                        value={iva}
-                                                        onChange={(e) =>
-                                                            setIva(
-                                                                toNumber(e.target.value)
-                                                            )
-                                                        }
-                                                        className="h-8 text-xs"
-                                                    />
-                                                    <p className="text-[10px] text-slate-400">
-                                                        Puedes calcularlo según la tasa
-                                                        vigente.
-                                                    </p>
-                                                </div>
-                                            </div>
-
-                                            <div className="mt-3 space-y-1 border-t border-slate-200 pt-2 text-xs">
-                                                <div className="flex justify-between">
-                                                    <span className="text-slate-600">
-                                                        Subtotal:
-                                                    </span>
-                                                    <span className="font-semibold text-slate-900">
-                                                        {fmtMoney(subtotalCalculado)}
-                                                    </span>
-                                                </div>
-                                                <div className="flex justify-between">
-                                                    <span className="text-slate-600">
-                                                        IVA:
-                                                    </span>
-                                                    <span className="font-semibold text-slate-900">
-                                                        {fmtMoney(iva)}
-                                                    </span>
-                                                </div>
-                                                <div className="flex justify-between text-sm">
-                                                    <span className="text-slate-700">
-                                                        Total:
-                                                    </span>
-                                                    <span className="font-bold text-slate-900">
-                                                        {fmtMoney(totalCalculado)}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* PASO 4: CIERRE / GARANTÍA / OTP */}
-                                        <div
-                                            className={`border p-3 text-xs transition ${
-                                                pasoActivo === 4
-                                                    ? "border-slate-400 bg-white"
-                                                    : "border-slate-200 bg-white"
-                                            }`}
-                                        >
-                                            <h3 className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-slate-700">
-                                                <span>Cierre de la orden / OTP</span>
-                                                <span className="text-[10px] text-slate-400">
-                                                    Paso 4 de 4
-                                                </span>
-                                            </h3>
-                                            <p className="mt-2 text-[11px] text-slate-600">
-                                                Define si aplica garantía, registra OTP y
-                                                motivo de cierre.
-                                            </p>
-
-                                            <div className="mt-3 space-y-3">
-                                                <div className="flex items-center gap-2">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() =>
-                                                            setEsEnGarantia(
-                                                                (prev) => !prev
-                                                            )
-                                                        }
-                                                        className={`flex h-4 w-4 items-center justify-center rounded border ${
-                                                            esEnGarantia
-                                                                ? "border-emerald-500 bg-emerald-500"
-                                                                : "border-slate-400 bg-white"
-                                                        }`}
-                                                    >
-                                                        {esEnGarantia && (
-                                                            <span className="text-[10px] text-white">
-                                                                ✓
-                                                            </span>
-                                                        )}
-                                                    </button>
-                                                    <span className="text-xs font-medium text-slate-700">
-                                                        Orden en garantía
-                                                    </span>
-                                                </div>
-
-                                                {esEnGarantia && (
-                                                    <div className="space-y-1.5">
-                                                        <label className="text-[11px] font-medium text-slate-700">
-                                                            Referencia orden de garantía
-                                                        </label>
-                                                        <Input
-                                                            value={referenciaGarantia}
-                                                            onChange={(e) =>
-                                                                setReferenciaGarantia(
-                                                                    e.target.value
-                                                                )
-                                                            }
-                                                            placeholder="ID de la orden original"
-                                                            className="h-8 text-xs"
-                                                        />
-                                                    </div>
-                                                )}
-
-                                                <div className="grid gap-3 md:grid-cols-2">
-                                                    <div className="space-y-1.5">
-                                                        <label className="text-[11px] font-medium text-slate-700">
-                                                            Código OTP
-                                                        </label>
-                                                        <Input
-                                                            value={otpCodigo}
-                                                            onChange={(e) =>
-                                                                setOtpCodigo(
-                                                                    e.target.value
-                                                                )
-                                                            }
-                                                            placeholder="OTP validada con el cliente"
-                                                            className="h-8 text-xs"
-                                                        />
-                                                    </div>
-                                                    <div className="space-y-1.5">
-                                                        <label className="text-[11px] font-medium text-slate-700">
-                                                            OTP validada
-                                                        </label>
-                                                        <div className="mt-1 flex items-center gap-2">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() =>
-                                                                    setOtpValidado(
-                                                                        (prev) => !prev
-                                                                    )
-                                                                }
-                                                                className={`flex h-4 w-4 items-center justify-center rounded border ${
-                                                                    otpValidado
-                                                                        ? "border-emerald-500 bg-emerald-500"
-                                                                        : "border-slate-400 bg-white"
-                                                                }`}
-                                                            >
-                                                                {otpValidado && (
-                                                                    <span className="text-[10px] text-white">
-                                                                        ✓
-                                                                    </span>
-                                                                )}
-                                                            </button>
-                                                            <span className="text-xs text-slate-700">
-                                                                Confirmado con el cliente
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                <div className="space-y-1.5">
-                                                    <label className="text-[11px] font-medium text-slate-700">
-                                                        Motivo de cierre *
+                                                        Diagnóstico / trabajo realizado *
                                                     </label>
                                                     <textarea
-                                                        value={motivoCierre}
+                                                        value={diagEdit}
                                                         onChange={(e) =>
-                                                            setMotivoCierre(
-                                                                e.target.value
-                                                            )
+                                                            setDiagEdit(e.target.value)
                                                         }
-                                                        placeholder="Ej: Equipo entregado conforme, cliente aprueba trabajo y costos."
-                                                        className="min-h-[60px] w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+                                                        placeholder="Describe el diagnóstico, pruebas realizadas y trabajo ejecutado..."
+                                                        className="min-h-[80px] w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
                                                     />
-                                                </div>
 
-                                                <div className="space-y-1.5">
                                                     <label className="text-[11px] font-medium text-slate-700">
-                                                        Cerrada por
+                                                        Observaciones / recomendaciones
                                                     </label>
-                                                    <Input
-                                                        value={cerradaPor}
+                                                    <textarea
+                                                        value={obsRecEdit}
                                                         onChange={(e) =>
-                                                            setCerradaPor(
-                                                                e.target.value
-                                                            )
+                                                            setObsRecEdit(e.target.value)
                                                         }
-                                                        placeholder="Usuario / técnico que cierra la orden"
-                                                        className="h-8 text-xs"
+                                                        placeholder="Notas finales para el cliente, recomendaciones de uso, próximos mantenimientos, etc."
+                                                        className="min-h-[80px] w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
                                                     />
                                                 </div>
                                             </div>
-                                        </div>
+                                        )}
 
+                                        {/* PASO 3: COSTOS */}
+                                        {pasoActivo === 3 && (
+                                            <div className="border border-slate-400 bg-white p-3 text-xs transition">
+                                                <h3 className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-slate-700">
+                                                    <span>Costos de la orden</span>
+                                                    <span className="text-[10px] text-slate-400">
+                                                        Paso 3 de 4
+                                                    </span>
+                                                </h3>
+                                                <p className="mt-2 text-[11px] text-slate-600">
+                                                    Ingresa los valores de mano de obra,
+                                                    repuestos y otros conceptos.
+                                                </p>
+
+                                                <div className="mt-3 grid grid-cols-2 gap-3">
+                                                    <div className="space-y-1.5">
+                                                        <label className="text-[11px] font-medium text-slate-700">
+                                                            Mano de obra
+                                                        </label>
+                                                        <Input
+                                                            type="number"
+                                                            step="0.01"
+                                                            value={costoManoObra}
+                                                            onChange={(e) =>
+                                                                setCostoManoObra(
+                                                                    toNumber(e.target.value)
+                                                                )
+                                                            }
+                                                            className="h-8 text-xs"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <label className="text-[11px] font-medium text-slate-700">
+                                                            Repuestos
+                                                        </label>
+                                                        <Input
+                                                            type="number"
+                                                            step="0.01"
+                                                            value={costoRepuestos}
+                                                            onChange={(e) =>
+                                                                setCostoRepuestos(
+                                                                    toNumber(e.target.value)
+                                                                )
+                                                            }
+                                                            className="h-8 text-xs"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <label className="text-[11px] font-medium text-slate-700">
+                                                            Otros costos
+                                                        </label>
+                                                        <Input
+                                                            type="number"
+                                                            step="0.01"
+                                                            value={costoOtros}
+                                                            onChange={(e) =>
+                                                                setCostoOtros(
+                                                                    toNumber(e.target.value)
+                                                                )
+                                                            }
+                                                            className="h-8 text-xs"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <label className="text-[11px] font-medium text-slate-700">
+                                                            Descuento
+                                                        </label>
+                                                        <Input
+                                                            type="number"
+                                                            step="0.01"
+                                                            value={descuento}
+                                                            onChange={(e) =>
+                                                                setDescuento(
+                                                                    toNumber(e.target.value)
+                                                                )
+                                                            }
+                                                            className="h-8 text-xs"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <label className="text-[11px] font-medium text-slate-700">
+                                                            IVA
+                                                        </label>
+                                                        <Input
+                                                            type="number"
+                                                            step="0.01"
+                                                            value={iva}
+                                                            onChange={(e) =>
+                                                                setIva(
+                                                                    toNumber(e.target.value)
+                                                                )
+                                                            }
+                                                            className="h-8 text-xs"
+                                                        />
+                                                        <p className="text-[10px] text-slate-400">
+                                                            Puedes calcularlo según la tasa
+                                                            vigente.
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                <div className="mt-3 space-y-1 border-t border-slate-200 pt-2 text-xs">
+                                                    <div className="flex justify-between">
+                                                        <span className="text-slate-600">
+                                                            Subtotal:
+                                                        </span>
+                                                        <span className="font-semibold text-slate-900">
+                                                            {fmtMoney(subtotalCalculado)}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex justify-between">
+                                                        <span className="text-slate-600">
+                                                            IVA:
+                                                        </span>
+                                                        <span className="font-semibold text-slate-900">
+                                                            {fmtMoney(iva)}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex justify-between text-sm">
+                                                        <span className="text-slate-700">
+                                                            Total:
+                                                        </span>
+                                                        <span className="font-bold text-slate-900">
+                                                            {fmtMoney(totalCalculado)}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* PASO 4: CIERRE / GARANTÍA / OTP */}
+                                        {pasoActivo === 4 && (
+                                            <div className="border border-slate-400 bg-white p-3 text-xs transition">
+                                                <h3 className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-slate-700">
+                                                    <span>Cierre de la orden / OTP</span>
+                                                    <span className="text-[10px] text-slate-400">
+                                                        Paso 4 de 4
+                                                    </span>
+                                                </h3>
+                                                <p className="mt-2 text-[11px] text-slate-600">
+                                                    Define si aplica garantía, gestiona el OTP
+                                                    con el cliente y registra el motivo de
+                                                    cierre.
+                                                </p>
+
+                                                <div className="mt-3 space-y-3">
+                                                    {/* GARANTÍA */}
+                                                    <div className="flex items-center gap-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                setEsEnGarantia(
+                                                                    (prev) => !prev
+                                                                )
+                                                            }
+                                                            className={`flex h-4 w-4 items-center justify-center rounded border ${esEnGarantia
+                                                                ? "border-emerald-500 bg-emerald-500"
+                                                                : "border-slate-400 bg-white"
+                                                                }`}
+                                                        >
+                                                            {esEnGarantia && (
+                                                                <span className="text-[10px] text-white">
+                                                                    ✓
+                                                                </span>
+                                                            )}
+                                                        </button>
+                                                        <span className="text-xs font-medium text-slate-700">
+                                                            Orden en garantía
+                                                        </span>
+                                                    </div>
+
+                                                    {esEnGarantia && (
+                                                        <div className="space-y-1.5">
+                                                            <label className="text-[11px] font-medium text-slate-700">
+                                                                Referencia orden de garantía
+                                                            </label>
+                                                            <Input
+                                                                value={referenciaGarantia}
+                                                                onChange={(e) =>
+                                                                    setReferenciaGarantia(
+                                                                        e.target.value
+                                                                    )
+                                                                }
+                                                                placeholder="ID de la orden original"
+                                                                className="h-8 text-xs"
+                                                            />
+                                                        </div>
+                                                    )}
+
+                                                    {/* OTP: ENVÍO Y VALIDACIÓN */}
+                                                    <div className="grid gap-3 md:grid-cols-2">
+                                                        {/* Columna 1: Código + validar */}
+                                                        <div className="space-y-1.5">
+                                                            <label className="text-[11px] font-medium text-slate-700">
+                                                                Código OTP recibido del cliente
+                                                            </label>
+                                                            <div className="flex gap-2">
+                                                                <Input
+                                                                    value={otpCodigo}
+                                                                    onChange={(e) =>
+                                                                        setOtpCodigo(
+                                                                            e.target.value
+                                                                        )
+                                                                    }
+                                                                    placeholder="Código enviado al correo del cliente"
+                                                                    className="h-8 text-xs"
+                                                                    disabled={
+                                                                        otpValidado ||
+                                                                        otpVerificando
+                                                                    }
+                                                                />
+                                                                <Button
+                                                                    type="button"
+                                                                    onClick={handleValidarOtp}
+                                                                    disabled={
+                                                                        otpValidado ||
+                                                                        otpVerificando ||
+                                                                        !otpCodigo
+                                                                    }
+                                                                    className="flex h-8 items-center gap-1 bg-emerald-600 text-[11px] text-white hover:bg-emerald-500"
+                                                                >
+                                                                    {otpVerificando && (
+                                                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                                                    )}
+                                                                    Validar
+                                                                </Button>
+                                                            </div>
+                                                            {detalle.otpFechaValidacion &&
+                                                                otpValidado && (
+                                                                    <p className="text-[10px] text-emerald-700">
+                                                                        Validado el{" "}
+                                                                        {fmtFecha(
+                                                                            detalle.otpFechaValidacion
+                                                                        )}
+                                                                    </p>
+                                                                )}
+                                                        </div>
+
+                                                        {/* Columna 2: Enviar OTP */}
+                                                        <div className="space-y-1.5">
+                                                            <label className="text-[11px] font-medium text-slate-700">
+                                                                Envío de OTP al cliente
+                                                            </label>
+                                                            <Button
+                                                                type="button"
+                                                                onClick={handleEnviarOtp}
+                                                                disabled={
+                                                                    otpEnviando || otpValidado
+                                                                }
+                                                                className="flex h-8 items-center gap-2 bg-slate-900 text-[11px] text-white hover:bg-slate-800"
+                                                            >
+                                                                {otpEnviando && (
+                                                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                                                )}
+                                                                Enviar OTP
+                                                            </Button>
+                                                            <p className="text-[10px] text-slate-500">
+                                                                Se enviará al correo:{" "}
+                                                                <span className="font-medium">
+                                                                    {detalle.clienteCorreo ??
+                                                                        "—"}
+                                                                </span>
+                                                            </p>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Mensaje de estado OTP */}
+                                                    {otpMensaje && (
+                                                        <div className="rounded border border-slate-200 bg-slate-50 px-2 py-1.5 text-[11px] text-slate-700">
+                                                            {otpMensaje}
+                                                        </div>
+                                                    )}
+
+                                                    {/* MOTIVO DE CIERRE */}
+                                                    <div className="space-y-1.5">
+                                                        <label className="text-[11px] font-medium text-slate-700">
+                                                            Motivo de cierre *
+                                                        </label>
+                                                        <textarea
+                                                            value={motivoCierre}
+                                                            onChange={(e) =>
+                                                                setMotivoCierre(
+                                                                    e.target.value
+                                                                )
+                                                            }
+                                                            placeholder="Ej: Equipo entregado conforme, cliente aprueba trabajo y costos."
+                                                            className="min-h-[60px] w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+                                                        />
+                                                    </div>
+
+                                                    {/* CERRADA POR */}
+                                                    <div className="space-y-1.5">
+                                                        <label className="text-[11px] font-medium text-slate-700">
+                                                            Cerrada por
+                                                        </label>
+                                                        <Input
+                                                            value={cerradaPor}
+                                                            onChange={(e) =>
+                                                                setCerradaPor(
+                                                                    e.target.value
+                                                                )
+                                                            }
+                                                            placeholder="Usuario / técnico que cierra la orden"
+                                                            className="h-8 text-xs"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Navegación entre pasos */}
                                         <div className="flex items-center justify-between pt-2 text-[11px] text-slate-500">
                                             <span>
                                                 Paso actual: {pasoActivo} / 4 — sigue el
@@ -1646,12 +1766,7 @@ const cerrarOrden = async () => {
                                                         variant="outline"
                                                         size="sm"
                                                         className="h-7 border-slate-300 text-[11px] text-slate-700"
-                                                        onClick={() =>
-                                                            handlePasoChange(
-                                                                (pasoActivo -
-                                                                    1) as Paso
-                                                            )
-                                                        }
+                                                        onClick={irPasoAnterior}
                                                     >
                                                         Anterior
                                                     </Button>
@@ -1662,12 +1777,7 @@ const cerrarOrden = async () => {
                                                         variant="outline"
                                                         size="sm"
                                                         className="h-7 border-slate-300 text-[11px] text-slate-700"
-                                                        onClick={() =>
-                                                            handlePasoChange(
-                                                                (pasoActivo +
-                                                                    1) as Paso
-                                                            )
-                                                        }
+                                                        onClick={irSiguientePaso}
                                                     >
                                                         Siguiente
                                                     </Button>
@@ -1704,7 +1814,7 @@ const cerrarOrden = async () => {
                                         {/* LISTA DE IMÁGENES */}
                                         <div className="max-h-[320px] flex-1 overflow-y-auto border border-slate-200 bg-white p-2 text-xs">
                                             {imagenesDetalle &&
-                                            imagenesDetalle.length > 0 ? (
+                                                imagenesDetalle.length > 0 ? (
                                                 (() => {
                                                     const term = imgFilterCategoria
                                                         .trim()
@@ -1722,8 +1832,8 @@ const cerrarOrden = async () => {
                                                         .filter((cat) =>
                                                             term
                                                                 ? cat
-                                                                      .toUpperCase()
-                                                                      .includes(term)
+                                                                    .toUpperCase()
+                                                                    .includes(term)
                                                                 : true
                                                         );
 
@@ -1761,10 +1871,12 @@ const cerrarOrden = async () => {
                                                                                 {cat}
                                                                             </span>
                                                                             <span className="text-[10px] text-slate-500">
-                                                                                {imgsCat.length}{" "}
+                                                                                {
+                                                                                    imgsCat.length
+                                                                                }{" "}
                                                                                 imagen
                                                                                 {imgsCat.length >
-                                                                                1
+                                                                                    1
                                                                                     ? "es"
                                                                                     : ""}
                                                                             </span>
@@ -1898,7 +2010,7 @@ const cerrarOrden = async () => {
                                 <div>
                                     Completa los 4 pasos y usa{" "}
                                     <span className="font-semibold">
-                                        Guardar borrador
+                                        Guardar sin cerrar
                                     </span>{" "}
                                     o{" "}
                                     <span className="font-semibold">Cerrar OT</span> cuando
@@ -1916,7 +2028,7 @@ const cerrarOrden = async () => {
                                         {guardando && (
                                             <Loader2 className="h-4 w-4 animate-spin" />
                                         )}
-                                        Guardar borrador
+                                        Guardar sin cerrar
                                     </Button>
                                     <Button
                                         type="button"
