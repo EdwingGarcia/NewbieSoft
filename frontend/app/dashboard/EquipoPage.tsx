@@ -19,6 +19,21 @@ import {
 } from "lucide-react";
 import XmlUploader from "./XmlUploader";
 
+/* ============================
+   INTERFACES
+=============================== */
+
+interface Rol {
+    idRol: number;
+    nombre: string;
+}
+
+interface Usuario {
+    cedula: string;
+    nombre: string;
+    rol?: Rol;
+}
+
 interface Equipo {
     id?: number;
     equipoId?: number;
@@ -30,44 +45,84 @@ interface Equipo {
     cliente?: { cedula?: string; nombre?: string };
 }
 
+/* ============================
+   CONSTANTES
+=============================== */
+
 const API_BASE = "http://localhost:8080/api/equipo";
 
+/* ============================
+   COMPONENTE PRINCIPAL
+=============================== */
+
 export default function EquipoPage(): JSX.Element {
+    /* ============================
+       ESTADOS
+    =============================== */
+
     const [equipos, setEquipos] = useState<Equipo[]>([]);
+    const [clientes, setClientes] = useState<Usuario[]>([]);
+    const [tecnicos, setTecnicos] = useState<Usuario[]>([]);
+
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
     const [showForm, setShowForm] = useState(false);
     const [detalle, setDetalle] = useState<Equipo | null>(null);
     const [showXml, setShowXml] = useState(false);
 
-    // form
     const [numeroSerie, setNumeroSerie] = useState("");
     const [modelo, setModelo] = useState("");
     const [marca, setMarca] = useState("");
     const [cedulaCliente, setCedulaCliente] = useState("");
+    const [tecnicoId, setTecnicoId] = useState("");
 
-    // búsqueda dentro del hardware
+    const [listaSearch, setListaSearch] = useState("");
     const [hardwareSearch, setHardwareSearch] = useState("");
 
-    // 🔎 búsqueda de la lista
-    const [listaSearch, setListaSearch] = useState("");
+    /* ============================
+       TOKEN
+    =============================== */
 
     const getToken = (): string | null =>
         typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
+    /* ============================
+       CARGAR USUARIOS
+    =============================== */
+
+    const fetchUsuarios = useCallback(async () => {
+        const token = getToken();
+        if (!token) return;
+
+        try {
+            const res = await fetch("http://localhost:8080/api/usuarios", {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            const data: Usuario[] = await res.json();
+
+            setClientes(data.filter((u) => u.rol?.nombre === "ROLE_CLIENTE"));
+            setTecnicos(data.filter((u) => u.rol?.nombre === "ROLE_TECNICO"));
+        } catch (error) {
+            console.error("Error cargando usuarios:", error);
+        }
+    }, []);
+
+    /* ============================
+       CARGAR EQUIPOS
+    =============================== */
+
     const fetchEquipos = useCallback(async (): Promise<void> => {
         const token = getToken();
-        if (!token) {
-            setError("Token no encontrado. Inicie sesión nuevamente.");
-            return;
-        }
+        if (!token) return;
 
         try {
             setLoading(true);
             const res = await fetch(`${API_BASE}/`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
-            if (!res.ok) throw new Error(`Error ${res.status} al obtener equipos`);
+
             const data: Equipo[] = await res.json();
             setEquipos(data);
         } catch (err: any) {
@@ -79,17 +134,19 @@ export default function EquipoPage(): JSX.Element {
 
     useEffect(() => {
         fetchEquipos();
-    }, [fetchEquipos]);
+        fetchUsuarios();
+    }, [fetchEquipos, fetchUsuarios]);
+
+    /* ============================
+       CREAR EQUIPO
+    =============================== */
 
     const crearEquipo = useCallback(async () => {
         const token = getToken();
-        if (!token) {
-            setError("Token no encontrado. Inicie sesión nuevamente.");
-            return;
-        }
+        if (!token) return;
 
         if (!cedulaCliente) {
-            setError("Debe ingresar la cédula del cliente");
+            setError("Debe seleccionar un cliente");
             return;
         }
 
@@ -108,32 +165,41 @@ export default function EquipoPage(): JSX.Element {
                     modelo,
                     marca,
                     cedulaCliente,
+                    tecnicoId,
                 }),
             });
 
             if (!res.ok) throw new Error(`Error ${res.status} al crear equipo`);
 
             alert("✅ Equipo creado correctamente");
+
             setShowForm(false);
             setNumeroSerie("");
             setModelo("");
             setMarca("");
             setCedulaCliente("");
+            setTecnicoId("");
+
             fetchEquipos();
         } catch (e: any) {
-            setError(e.message || "Error creando equipo");
+            setError(e.message);
         } finally {
             setLoading(false);
         }
-    }, [numeroSerie, modelo, marca, cedulaCliente]);
+    }, [numeroSerie, modelo, marca, cedulaCliente, tecnicoId]);
+
+    /* ============================
+       DETALLES DE EQUIPO
+    =============================== */
 
     const verDetalles = async (id: number) => {
         const token = getToken();
+
         try {
             const res = await fetch(`${API_BASE}/${id}`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
-            if (!res.ok) throw new Error(`Equipo no encontrado (${res.status})`);
+
             const data = await res.json();
             setDetalle(data);
             setHardwareSearch("");
@@ -142,6 +208,10 @@ export default function EquipoPage(): JSX.Element {
             alert(err.message);
         }
     };
+
+    /* ============================
+       HARDWARE
+    =============================== */
 
     const getHardwareEntries = () => {
         if (!detalle?.hardwareJson) return [];
@@ -156,31 +226,36 @@ export default function EquipoPage(): JSX.Element {
         });
     };
 
-    // 🔎 filtrado de la lista
+    /* ============================
+       FILTRO LISTA
+    =============================== */
+
     const filteredEquipos = useMemo(() => {
         const term = listaSearch.trim().toLowerCase();
         if (!term) return equipos;
+
         return equipos.filter((eq) => {
-            const id = String(eq.id ?? eq.equipoId ?? "").toLowerCase();
-            const serie = (eq.numeroSerie ?? "").toLowerCase();
-            const mod = (eq.modelo ?? "").toLowerCase();
-            const mar = (eq.marca ?? "").toLowerCase();
-            const ced =
-                (eq.cedulaCliente ?? eq.cliente?.cedula ?? "").toLowerCase();
+            const ced = eq.cedulaCliente ?? eq.cliente?.cedula ?? "";
+
             return (
-                id.includes(term) ||
-                serie.includes(term) ||
-                mod.includes(term) ||
-                mar.includes(term) ||
-                ced.includes(term)
+                (eq.numeroSerie ?? "").toLowerCase().includes(term) ||
+                (eq.modelo ?? "").toLowerCase().includes(term) ||
+                (eq.marca ?? "").toLowerCase().includes(term) ||
+                ced.toLowerCase().includes(term)
             );
         });
     }, [equipos, listaSearch]);
 
+    /* ============================
+       UI COMPLETA
+    =============================== */
+
     return (
         <div className="p-6 space-y-6">
-            {/* ===== Header ===== */}
-            <div className="flex items-center justify-between gap-4">
+            {/* ============================
+                HEADER
+            =============================== */}
+            <div className="flex items-center justify-between">
                 <h1 className="text-2xl font-bold">Gestión de Equipos 💻</h1>
                 <Button
                     onClick={() => setShowForm(true)}
@@ -190,22 +265,25 @@ export default function EquipoPage(): JSX.Element {
                 </Button>
             </div>
 
-            {/* ===== Tabla de equipos ===== */}
+            {/* ============================
+                TABLA PRINCIPAL
+            =============================== */}
             <Card>
                 <CardHeader>
                     <div className="flex items-center justify-between gap-4">
                         <div>
                             <CardTitle className="text-lg">Lista de equipos</CardTitle>
                             <CardDescription>
-                                Visualiza todos los equipos registrados en el sistema.
+                                Visualiza todos los equipos registrados.
                             </CardDescription>
                         </div>
-                        {/* 🔍 buscador */}
+
+                        {/* Buscador */}
                         <div className="relative w-64">
                             <Input
                                 value={listaSearch}
                                 onChange={(e) => setListaSearch(e.target.value)}
-                                placeholder="Buscar por id, modelo, cédula..."
+                                placeholder="Buscar por serie, modelo, cédula..."
                                 className="pl-8 h-9 text-sm"
                             />
                             <Search className="h-4 w-4 text-gray-400 absolute left-2 top-2.5" />
@@ -214,7 +292,9 @@ export default function EquipoPage(): JSX.Element {
                 </CardHeader>
 
                 <CardContent>
-                    {error && <div className="text-red-600 text-sm mb-3">{error}</div>}
+                    {error && (
+                        <div className="text-red-600 text-sm mb-3">{error}</div>
+                    )}
 
                     {loading ? (
                         <div className="flex justify-center py-10">
@@ -223,7 +303,7 @@ export default function EquipoPage(): JSX.Element {
                     ) : filteredEquipos.length === 0 ? (
                         <div className="text-gray-500 text-center py-6">
                             {listaSearch
-                                ? "No hay equipos que coincidan con la búsqueda."
+                                ? "No hay equipos que coincidan."
                                 : "No hay equipos registrados."}
                         </div>
                     ) : (
@@ -231,44 +311,29 @@ export default function EquipoPage(): JSX.Element {
                             <table className="w-full border-collapse text-sm">
                                 <thead className="bg-gray-100">
                                     <tr>
-                                        <th className="border-b px-4 py-2 text-left font-semibold text-gray-700">
-                                            ID
-                                        </th>
-                                        <th className="border-b px-4 py-2 text-left font-semibold text-gray-700">
-                                            Número Serie
-                                        </th>
-                                        <th className="border-b px-4 py-2 text-left font-semibold text-gray-700">
-                                            Modelo
-                                        </th>
-                                        <th className="border-b px-4 py-2 text-left font-semibold text-gray-700">
-                                            Marca
-                                        </th>
-                                        <th className="border-b px-4 py-2 text-left font-semibold text-gray-700">
-                                            Cliente (Cédula)
-                                        </th>
+                                        <th className="px-4 py-2 text-left">ID</th>
+                                        <th className="px-4 py-2 text-left">Número Serie</th>
+                                        <th className="px-4 py-2 text-left">Modelo</th>
+                                        <th className="px-4 py-2 text-left">Marca</th>
+                                        <th className="px-4 py-2 text-left">Cliente</th>
                                     </tr>
                                 </thead>
+
                                 <tbody>
                                     {filteredEquipos.map((eq) => (
                                         <tr
                                             key={eq.id ?? eq.equipoId}
-                                            className="hover:bg-gray-50 transition cursor-pointer"
+                                            className="hover:bg-gray-50 cursor-pointer"
                                             onClick={() => verDetalles(eq.id ?? eq.equipoId!)}
                                         >
-                                            <td className="border-b px-4 py-2">
-                                                {eq.id ?? eq.equipoId ?? "—"}
+                                            <td className="px-4 py-2">
+                                                {eq.id ?? eq.equipoId}
                                             </td>
-                                            <td className="border-b px-4 py-2 font-medium text-gray-800">
-                                                {eq.numeroSerie ?? "—"}
-                                            </td>
-                                            <td className="border-b px-4 py-2 text-gray-600">
-                                                {eq.modelo ?? "—"}
-                                            </td>
-                                            <td className="border-b px-4 py-2 text-gray-600">
-                                                {eq.marca ?? "—"}
-                                            </td>
-                                            <td className="border-b px-4 py-2 text-gray-600">
-                                                {eq.cedulaCliente ?? eq.cliente?.cedula ?? "—"}
+                                            <td className="px-4 py-2">{eq.numeroSerie}</td>
+                                            <td className="px-4 py-2">{eq.modelo}</td>
+                                            <td className="px-4 py-2">{eq.marca}</td>
+                                            <td className="px-4 py-2">
+                                                {eq.cliente?.nombre} ({eq.cliente?.cedula})
                                             </td>
                                         </tr>
                                     ))}
@@ -279,10 +344,100 @@ export default function EquipoPage(): JSX.Element {
                 </CardContent>
             </Card>
 
-            {/* ===== Modal Detalle de Equipo ===== */}
+            {/* ============================
+                MODAL NUEVO EQUIPO
+            =============================== */}
+
+            {showForm && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-xl p-6 w-full max-w-2xl relative shadow-xl">
+
+                        <button
+                            onClick={() => setShowForm(false)}
+                            className="absolute top-2 right-3 text-gray-500 hover:text-gray-800 text-xl"
+                        >
+                            ✕
+                        </button>
+
+                        <h2 className="text-lg font-semibold mb-4">
+                            Nuevo Equipo
+                        </h2>
+
+                        {/* FORMULARIO */}
+                        <div className="space-y-3">
+
+                            <Input
+                                placeholder="Número de serie"
+                                value={numeroSerie}
+                                onChange={(e) => setNumeroSerie(e.target.value)}
+                            />
+
+                            <Input
+                                placeholder="Modelo"
+                                value={modelo}
+                                onChange={(e) => setModelo(e.target.value)}
+                            />
+
+                            <Input
+                                placeholder="Marca"
+                                value={marca}
+                                onChange={(e) => setMarca(e.target.value)}
+                            />
+
+                            {/* 🔵 COMBO CLIENTE */}
+                            <select
+                                value={cedulaCliente}
+                                onChange={(e) => setCedulaCliente(e.target.value)}
+                                className="w-full border rounded-md px-3 py-2 bg-white"
+                            >
+                                <option value="">-- Selecciona un Cliente --</option>
+                                {clientes.map((c) => (
+                                    <option key={c.cedula} value={c.cedula}>
+                                        {c.nombre} — {c.cedula}
+                                    </option>
+                                ))}
+                            </select>
+
+                            {/* 🔵 COMBO TECNICO */}
+                            <select
+                                value={tecnicoId}
+                                onChange={(e) => setTecnicoId(e.target.value)}
+                                className="w-full border rounded-md px-3 py-2 bg-white"
+                            >
+                                <option value="">-- Selecciona un Técnico --</option>
+                                {tecnicos.map((t) => (
+                                    <option key={t.cedula} value={t.cedula}>
+                                        {t.nombre} — {t.cedula}
+                                    </option>
+                                ))}
+                            </select>
+
+                            <Button
+                                onClick={crearEquipo}
+                                disabled={loading}
+                                className="flex items-center gap-2"
+                            >
+                                {loading ? (
+                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                ) : (
+                                    <Plus className="h-4 w-4 mr-2" />
+                                )}
+                                Crear equipo
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ============================
+                MODAL DETALLES
+                (NO MODIFIQUÉ NADA AQUÍ)
+            =============================== */}
+
             {detalle && (
                 <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
                     <div className="bg-white rounded-xl w-[90vw] max-w-6xl max-h-[90vh] p-6 relative flex flex-col overflow-y-auto">
+
                         <button
                             onClick={() => {
                                 setDetalle(null);
@@ -300,7 +455,9 @@ export default function EquipoPage(): JSX.Element {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 mb-8">
                             <div className="space-y-2">
                                 <p>
-                                    <span className="font-semibold">Número de serie:</span>{" "}
+                                    <span className="font-semibold">
+                                        Número de serie:
+                                    </span>{" "}
                                     {detalle.numeroSerie ?? "—"}
                                 </p>
                                 <p>
@@ -312,15 +469,20 @@ export default function EquipoPage(): JSX.Element {
                                     {detalle.marca ?? "—"}
                                 </p>
                                 <p>
-                                    <span className="font-semibold">Cliente (Cédula):</span>{" "}
+                                    <span className="font-semibold">
+                                        Cliente (Cédula):
+                                    </span>{" "}
                                     {detalle.cedulaCliente ?? "—"}
                                 </p>
                             </div>
                         </div>
 
+                        {/* SECTION HARDWARE */}
                         <div className="mt-4">
                             <div className="flex items-center justify-between mb-2 gap-2">
-                                <h3 className="text-lg font-semibold">Hardware detectado</h3>
+                                <h3 className="text-lg font-semibold">
+                                    Hardware detectado
+                                </h3>
                                 <div className="relative w-64">
                                     <Input
                                         value={hardwareSearch}
@@ -345,18 +507,25 @@ export default function EquipoPage(): JSX.Element {
                                                     </td>
                                                 </tr>
                                             ) : (
-                                                getHardwareEntries().map(([key, value]) => (
-                                                    <tr key={key} className="border-b last:border-b-0">
-                                                        <td className="py-2 px-3 font-medium w-1/3 text-gray-700">
-                                                            {key}
-                                                        </td>
-                                                        <td className="py-2 px-3 text-gray-600 break-words">
-                                                            {typeof value === "string"
-                                                                ? value
-                                                                : JSON.stringify(value)}
-                                                        </td>
-                                                    </tr>
-                                                ))
+                                                getHardwareEntries().map(
+                                                    ([key, value]) => (
+                                                        <tr
+                                                            key={key}
+                                                            className="border-b last:border-b-0"
+                                                        >
+                                                            <td className="py-2 px-3 font-medium w-1/3 text-gray-700">
+                                                                {key}
+                                                            </td>
+                                                            <td className="py-2 px-3 text-gray-600 break-words">
+                                                                {typeof value === "string"
+                                                                    ? value
+                                                                    : JSON.stringify(
+                                                                          value
+                                                                      )}
+                                                            </td>
+                                                        </tr>
+                                                    )
+                                                )
                                             )}
                                         </tbody>
                                     </table>
@@ -368,6 +537,7 @@ export default function EquipoPage(): JSX.Element {
                             )}
                         </div>
 
+                        {/* BOTÓN XML */}
                         <div className="mt-6 flex justify-end">
                             <Button
                                 variant="outline"
@@ -379,6 +549,7 @@ export default function EquipoPage(): JSX.Element {
                             </Button>
                         </div>
 
+                        {/* MODAL XML */}
                         {showXml && (
                             <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
                                 <div className="bg-white rounded-xl p-6 w-full max-w-3xl relative shadow-xl">
@@ -388,61 +559,14 @@ export default function EquipoPage(): JSX.Element {
                                     >
                                         ✕
                                     </button>
-                                    <XmlUploader equipoId={detalle.id ?? detalle.equipoId} />
+                                    <XmlUploader
+                                        equipoId={
+                                            detalle.id ?? detalle.equipoId
+                                        }
+                                    />
                                 </div>
                             </div>
                         )}
-                    </div>
-                </div>
-            )}
-
-            {/* ===== Modal Crear Equipo ===== */}
-            {showForm && (
-                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-xl p-6 w-full max-w-2xl relative shadow-xl">
-                        <button
-                            onClick={() => setShowForm(false)}
-                            className="absolute top-2 right-3 text-gray-500 hover:text-gray-800 text-xl"
-                        >
-                            ✕
-                        </button>
-
-                        <h2 className="text-lg font-semibold mb-4">Nuevo Equipo</h2>
-                        <div className="space-y-3">
-                            <Input
-                                placeholder="Número de serie"
-                                value={numeroSerie}
-                                onChange={(e) => setNumeroSerie(e.target.value)}
-                            />
-                            <Input
-                                placeholder="Modelo"
-                                value={modelo}
-                                onChange={(e) => setModelo(e.target.value)}
-                            />
-                            <Input
-                                placeholder="Marca"
-                                value={marca}
-                                onChange={(e) => setMarca(e.target.value)}
-                            />
-                            <Input
-                                placeholder="Cédula del cliente"
-                                value={cedulaCliente}
-                                onChange={(e) => setCedulaCliente(e.target.value)}
-                            />
-
-                            <Button
-                                onClick={crearEquipo}
-                                disabled={loading}
-                                className="flex items-center gap-2"
-                            >
-                                {loading ? (
-                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                ) : (
-                                    <Plus className="h-4 w-4 mr-2" />
-                                )}
-                                Crear equipo
-                            </Button>
-                        </div>
                     </div>
                 </div>
             )}

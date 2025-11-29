@@ -4,15 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="ddf03273-e7ff-4622-aed3-f486321b3a50" name="Changes" comment="Base de gestion de roles">
-      <change afterPath="$PROJECT_DIR$/frontend/app/dashboard-tecnico/EquiposTecnicoPage.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/app/dashboard-tecnico/FichasTecnicoPage.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/app/dashboard-tecnico/page.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/app/utils/logout.ts" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/middleware.ts" afterDir="false" />
+    <list default="true" id="ddf03273-e7ff-4622-aed3-f486321b3a50" name="Changes" comment="Fix: cambiar combo box por input box">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/src/main/resources/application.properties" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/resources/application.properties" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/app/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/app/page.tsx" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -60,7 +53,7 @@
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "gestion__roles",
+    "git-widget-placeholder": "main",
     "ignore.virus.scanning.warn.message": "true",
     "kotlin-language-version-configured": "true",
     "last_opened_file_path": "C:/Users/sysin/IdeaProjects/NewbieSoft/frontend/app/dashboard",
@@ -195,7 +188,15 @@
       <option name="project" value="LOCAL" />
       <updated>1764230371261</updated>
     </task>
-    <option name="localTasksCounter" value="12" />
+    <task id="LOCAL-00012" summary="Fix: cambiar combo box por input box">
+      <option name="closed" value="true" />
+      <created>1764395900180</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1764395900180</updated>
+    </task>
+    <option name="localTasksCounter" value="13" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -217,6 +218,8 @@
     <MESSAGE value="for frontend" />
     <MESSAGE value="Otp module" />
     <MESSAGE value="Base de gestion de roles" />
-    <option name="LAST_COMMIT_MESSAGE" value="Base de gestion de roles" />
+    <MESSAGE value="Fix: cambiar combo box por input box" />
+    <MESSAGE value="Merge branch 'main' of https://github.com/EdwingGarcia/NewbieSoft" />
+    <option name="LAST_COMMIT_MESSAGE" value="Merge branch 'main' of https://github.com/EdwingGarcia/NewbieSoft" />
   </component>
 </project>
