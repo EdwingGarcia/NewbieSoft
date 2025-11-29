@@ -201,6 +201,10 @@ export default function OrdenesTrabajoPage() {
 
     // === CREAR OT ===
     const [showCrear, setShowCrear] = useState(false);
+    // === Listas para los combos ===
+    const [listaClientes, setListaClientes] = useState<Usuario[]>([]);
+    const [listaTecnicos, setListaTecnicos] = useState<Usuario[]>([]);
+
     const [crearLoading, setCrearLoading] = useState(false);
     const [formCrear, setFormCrear] = useState<CrearOrdenFormState>({
         clienteCedula: "",
@@ -262,7 +266,27 @@ export default function OrdenesTrabajoPage() {
 
     useEffect(() => {
         fetchOrdenes();
+        fetchCombos();
     }, [fetchOrdenes]);
+
+    const fetchCombos = async () => {
+        if (!token) return;
+
+        try {
+            // === Usuarios (clientes y técnicos) ===
+            const resUsers = await fetch("http://localhost:8080/api/usuarios", {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            const usuarios: Usuario[] = await resUsers.json();
+
+            setListaClientes(usuarios.filter(u => u.rol?.nombre === "ROLE_CLIENTE"));
+            setListaTecnicos(usuarios.filter(u => u.rol?.nombre === "ROLE_TECNICO"));
+        } catch (err) {
+            console.error("Error cargando combos:", err);
+        }
+    };
+
 
     /* ===== GET imágenes por orden ===== */
     const fetchImagenes = useCallback(
@@ -649,25 +673,43 @@ const cerrarOrden = async () => {
                                     <label className="text-xs font-medium text-slate-700">
                                         Cédula cliente *
                                     </label>
-                                    <Input
+                                    <select
                                         name="clienteCedula"
                                         value={formCrear.clienteCedula}
-                                        onChange={handleCrearChange}
-                                        placeholder="1723..."
-                                        className="h-9 text-sm"
-                                    />
+                                        onChange={(e) =>
+                                            setFormCrear((prev) => ({ ...prev, clienteCedula: e.target.value }))
+                                        }
+                                        className="h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+                                    >
+                                        <option value="">-- Selecciona Cliente --</option>
+
+                                        {listaClientes.map((c) => (
+                                            <option key={c.cedula} value={c.cedula}>
+                                                {c.nombre} — {c.cedula}
+                                            </option>
+                                        ))}
+                                    </select>
                                 </div>
                                 <div className="space-y-1.5">
                                     <label className="text-xs font-medium text-slate-700">
                                         Cédula técnico
                                     </label>
-                                    <Input
-                                        name="tecnicoCedula"
-                                        value={formCrear.tecnicoCedula}
-                                        onChange={handleCrearChange}
-                                        placeholder="1723..."
-                                        className="h-9 text-sm"
-                                    />
+                                        <select
+                                            name="tecnicoCedula"
+                                            value={formCrear.tecnicoCedula}
+                                            onChange={(e) =>
+                                                setFormCrear((prev) => ({ ...prev, tecnicoCedula: e.target.value }))
+                                            }
+                                            className="h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+                                        >
+                                            <option value="">-- Selecciona Técnico --</option>
+
+                                            {listaTecnicos.map((t) => (
+                                                <option key={t.cedula} value={t.cedula}>
+                                                    {t.nombre} — {t.cedula}
+                                                </option>
+                                            ))}
+                                        </select>
                                 </div>
                                 <div className="space-y-1.5">
                                     <label className="text-xs font-medium text-slate-700">

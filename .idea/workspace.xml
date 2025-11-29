@@ -5,14 +5,10 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="ddf03273-e7ff-4622-aed3-f486321b3a50" name="Changes" comment="Base de gestion de roles">
-      <change afterPath="$PROJECT_DIR$/frontend/app/dashboard-tecnico/EquiposTecnicoPage.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/app/dashboard-tecnico/FichasTecnicoPage.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/app/dashboard-tecnico/page.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/app/utils/logout.ts" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/middleware.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/src/main/resources/application.properties" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/resources/application.properties" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/app/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/app/page.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/app/dashboard/EquipoPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/app/dashboard/EquipoPage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/app/dashboard/FichaTecnicaForm.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/app/dashboard/FichaTecnicaForm.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/app/dashboard/OrdenesTrabajoPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/app/dashboard/OrdenesTrabajoPage.tsx" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -60,7 +56,7 @@
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "gestion__roles",
+    "git-widget-placeholder": "main",
     "ignore.virus.scanning.warn.message": "true",
     "kotlin-language-version-configured": "true",
     "last_opened_file_path": "C:/Users/sysin/IdeaProjects/NewbieSoft/frontend/app/dashboard",

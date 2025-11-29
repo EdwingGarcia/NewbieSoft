@@ -1,5 +1,5 @@
 "use client";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,9 +41,45 @@ export default function FichaTecnicaForm() {
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [selectedImg, setSelectedImg] = useState<string | null>(null);
+    // Listas para los combobox
+    const [tecnicos, setTecnicos] = useState<any[]>([]);
+    const [clientes, setClientes] = useState<any[]>([]);
+    const [ordenes, setOrdenes] = useState<any[]>([]);
+
 
     const token =
         typeof window !== "undefined" ? localStorage.getItem("token") : null;
+
+    // Cargar técnicos, clientes y órdenes de trabajo
+    const loadCombos = async () => {
+        if (!token) return;
+
+        try {
+            const [resUsuarios, resOrdenes] = await Promise.all([
+                fetch("http://localhost:8080/api/usuarios", {
+                    headers: { Authorization: `Bearer ${token}` }
+                }),
+                fetch("http://localhost:8080/api/ordenes", {
+                    headers: { Authorization: `Bearer ${token}` }
+                }),
+            ]);
+
+            const usuarios = resUsuarios.ok ? await resUsuarios.json() : [];
+            const ordenes = resOrdenes.ok ? await resOrdenes.json() : [];
+
+            // Filtrar clientes y técnicos
+            setTecnicos(usuarios.filter((u: any) => u.rol?.nombre === "ROLE_TECNICO"));
+            setClientes(usuarios.filter((u: any) => u.rol?.nombre === "ROLE_CLIENTE"));
+
+            setOrdenes(ordenes);
+        } catch (err) {
+            console.error("Error cargando combos:", err);
+        }
+    };
+
+    useEffect(() => {
+        loadCombos();
+    }, []);
 
     /** ✨ animación de éxito */
     const animateSuccess = (message: string) => {
@@ -192,21 +228,37 @@ export default function FichaTecnicaForm() {
                         </Alert>
                     )}
 
-                    <Input
-                        placeholder="Cédula del técnico"
+                    <select
                         value={cedulaTecnico}
                         onChange={(e) => setCedulaTecnico(e.target.value)}
-                    />
+                        className="w-full border rounded-md px-3 py-2 bg-white"
+                    >
+                        <option value="">Seleccione técnico</option>
+                        {tecnicos.map((t) => (
+                            <option key={t.cedula} value={t.cedula}>
+                                {t.nombre} — {t.cedula}
+                            </option>
+                        ))}
+                    </select>
+
                     <Input
                         placeholder="ID del equipo"
                         value={equipoId}
                         onChange={(e) => setEquipoId(e.target.value)}
                     />
-                    <Input
-                        placeholder="ID de la orden de trabajo"
+                    <select
                         value={ordenTrabajoId}
                         onChange={(e) => setOrdenTrabajoId(e.target.value)}
-                    />
+                        className="w-full border rounded-md px-3 py-2 bg-white"
+                    >
+                        <option value="">Seleccione orden de trabajo</option>
+                        {ordenes.map((o) => (
+                            <option key={o.id} value={o.id}>
+                                OT #{o.id} — {o.descripcion ?? ""}
+                            </option>
+                        ))}
+                    </select>
+
                     <Input
                         placeholder="Observaciones"
                         value={observaciones}
