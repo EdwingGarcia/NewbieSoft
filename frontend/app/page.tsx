@@ -30,19 +30,17 @@ export default function Home() {
             const data = await response.json();
             console.log("✅ Login exitoso:", data);
 
-            // 🔵 Guardar sesión (TOKEN + ROL + CÉDULA)
+            // Guardar sesión
             localStorage.setItem("token", data.token);
             localStorage.setItem("rol", data.rol);
-            localStorage.setItem("cedula", data.cedula); // 👈 **ÚNICA LÍNEA NUEVA**
-            // O si quieres seguir usando saveSession:
-            // saveSession(data);
+            localStorage.setItem("cedula", data.cedula);
+
+            document.cookie = `token=${data.token}; path=/`;
+            document.cookie = `rol=${data.rol}; path=/`;
+            document.cookie = `cedula=${data.cedula}; path=/`;
 
             setMensaje("Accediendo al panel...");
-            setTimeout(() => router.push("/dashboard"), 900);
-        } catch {
-            setMensaje("Login exitoso, redirigiendo...");
 
-            // 🔵 Redirección por rol
             setTimeout(() => {
                 if (data.rol === "ROLE_ADMIN") {
                     router.push("/dashboard");
@@ -51,14 +49,13 @@ export default function Home() {
                 } else {
                     router.push("/");
                 }
-            }, 1000);
+            }, 900);
 
         } catch (error) {
             console.error("❌ Error en login:", error);
             setMensaje("Usuario o contraseña incorrectos");
-        } finally {
-            setLoading(false);
         }
+
     };
 
     return (
