@@ -4,11 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="ddf03273-e7ff-4622-aed3-f486321b3a50" name="Changes" comment="Base de gestion de roles">
+    <list default="true" id="ddf03273-e7ff-4622-aed3-f486321b3a50" name="Changes" comment="Fix: cambiar combo box por input box">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/app/dashboard/EquipoPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/app/dashboard/EquipoPage.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/app/dashboard/FichaTecnicaForm.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/app/dashboard/FichaTecnicaForm.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/app/dashboard/OrdenesTrabajoPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/app/dashboard/OrdenesTrabajoPage.tsx" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -191,7 +188,15 @@
       <option name="project" value="LOCAL" />
       <updated>1764230371261</updated>
     </task>
-    <option name="localTasksCounter" value="12" />
+    <task id="LOCAL-00012" summary="Fix: cambiar combo box por input box">
+      <option name="closed" value="true" />
+      <created>1764395900180</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1764395900180</updated>
+    </task>
+    <option name="localTasksCounter" value="13" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -213,6 +218,8 @@
     <MESSAGE value="for frontend" />
     <MESSAGE value="Otp module" />
     <MESSAGE value="Base de gestion de roles" />
-    <option name="LAST_COMMIT_MESSAGE" value="Base de gestion de roles" />
+    <MESSAGE value="Fix: cambiar combo box por input box" />
+    <MESSAGE value="Merge branch 'main' of https://github.com/EdwingGarcia/NewbieSoft" />
+    <option name="LAST_COMMIT_MESSAGE" value="Merge branch 'main' of https://github.com/EdwingGarcia/NewbieSoft" />
   </component>
 </project>
