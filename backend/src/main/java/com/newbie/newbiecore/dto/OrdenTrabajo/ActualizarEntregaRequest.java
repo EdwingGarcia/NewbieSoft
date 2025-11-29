@@ -11,5 +11,7 @@ public record ActualizarEntregaRequest(
         String formaPago,
         boolean firmaTecnicoEntrega,
         boolean firmaClienteEntrega,
-        boolean recibeASatisfaccion
+        boolean recibeASatisfaccion,
+           String estado,         // 👈 NUEVO: estado que maneja el front
+        Boolean cerrarOrden    // 👈 NUEVO: true = cerrar definitivamente
 ) {}

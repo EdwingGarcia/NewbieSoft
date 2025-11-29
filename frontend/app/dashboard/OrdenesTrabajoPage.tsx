@@ -13,6 +13,7 @@ import {
     Plus,
 } from "lucide-react";
 
+import FichasTecnicasPage from "./FichasTecnicasPage"; // 👈 IMPORTAMOS TU PÁGINA
 import ModalNotificacion from "../components/ModalNotificacion";
 
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 
+const FICHAS_API_BASE = "http://localhost:8080/api/fichas";
 const API_BASE = "http://localhost:8080/api/ordenes";
 const OTP_API_BASE = "http://localhost:8080/api/otp";
 const buildUrl = (p: string = "") => `${API_BASE}${p}`;
@@ -166,6 +168,63 @@ const estadoBadgeClasses = (estado: string | null) => {
     return "bg-slate-50 text-slate-700 border border-slate-200";
 };
 
+/* ===== MODAL FICHA TÉCNICA RENDERIZANDO LA PAGE DIRECTAMENTE ===== */
+
+interface FichaTecnicaModalProps {
+    open: boolean;
+    onClose: () => void;
+    ordenTrabajoId: number;
+    equipoId: number;
+}
+
+/**
+ * Wrapper que simula los searchParams que espera FichasTecnicasPage.
+ * Así no tienes que tocar esa página.
+ */
+const FichaTecnicaWrapper: React.FC<{
+    ordenTrabajoId: number;
+    equipoId: number;
+}> = ({ ordenTrabajoId, equipoId }) => {
+    const searchParams = {
+        ordenTrabajoId: String(ordenTrabajoId),
+        equipoId: String(equipoId),
+    };
+
+    // @ts-ignore – FichasTecnicasPage está tipada como página de Next con searchParams
+    return <FichasTecnicasPage searchParams={searchParams} />;
+};
+
+function FichaTecnicaModal({
+    open,
+    onClose,
+    ordenTrabajoId,
+    equipoId,
+}: FichaTecnicaModalProps) {
+    if (!open) return null;
+
+    return (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70">
+            <div className="relative mx-4 flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl">
+                {/* Botón cerrar */}
+                <button
+                    onClick={onClose}
+                    className="absolute right-4 top-4 z-10 inline-flex h-7 w-7 items-center justify-center rounded-full bg-black/40 text-slate-50 hover:bg-black/60"
+                >
+                    <X className="h-4 w-4" />
+                </button>
+
+                {/* Aquí se muestra FichasTecnicasPage tal cual, pero solo para esa OT/equipo */}
+                <div className="h-full w-full overflow-y-auto pt-10 px-4 pb-4">
+                    <FichaTecnicaWrapper
+                        ordenTrabajoId={ordenTrabajoId}
+                        equipoId={equipoId}
+                    />
+                </div>
+            </div>
+        </div>
+    );
+}
+
 export default function OrdenesTrabajoPage() {
     const router = useRouter();
 
@@ -230,6 +289,11 @@ export default function OrdenesTrabajoPage() {
         tipoServicio: "DIAGNOSTICO",
         prioridad: "MEDIA",
     });
+
+    // === MODAL FICHA TÉCNICA DESDE OT ===
+    const [showFichaModal, setShowFichaModal] = useState(false);
+    const [fichaOrdenId, setFichaOrdenId] = useState<number | null>(null);
+    const [fichaEquipoId, setFichaEquipoId] = useState<number | null>(null);
 
     const token =
         typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -385,19 +449,13 @@ export default function OrdenesTrabajoPage() {
             return;
         }
 
-        // 👇 Solo si es cierre forzamos CERRADA
-        const estadoPayload = esCierre
-            ? "CERRADA"
-            : estadoEdit === "CERRADA"
-                ? detalle.estado ?? "LISTA_ENTREGA" // fallback por si acaso
-                : estadoEdit;
-
         const payload = {
             tipoServicio: tipoServicioEdit,
             prioridad: prioridadEdit,
-            estado: estadoPayload,
+            estado: esCierre ? "CERRADA" : estadoEdit,
             diagnosticoTrabajo: diagEdit.trim(),
             observacionesRecomendaciones: obsRecEdit.trim(),
+
             costoManoObra,
             costoRepuestos,
             costoOtros,
@@ -405,14 +463,17 @@ export default function OrdenesTrabajoPage() {
             subtotal: subtotalCalculado,
             iva,
             total: totalCalculado,
+
             esEnGarantia,
-            referenciaOrdenGarantia: referenciaGarantia
-                ? Number(referenciaGarantia)
-                : null,
+            referenciaOrdenGarantia: referenciaGarantia ? Number(referenciaGarantia) : null,
+
             motivoCierre: motivoCierre.trim() || null,
             cerradaPor: cerradaPor.trim() || null,
+
             otpCodigo: otpCodigo.trim() || null,
             otpValidado,
+
+            cerrarOrden: esCierre,
         };
 
         try {
@@ -442,7 +503,6 @@ export default function OrdenesTrabajoPage() {
             setGuardando(false);
         }
     };
-
 
     /* ===== Cerrar OT (flujo guiado) ===== */
     const cerrarOrden = async () => {
@@ -478,10 +538,8 @@ export default function OrdenesTrabajoPage() {
             if (!seguir) return;
         }
 
-        // 👇 Aquí ya marcamos CERRADA desde guardarCambiosOrden
         await guardarCambiosOrden(true);
     };
-
 
     /* ===== OTP: enviar y validar ===== */
 
@@ -617,11 +675,43 @@ export default function OrdenesTrabajoPage() {
         }
     };
 
-    /* ===== Navegar a Fichas Técnicas ===== */
-    const irAFichaTecnica = (ordenId: number, equipoId: number) => {
-        router.push(
-            `/dashboard/fichas?ordenTrabajoId=${ordenId}&equipoId=${equipoId}`
-        );
+    /* ===== Navegar a Fichas Técnicas (sigue disponible si lo usas en otro lado) ===== */
+    const irAFichaTecnica = async (ordenId: number, equipoId: number) => {
+        if (!token) {
+            alert("Sesión inválida. Inicia sesión nuevamente.");
+            return;
+        }
+
+        try {
+            const res = await fetch(
+                `${FICHAS_API_BASE}/orden-trabajo/${ordenId}`,
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                }
+            );
+
+            if (res.ok) {
+                const ficha = await res.json();
+                router.push(`/dashboard/fichas/${ficha.id}`);
+                return;
+            }
+
+            if (res.status === 404) {
+                router.push(
+                    `/dashboard/fichas/nueva?ordenTrabajoId=${ordenId}&equipoId=${equipoId}`
+                );
+                return;
+            }
+
+            throw new Error(
+                `Error buscando ficha técnica (HTTP ${res.status})`
+            );
+        } catch (e: any) {
+            console.error("Error al abrir ficha técnica:", e);
+            alert(e?.message ?? "Error al abrir la ficha técnica.");
+        }
     };
 
     const irAAprobacionProcedimiento = (ordenId: number) => {
@@ -1054,9 +1144,11 @@ export default function OrdenesTrabajoPage() {
                                             variant="outline"
                                             size="sm"
                                             className="flex items-center gap-2 border-slate-300 text-xs"
-                                            onClick={() =>
-                                                irAFichaTecnica(ot.id, ot.equipoId)
-                                            }
+                                            onClick={() => {
+                                                setFichaOrdenId(ot.id);
+                                                setFichaEquipoId(ot.equipoId);
+                                                setShowFichaModal(true);
+                                            }}
                                         >
                                             <FileText className="h-4 w-4" /> Ficha técnica
                                         </Button>
@@ -1188,15 +1280,15 @@ export default function OrdenesTrabajoPage() {
                                             variant="ghost"
                                             size="sm"
                                             className="flex items-center gap-2 border border-white/40 bg-white/10 px-3 text-[11px] text-white hover:bg-white/20"
-                                            onClick={() =>
-                                                irAFichaTecnica(
-                                                    detalle.ordenId,
-                                                    detalle.equipoId
-                                                )
-                                            }
+                                            onClick={() => {
+                                                setFichaOrdenId(detalle.ordenId);
+                                                setFichaEquipoId(detalle.equipoId);
+                                                setShowFichaModal(true);
+                                            }}
                                         >
                                             <FileText className="h-4 w-4" /> Ficha Técnica
                                         </Button>
+
 
                                         <Button
                                             variant="ghost"
@@ -1859,10 +1951,8 @@ export default function OrdenesTrabajoPage() {
                                                                                     >
                                                                                         <img
                                                                                             src={`http://localhost:8080${img.ruta}`}
-                                                                                            alt={
-                                                                                                img.descripcion ||
-                                                                                                "Imagen OT"
-                                                                                            }
+                                                                                            alt={img.descripcion ||
+                                                                                                "Imagen OT"}
                                                                                             className="h-full w-full object-cover transition-transform group-hover:scale-110"
                                                                                             onError={(
                                                                                                 e
@@ -2040,6 +2130,18 @@ export default function OrdenesTrabajoPage() {
                         </div>
                     </div>
                 )}
+
+                {/* MODAL FICHA TÉCNICA (UNA FICHA ESPECÍFICA) */}
+                {showFichaModal &&
+                    fichaOrdenId !== null &&
+                    fichaEquipoId !== null && (
+                        <FichaTecnicaModal
+                            open={showFichaModal}
+                            onClose={() => setShowFichaModal(false)}
+                            ordenTrabajoId={fichaOrdenId}
+                            equipoId={fichaEquipoId}
+                        />
+                    )}
             </div>
         </div>
     );

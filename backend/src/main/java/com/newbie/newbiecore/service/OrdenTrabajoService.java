@@ -146,16 +146,10 @@ public class OrdenTrabajoService {
         var orden = ordenTrabajoRepository.findById(ordenId)
                 .orElseThrow(() -> new RuntimeException("Orden no encontrada"));
 
-        // Detalle de trabajo
+        // ==== Datos comunes que siempre se pueden actualizar ====
         orden.setDiagnosticoTrabajo(request.diagnosticoTrabajo());
         orden.setObservacionesRecomendaciones(request.observacionesRecomendaciones());
         orden.setModalidad(request.modalidad());
-
-        // Entrega (si no viene fecha, se usa ahora)
-        Instant fechaEntrega = request.fechaHoraEntrega() != null
-                ? request.fechaHoraEntrega()
-                : Instant.now();
-        orden.setFechaHoraEntrega(fechaEntrega);
 
         orden.setNumeroFactura(request.numeroFactura());
         orden.setFormaPago(request.formaPago());
@@ -163,10 +157,46 @@ public class OrdenTrabajoService {
         orden.setFirmaClienteEntrega(request.firmaClienteEntrega());
         orden.setRecibeASatisfaccion(request.recibeASatisfaccion());
 
-        // Estado final
-        orden.setEstado("CERRADO");
+        // ==== Manejo de estados ====
+        if (Boolean.TRUE.equals(request.cerrarOrden())) {
+            // 🔒 CIERRE DEFINITIVO
+            orden.setEstado("CERRADA");  // 👈 Usa el mismo valor que en el front
+
+            Instant fechaEntrega = request.fechaHoraEntrega() != null
+                    ? request.fechaHoraEntrega()
+                    : Instant.now();
+            orden.setFechaHoraEntrega(fechaEntrega);
+
+        } else if (request.estado() != null && !request.estado().isBlank()) {
+            // 💡 CAMBIO DE FASE SIN CERRAR
+            String nuevoEstado = request.estado().toUpperCase();
+
+            // (Opcional pero recomendado) validar transición:
+            validarTransicionEstado(orden.getEstado(), nuevoEstado);
+
+            orden.setEstado(nuevoEstado);
+
+            // Si pasa a LISTA_ENTREGA y no tiene fecha de entrega, puedes setearla:
+            if ((nuevoEstado.equals("LISTA_ENTREGA") || nuevoEstado.equals("CERRADA"))
+                    && orden.getFechaHoraEntrega() == null) {
+                orden.setFechaHoraEntrega(Instant.now());
+            }
+        }
 
         ordenTrabajoRepository.save(orden);
+    }
+
+    private void validarTransicionEstado(String actual, String nuevo) {
+        if (actual == null || nuevo == null) return;
+
+        String a = actual.toUpperCase();
+        String n = nuevo.toUpperCase();
+
+        // 🔒 ÚNICA REGLA: no permitir reabrir una orden cerrada
+        if (a.equals("CERRADA") && !n.equals("CERRADA")) {
+            throw new IllegalStateException("No se puede reabrir una orden cerrada.");
+        }
+
     }
 
     /* =============================
