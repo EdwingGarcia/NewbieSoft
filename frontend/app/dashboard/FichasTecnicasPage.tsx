@@ -553,6 +553,18 @@ const descargarPdf = async () => {
                                     <FileUp className="h-4 w-4" /> Cargar XML
                                     del equipo
                                 </Button>
+
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => router.push(`/firma?fichaId=${fichaId}`)}
+                                    className="flex items-center gap-2"
+                                >
+                                    <FileUp className="h-4 w-4" /> Firmar Ficha Técnica
+                                </Button>
+
+                                </div>
+
                             </div>
                             <div className="flex gap-2">
                               <Button
