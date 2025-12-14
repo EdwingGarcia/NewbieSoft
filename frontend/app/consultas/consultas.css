@@ -1,145 +1,449 @@
-/* Fondo principal */
+/* consultas.css */
 .consulta-wrapper {
-    background: linear-gradient(180deg, #2d3ef8 0%, #8a2bf6 100%);
     min-height: 100vh;
+    padding: 48px 18px;
     display: flex;
     justify-content: center;
-    align-items: center;
-    color: white;
-    text-align: center;
-    padding: 0;
+    position: relative;
+    overflow: hidden;
+
+    /* Fondo oscuro animado */
+    background: linear-gradient(135deg,
+            #0b1025,
+            #1e1b4b,
+            #2b1a7b,
+            #0b1025);
+    background-size: 300% 300%;
+    animation: consultasGradientMove 16s ease infinite;
 }
 
-/* Contenedor central */
-.consulta-container {
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 16px;
-    padding: 2rem 2.5rem; /* 🔹 menos padding */
-    width: 500px; /* 🔹 más estrecho */
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.25);
-}
-
-    .consulta-inner{
-        width: 100%;
-        max-width: 720px;
-        margin: 0 auto;
+/* Movimiento del fondo */
+@keyframes consultasGradientMove {
+    0% {
+        background-position: 0% 50%;
     }
 
-    .consulta-container{ width:100%; }
+    50% {
+        background-position: 100% 50%;
+    }
 
-/* Título grande */
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+.consulta-inner {
+    position: relative;
+    z-index: 1;
+}
+
+
+
+.consulta-header {
+    text-align: center;
+    color: white;
+    margin-bottom: 18px;
+}
+
 .consulta-header h1 {
-    font-size: 1.8rem;
-    font-weight: 700;
-    margin-bottom: 0.5rem;
+    font-size: clamp(28px, 4vw, 44px);
+    margin: 0;
+    letter-spacing: -0.02em;
 }
 
 .consulta-header p {
-    font-size: 0.95rem;
-    color: #f0f0f0;
-    margin-bottom: 2rem;
-    line-height: 1.4;
+    margin: 10px auto 0;
+    max-width: 760px;
+    opacity: 0.88;
 }
 
-/* Campos */
-.consulta-container label {
+.consulta-container {
+    margin-top: 22px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 18px;
+
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 22px;
+    padding: 22px;
+    backdrop-filter: blur(14px);
+    box-shadow: 0 20px 70px rgba(0, 0, 0, 0.35);
+}
+
+@media (min-width: 920px) {
+    .consulta-container {
+        grid-template-columns: 1.05fr 0.95fr;
+        align-items: start;
+    }
+}
+
+/* ✅ Responsivo: en móvil 3+3 */
+@media (max-width: 520px) {
+    .otpInputs {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+form label {
     display: block;
-    font-size: 0.95rem;
-    margin-top: 1rem;
-    text-align: left;
+    color: rgba(255, 255, 255, 0.92);
+    font-weight: 600;
+    margin-top: 12px;
+    margin-bottom: 8px;
 }
 
-.consulta-container input[type="text"],
-.consulta-container input[type="email"] {
+form input {
     width: 100%;
-    padding: 8px; /* antes 12px */
-    border: none;
-    border-radius: 6px;
-    margin-top: 0.3rem;
-    font-size: 0.9rem;
-    color: #333;
-    background: #fff;
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(6, 8, 20, 0.45);
+    color: white;
+    outline: none;
 }
 
-.consulta-container small {
-    font-size: 0.75rem;
-    color: rgba(255, 255, 255, 0.9);
+form input:focus {
+    border-color: rgba(99, 102, 241, 0.8);
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.22);
+}
+
+form small {
     display: block;
-    margin-top: 0.4rem;
-    text-align: left;
+    color: rgba(255, 255, 255, 0.75);
+    margin-top: 8px;
+    line-height: 1.35;
 }
 
-/* Radios */
 .radio-group {
     display: flex;
-    justify-content: center;
-    gap: 2rem;
-    margin: 1.5rem 0;
+    gap: 18px;
+    margin-top: 14px;
+    color: white;
 }
 
 .radio-group label {
     display: flex;
+    gap: 10px;
     align-items: center;
-    gap: 0.4rem;
-    font-size: 1rem;
-}
-
-.radio-group input[type="radio"] {
-    accent-color: white;
-    transform: scale(1.2);
-}
-
-/* Botón */
-.consulta-container button {
-    display: block;
-    background: #fff;
-    color: #5b2cf7;
-    border: none;
-    padding: 8px 22px;
-    border-radius: 25px;
-    margin: 1.2rem auto 0;
-    cursor: pointer;
+    margin: 0;
     font-weight: 600;
-    transition: background 0.2s ease;
 }
 
-.consulta-container button:hover {
-    background: #ece9ff;
+form button {
+    margin-top: 18px;
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: none;
+    background: linear-gradient(90deg, rgba(99, 102, 241, 1), rgba(168, 85, 247, 1));
+    color: white;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 14px 30px rgba(99, 102, 241, 0.22);
 }
 
-/* Modal OTP */
-.otp-overlay {
+form button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Results */
+.consulta-results {
+    padding: 8px;
+    color: white;
+}
+
+.consulta-error {
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: rgba(239, 68, 68, 0.14);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.consulta-loading {
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: rgba(59, 130, 246, 0.14);
+    border: 1px solid rgba(59, 130, 246, 0.25);
+}
+
+.result-card {
+    border-radius: 18px;
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.result-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+
+.result-top h3 {
+    margin: 0;
+    font-size: 18px;
+}
+
+.badge {
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-weight: 800;
+    font-size: 12px;
+    background: rgba(168, 85, 247, 0.25);
+    border: 1px solid rgba(168, 85, 247, 0.35);
+}
+
+.result-grid {
+    margin-top: 12px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.result-grid>div {
+    background: rgba(0, 0, 0, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    padding: 10px 12px;
+    display: grid;
+    gap: 4px;
+}
+
+.result-grid span {
+    font-size: 12px;
+    opacity: 0.75;
+}
+
+.result-note {
+    margin-top: 12px;
+    background: rgba(0, 0, 0, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    padding: 10px 12px;
+}
+
+.result-note span {
+    font-size: 12px;
+    opacity: 0.75;
+}
+
+.result-note p {
+    margin: 6px 0 0;
+    opacity: 0.95;
+}
+
+.result-list h3 {
+    margin: 0 0 10px;
+}
+
+.result-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 12px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    margin-bottom: 10px;
+}
+
+.result-ord {
+    font-weight: 900;
+}
+
+.result-sub {
+    font-size: 12px;
+    opacity: 0.75;
+    margin-top: 2px;
+}
+
+.result-date {
+    font-size: 12px;
+    opacity: 0.75;
+    text-align: right;
+    margin-top: 6px;
+}
+
+.result-empty {
+    opacity: 0.85;
+    padding: 12px;
+    border-radius: 14px;
+    border: 1px dashed rgba(255, 255, 255, 0.2);
+}
+
+.token-hint {
+    margin-top: 12px;
+    opacity: 0.8;
+    font-size: 12px;
+}
+
+.token-hint code {
+    background: rgba(0, 0, 0, 0.25);
+    padding: 2px 6px;
+    border-radius: 8px;
+}
+
+/* OTP modal */
+.otpOverlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.7);
+    background: rgba(0, 0, 0, 0.55);
     display: flex;
-    justify-content: center;
     align-items: center;
+    justify-content: center;
+    padding: 16px;
+    z-index: 9999;
+    /* más alto */
 }
 
-.otp-modal {
-    background: linear-gradient(180deg, #4a3cf0 0%, #8b2df7 100%);
-    border-radius: 15px;
-    padding: 2rem 2.5rem;
-    color: white;
-    width: 300px;
-    text-align: center;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
-}
 
-.otp-modal input {
+.otpCard {
     width: 100%;
-    padding: 10px;
-    border: none;
-    border-radius: 6px;
-    margin: 1rem 0;
-    font-size: 1rem;
-    color: #333;
-    background: #fff;
+    max-width: 520px;
+    /* ✅ asegura límite */
+    border-radius: 20px;
+    padding: 18px;
+    background: rgba(10, 12, 25, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    backdrop-filter: blur(14px);
+    box-shadow: 0 30px 90px rgba(0, 0, 0, 0.55);
+    color: white;
+    box-sizing: border-box;
+    overflow: hidden;
+    /* ✅ evita que se salga */
 }
-    .consulta-container{ padding:1.4rem 1.8rem; }
-    .consulta-container input[type="text"],
-    .consulta-container input[type="email"]{
-        padding:6px 10px; font-size:.9rem;
+
+.otpTop {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    align-items: start;
+}
+
+.otpTop h3 {
+    margin: 0;
+}
+
+.otpTop p {
+    margin: 8px 0 0;
+    opacity: 0.85;
+    font-size: 13px;
+}
+
+.otpMuted {
+    opacity: 0.75;
+}
+
+.otpClose {
+    border: none;
+    background: rgba(255, 255, 255, 0.08);
+    color: white;
+    width: 36px;
+    height: 36px;
+    border-radius: 12px;
+    cursor: pointer;
+}
+
+.otpInputs {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    /* ✅ evita overflow */
+    gap: 10px;
+    margin-top: 16px;
+    width: 100%;
+    max-width: 100%;
+}
+
+.otpDigit {
+    width: 100% !important;
+    /* ✅ dentro del grid */
+    min-width: 0 !important;
+    /* ✅ clave para minmax(0,1fr) */
+    box-sizing: border-box;
+
+    text-align: center;
+    font-size: 18px;
+    padding: 12px 0;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.06);
+    color: white;
+    outline: none;
+}
+
+.otpDigit:focus {
+    border-color: rgba(99, 102, 241, 0.9);
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.22);
+}
+
+.otpError {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-radius: 14px;
+    background: rgba(239, 68, 68, 0.14);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.otpBtn {
+    margin-top: 14px;
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: none;
+    background: linear-gradient(90deg, rgba(99, 102, 241, 1), rgba(168, 85, 247, 1));
+    color: white;
+    font-weight: 900;
+    cursor: pointer;
+}
+
+.otpHint {
+    margin-top: 10px;
+    font-size: 12px;
+    opacity: 0.75;
+}
+
+/* Orbes animados (igual que login) */
+.consulta-wrapper::before,
+.consulta-wrapper::after {
+    content: "";
+    position: absolute;
+    width: 600px;
+    height: 600px;
+    border-radius: 50%;
+    filter: blur(90px);
+    opacity: 0.45;
+    z-index: 0;
+    animation: consultasGlowFloat 14s ease-in-out infinite;
+}
+
+.consulta-wrapper::before {
+    top: -220px;
+    left: -220px;
+    background: rgba(99, 102, 241, 0.85);
+    /* azul */
+}
+
+.consulta-wrapper::after {
+    bottom: -260px;
+    right: -240px;
+    background: rgba(168, 85, 247, 0.85);
+    /* morado */
+    animation-delay: 2s;
+}
+
+@keyframes consultasGlowFloat {
+    0% {
+        transform: translate(0, 0) scale(1);
     }
-    .consulta-container button{ padding:7px 20px; }
+
+    50% {
+        transform: translate(80px, 60px) scale(1.12);
+    }
+
+    100% {
+        transform: translate(0, 0) scale(1);
+    }
+}

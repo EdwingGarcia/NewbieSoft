@@ -6,14 +6,9 @@ import java.time.Instant;
 
 @Entity
 @Table(name = "otp_validaciones")
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
+@Data @NoArgsConstructor @AllArgsConstructor @Builder
 public class OtpValidacion {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long idOtp;
 
     @ManyToOne
@@ -21,7 +16,19 @@ public class OtpValidacion {
     private Usuario usuario;
 
     private String codigo;
-    private Instant fechaEnvio = Instant.now();
+    private Instant fechaEnvio;
+    private Instant fechaExpiracion;
+
     private Instant fechaValidacion;
-    private Boolean valido = false;
+    private Boolean valido;
+
+    private Integer intentos;
+    private Integer maxIntentos;
+
+    @Column(length = 80)
+    private String tokenConsulta;
+    private Instant tokenExpira;
+
+    @Column(length = 30)
+    private String tipo; // "CONSULTA_CLIENTE"
 }

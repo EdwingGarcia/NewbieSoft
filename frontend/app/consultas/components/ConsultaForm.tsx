@@ -1,44 +1,79 @@
 "use client";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import OTPModal from "./OTPModal";
 import "../consultas.css";
+
+import { ConsultasAPI, OrdenPublicaDto } from "./api";
 
 export default function ConsultaForm() {
     const [cedula, setCedula] = useState("");
     const [correo, setCorreo] = useState("");
-    const [tipoConsulta, setTipoConsulta] = useState("historial");
+    const [tipoConsulta, setTipoConsulta] = useState<"historial" | "procedimiento">("historial");
     const [procedimiento, setProcedimiento] = useState("");
     const [mostrarOTP, setMostrarOTP] = useState(false);
 
+    const [loading, setLoading] = useState(false);
+    const [consultaToken, setConsultaToken] = useState<string | null>(null);
+
+    const [resultadoHistorial, setResultadoHistorial] = useState<OrdenPublicaDto[] | null>(null);
+    const [resultadoProc, setResultadoProc] = useState<OrdenPublicaDto | null>(null);
+    const [error, setError] = useState<string | null>(null);
+
+    const canSubmit = useMemo(() => {
+        if (!cedula.trim() || !correo.trim()) return false;
+        if (tipoConsulta === "procedimiento" && !procedimiento.trim()) return false;
+        return true;
+    }, [cedula, correo, tipoConsulta, procedimiento]);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setError(null);
+        setResultadoHistorial(null);
+        setResultadoProc(null);
+        setConsultaToken(null);
+
+        setLoading(true);
         try {
-            const response = await fetch("http://localhost:8080/api/otp/generar", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ cedula, correo }),
-            });
-
-            let data = null;
-            try {
-                data = await response.json(); // intenta parsear JSON
-            } catch {
-                console.warn("⚠️ Respuesta vacía o no JSON");
-            }
-
-            if (response.ok) {
-                console.log("✅ OTP enviado correctamente", data);
-                alert("OTP enviado al correo registrado");
-                setMostrarOTP(true);
-            } else {
-                alert(data?.mensaje || "Error al generar OTP");
-            }
-        } catch (err) {
-            console.error("❌ Error de conexión:", err);
-            alert("No se pudo conectar con el servidor");
+            await ConsultasAPI.sendOtp({ cedula: cedula.trim(), correo: correo.trim() });
+            setMostrarOTP(true);
+        } catch (err: any) {
+            setError(err?.message || "No se pudo solicitar el OTP.");
+        } finally {
+            setLoading(false);
         }
     };
 
+    const handleVerify = async (codigo: string) => {
+        const res = await ConsultasAPI.verifyOtp({ cedula: cedula.trim(), codigo });
+        return res;
+    };
+
+    const runConsulta = async (token: string) => {
+        setLoading(true);
+        setError(null);
+        try {
+            if (tipoConsulta === "historial") {
+                const data = await ConsultasAPI.historial({ consultaToken: token });
+                setResultadoHistorial(data);
+            } else {
+                const data = await ConsultasAPI.procedimiento({
+                    consultaToken: token,
+                    numeroOrden: procedimiento.trim(),
+                });
+                setResultadoProc(data);
+            }
+        } catch (err: any) {
+            setError(err?.message || "Error al consultar.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const onVerified = (token: string) => {
+        setConsultaToken(token);
+        setMostrarOTP(false);
+        runConsulta(token);
+    };
 
     return (
         <div className="consulta-wrapper">
@@ -46,31 +81,20 @@ export default function ConsultaForm() {
                 <div className="consulta-header">
                     <h1>¿Quieres saber el estado de tu reparación?</h1>
                     <p>
-                        Consulta aquí tu historial completo o verifica el avance de un
-                        procedimiento activo ingresando tus datos.
+                        Consulta tu historial completo o verifica el avance de un procedimiento activo ingresando tus datos.
                     </p>
                 </div>
 
                 <div className="consulta-container">
                     <form onSubmit={handleSubmit}>
                         <label>Cédula</label>
-                        <input
-                            type="text"
-                            value={cedula}
-                            onChange={(e) => setCedula(e.target.value)}
-                            required
-                        />
+                        <input value={cedula} onChange={(e) => setCedula(e.target.value)} required />
 
                         <label>Correo electrónico*</label>
-                        <input
-                            type="email"
-                            value={correo}
-                            onChange={(e) => setCorreo(e.target.value)}
-                            required
-                        />
+                        <input type="email" value={correo} onChange={(e) => setCorreo(e.target.value)} required />
+
                         <small>
-                            *Debe tener acceso al correo electrónico registrado ya que es a
-                            donde se enviará la información.
+                            *Debe tener acceso al correo electrónico registrado ya que es a donde se enviará la información.
                         </small>
 
                         <div className="radio-group">
@@ -94,17 +118,91 @@ export default function ConsultaForm() {
 
                         <label>N° de procedimiento</label>
                         <input
-                            type="text"
                             value={procedimiento}
                             onChange={(e) => setProcedimiento(e.target.value)}
+                            placeholder="Ej: OT-00012"
+                            disabled={tipoConsulta !== "procedimiento"}
                         />
 
-                        <button type="submit">Consultar</button>
+                        <button type="submit" disabled={!canSubmit || loading}>
+                            {loading ? "Enviando OTP..." : "Consultar"}
+                        </button>
                     </form>
+
+                    {/* Resultados */}
+                    <div className="consulta-results">
+                        {error && <div className="consulta-error">{error}</div>}
+
+                        {!error && loading && <div className="consulta-loading">Cargando...</div>}
+
+                        {resultadoProc && (
+                            <div className="result-card">
+                                <div className="result-top">
+                                    <div className="badge">{resultadoProc.estado}</div>
+                                    <h3>{resultadoProc.numeroOrden}</h3>
+                                </div>
+                                <div className="result-grid">
+                                    <div><span>Servicio</span>{resultadoProc.tipoServicio ?? "-"}</div>
+                                    <div><span>Prioridad</span>{resultadoProc.prioridad ?? "-"}</div>
+                                    <div><span>Ingreso</span>{fmt(resultadoProc.fechaHoraIngreso)}</div>
+                                    <div><span>Entrega</span>{fmt(resultadoProc.fechaHoraEntrega)}</div>
+                                </div>
+                                <div className="result-note">
+                                    <span>Problema</span>
+                                    <p>{resultadoProc.problemaReportado ?? "-"}</p>
+                                </div>
+                            </div>
+                        )}
+
+                        {resultadoHistorial && (
+                            <div className="result-list">
+                                <h3>Historial</h3>
+                                {resultadoHistorial.length === 0 ? (
+                                    <div className="result-empty">No se encontraron órdenes para esta cédula.</div>
+                                ) : (
+                                    resultadoHistorial.map((o) => (
+                                        <div key={o.numeroOrden} className="result-item">
+                                            <div className="result-item-left">
+                                                <div className="result-ord">{o.numeroOrden}</div>
+                                                <div className="result-sub">{o.tipoServicio ?? "SERVICIO"}</div>
+                                            </div>
+                                            <div className="result-item-right">
+                                                <div className="badge">{o.estado}</div>
+                                                <div className="result-date">{fmt(o.fechaHoraIngreso)}</div>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        )}
+
+                        {consultaToken && (
+                            <div className="token-hint">
+                                Token activo (demo): <code>{consultaToken.slice(0, 10)}...</code>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
 
-            {mostrarOTP && <OTPModal onClose={() => setMostrarOTP(false)} />}
+            {mostrarOTP && (
+                <OTPModal
+                    cedula={cedula}
+                    onClose={() => setMostrarOTP(false)}
+                    onVerified={onVerified}
+                    onVerify={handleVerify}
+                />
+            )}
         </div>
     );
+}
+
+function fmt(value?: string | null) {
+    if (!value) return "-";
+    try {
+        const d = new Date(value);
+        return d.toLocaleString();
+    } catch {
+        return value;
+    }
 }
