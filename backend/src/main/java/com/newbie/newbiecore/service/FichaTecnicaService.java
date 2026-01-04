@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class FichaTecnicaService {
@@ -26,14 +27,17 @@ public class FichaTecnicaService {
     private final EquipoRepository equipoRepository;
     private final OrdenTrabajoRepository ordenTrabajoRepository;
 
+
     public FichaTecnicaService(FichaTecnicaRepository fichaTecnicaRepository,
                                UsuarioRepository usuarioRepository,
                                EquipoRepository equipoRepository,
-                               OrdenTrabajoRepository ordenTrabajoRepository) {
+                               OrdenTrabajoRepository ordenTrabajoRepository
+                              ) {
         this.fichaTecnicaRepository = fichaTecnicaRepository;
         this.usuarioRepository = usuarioRepository;
         this.equipoRepository = equipoRepository;
         this.ordenTrabajoRepository = ordenTrabajoRepository;
+
     }
 
     /* ===========================================================
@@ -59,8 +63,9 @@ public class FichaTecnicaService {
                 .orElseThrow(() -> new IllegalArgumentException("Equipo no encontrado"));
 
         // ✅ Validar OT y reutilizar ficha si ya existe
+        OrdenTrabajo ot = null;
         if (ordenTrabajoId != null) {
-            OrdenTrabajo ot = ordenTrabajoRepository.findById(ordenTrabajoId)
+            ot = ordenTrabajoRepository.findById(ordenTrabajoId)
                     .orElseThrow(() -> new IllegalArgumentException("Orden de trabajo no encontrada"));
 
             var existente = fichaTecnicaRepository.findByOrdenTrabajoId(ordenTrabajoId);
@@ -69,13 +74,19 @@ public class FichaTecnicaService {
             }
         }
 
-        FichaTecnica ficha = FichaTecnica.builder()
-                .tecnicoId(cedulaTecnico)
-                .equipoId(equipoId)
-                .ordenTrabajoId(ordenTrabajoId)
-                .observaciones(observaciones)
-                .fechaCreacion(Instant.now())
-                .build();
+        // Construcción de la entidad (Usando setters para evitar problemas con @Builder si no está configurado)
+        FichaTecnica ficha = new FichaTecnica();
+        ficha.setTecnicoId(cedulaTecnico);
+        ficha.setEquipoId(equipoId);
+        // Si usaste la Opción 1 (Relación Objeto), usa esto:
+        if (ot != null) {
+            ficha.setOrdenTrabajo(ot);
+        }
+        // Si usaste la Opción 2 (Solo ID), usa esto (descomenta si es tu caso):
+        // ficha.setOrdenTrabajoId(ordenTrabajoId);
+
+        ficha.setObservaciones(observaciones);
+        ficha.setFechaCreacion(Instant.now());
 
         // Autocomplete desde hardwareJson
         FichaTecnicaAutoFillHelper.rellenarDesdeHardwareJson(ficha, equipo);
@@ -167,6 +178,16 @@ public class FichaTecnicaService {
     public Optional<FichaTecnicaDTO> buscarPorOrdenTrabajo(Long ordenTrabajoId) {
         return fichaTecnicaRepository.findByOrdenTrabajoId(ordenTrabajoId)
                 .map(FichaTecnicaMapper::toDTO);
+    }
+
+    /** 🔍 NUEVO: Obtener todas las fichas de un cliente por cédula */
+    @Transactional(readOnly = true)
+    public List<FichaTecnicaDTO> obtenerFichasPorCliente(String cedula) {
+        List<FichaTecnica> fichas = fichaTecnicaRepository.findByOrdenTrabajo_Cliente_Cedula(cedula);
+
+        return fichas.stream()
+                .map(FichaTecnicaMapper::toDTO)
+                .collect(Collectors.toList());
     }
 
     /** 📋 Listar todas las fichas en formato DTO */

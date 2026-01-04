@@ -53,7 +53,16 @@ public class FichaTecnicaController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }
     }
+    @GetMapping("/cliente/{cedula}")
+    public ResponseEntity<List<FichaTecnicaDTO>> listarPorCliente(@PathVariable String cedula) {
+        List<FichaTecnicaDTO> fichas = fichaTecnicaService.obtenerFichasPorCliente(cedula);
 
+        if (fichas.isEmpty()) {
+            return ResponseEntity.noContent().build();
+        }
+
+        return ResponseEntity.ok(fichas);
+    }
     /** 📋 Listar todas las fichas técnicas (DTO) */
     @GetMapping
     public ResponseEntity<List<FichaTecnicaDTO>> listarTodas() {

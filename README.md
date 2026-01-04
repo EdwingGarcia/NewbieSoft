@@ -9,7 +9,7 @@
 - Autenticación y autorización con **JWT** y roles de usuario.  
 - Registro y seguimiento de **clientes**, **equipos** y **reparaciones**.  
 - Endpoints **RESTful** organizados bajo `/api/auth`, `/api/clientes`, `/api/reparaciones`, etc.  
-- Passwords encriptadas con **BCrypt**.  
+- Passwords encriptadas con **BCrypt**.  .
 - Arquitectura modular: `controller`, `service`, `repository`, `entity`, `dto`, `config`.  
 
 ---

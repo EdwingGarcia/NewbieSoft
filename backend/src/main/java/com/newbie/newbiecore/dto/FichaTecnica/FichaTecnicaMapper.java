@@ -14,7 +14,7 @@ public class FichaTecnicaMapper {
                 .fechaCreacion(f.getFechaCreacion())
                 .observaciones(f.getObservaciones())
                 .equipoId(f.getEquipoId())
-                .ordenTrabajoId(f.getOrdenTrabajoId())
+                .ordenTrabajoId(f.getOrdenTrabajo().getId())
                 .tecnicoId(f.getTecnicoId())
 
                 // ========= HW AUTO =========

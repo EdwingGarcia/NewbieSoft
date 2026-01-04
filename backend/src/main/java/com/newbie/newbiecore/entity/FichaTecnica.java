@@ -32,8 +32,9 @@ public class FichaTecnica {
     @Column(name = "equipo_id")
     private Long equipoId;
 
-    @Column(name = "orden_trabajo_id")
-    private Long ordenTrabajoId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "orden_trabajo_id") // Nombre de la columna FK en la tabla fichas_tecnicas
+    private OrdenTrabajo ordenTrabajo;
 
     @Column(name = "tecnico_id")
     private String tecnicoId;

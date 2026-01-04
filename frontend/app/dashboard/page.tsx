@@ -16,6 +16,10 @@ const UsuarioModule = dynamic(() => import("./GestionUsuario"), {
 const OrdenTrabajoModule = dynamic(() => import("./OrdenesTrabajoPage"), {
     ssr: false,
 });
+// --- NUEVO MÓDULO DE CITAS ---
+const CitasModule = dynamic(() => import("./CitasPage"), {
+    ssr: false,
+});
 
 // 🔹 Tipo de sección
 type Section =
@@ -24,7 +28,8 @@ type Section =
     | "fichas"
     | "equipo"
     | "usuarios"
-    | "roles";
+    | "roles"
+    | "citas"; // <-- AÑADIDO
 
 const DASHBOARD_API = "http://localhost:8080/api/dashboard/resumen";
 
@@ -204,6 +209,13 @@ export default function DashboardPage() {
                             label="Dashboard"
                             isActive={activeSection === "dashboard"}
                             onClick={() => setActiveSection("dashboard")}
+                        />
+
+                        {/* --- NUEVO ÍTEM CITAS --- */}
+                        <SidebarItem
+                            label="Citas Técnicas"
+                            isActive={activeSection === "citas"}
+                            onClick={() => setActiveSection("citas")}
                         />
 
                         <SidebarItem
@@ -480,11 +492,10 @@ export default function DashboardPage() {
                                                         >
                                                             <div
                                                                 style={{
-                                                                    width: `${
-                                                                        (item.value /
+                                                                    width: `${(item.value /
                                                                             maxChartValue) *
                                                                         100
-                                                                    }%`,
+                                                                        }%`,
                                                                     height: "100%",
                                                                     borderRadius:
                                                                         "999px",
@@ -539,11 +550,9 @@ export default function DashboardPage() {
                                                         width: "120px",
                                                         height: "120px",
                                                         borderRadius: "999px",
-                                                        background: `conic-gradient(#22c55e ${
-                                                            completionRate
-                                                        }%, #e5e7eb ${
-                                                            completionRate
-                                                        }%)`,
+                                                        background: `conic-gradient(#22c55e ${completionRate
+                                                            }%, #e5e7eb ${completionRate
+                                                            }%)`,
                                                         display: "flex",
                                                         alignItems: "center",
                                                         justifyContent: "center",
@@ -774,7 +783,7 @@ export default function DashboardPage() {
                                                                     alignItems:
                                                                         "center",
                                                                     marginBottom:
-                                                                        "0.25rem",
+                                                                        "0.15rem",
                                                                 }}
                                                             >
                                                                 <div>
@@ -936,56 +945,63 @@ export default function DashboardPage() {
                                                                             "0.15rem",
                                                                     }}
                                                                 >
-                                                                    <div
-                                                                        style={{
-                                                                            display:
-                                                                                "flex",
-                                                                            alignItems:
-                                                                                "center",
-                                                                            gap: "0.35rem",
-                                                                        }}
-                                                                    >
-                                                                        <span
+                                                                    <div>
+                                                                        <div
                                                                             style={{
-                                                                                width: "18px",
-                                                                                height: "18px",
-                                                                                borderRadius:
-                                                                                    "999px",
-                                                                                backgroundColor:
-                                                                                    "#eef2ff",
-                                                                                color: "#4f46e5",
+                                                                                fontWeight: 600,
                                                                                 fontSize:
-                                                                                    "0.7rem",
-                                                                                display:
-                                                                                    "flex",
-                                                                                alignItems:
-                                                                                    "center",
-                                                                                justifyContent:
-                                                                                    "center",
-                                                                                fontWeight: 700,
-                                                                            }}
-                                                                        >
-                                                                            {idx +
-                                                                                1}
-                                                                        </span>
-                                                                        <span
-                                                                            style={{
-                                                                                fontSize:
-                                                                                    "0.8rem",
+                                                                                    "0.9rem",
                                                                                 color: "#111827",
-                                                                                fontWeight: 500,
                                                                             }}
                                                                         >
                                                                             {
                                                                                 t.tecnicoNombre
                                                                             }
-                                                                        </span>
+                                                                        </div>
+                                                                        <div
+                                                                            style={{
+                                                                                fontSize:
+                                                                                    "0.75rem",
+                                                                                color: "#6b7280",
+                                                                            }}
+                                                                        >
+                                                                            {
+                                                                                t.tecnicoCedula
+                                                                            }
+                                                                        </div>
+                                                                    </div>
+                                                                    <div
+                                                                        style={{
+                                                                            height:
+                                                                                "8px",
+                                                                            borderRadius:
+                                                                                "999px",
+                                                                            backgroundColor:
+                                                                                "#e5e7eb",
+                                                                            overflow:
+                                                                                "hidden",
+                                                                        }}
+                                                                    >
+                                                                        <div
+                                                                            style={{
+                                                                                width: `${(t.totalOrdenes /
+                                                                                        maxTotal) *
+                                                                                    100
+                                                                                    }%`,
+                                                                                height: "100%",
+                                                                                borderRadius:
+                                                                                    "999px",
+                                                                                background:
+                                                                                    "linear-gradient(90deg,#4f46e5,#22c55e)",
+                                                                            }}
+                                                                        />
                                                                     </div>
                                                                     <span
                                                                         style={{
                                                                             fontSize:
-                                                                                "0.75rem",
-                                                                            color: "#4b5563",
+                                                                                "0.8rem",
+                                                                            color: "#111827",
+                                                                            fontWeight: 500,
                                                                         }}
                                                                     >
                                                                         {
@@ -993,34 +1009,6 @@ export default function DashboardPage() {
                                                                         }{" "}
                                                                         OT
                                                                     </span>
-                                                                </div>
-                                                                <div
-                                                                    style={{
-                                                                        height:
-                                                                            "8px",
-                                                                        borderRadius:
-                                                                            "999px",
-                                                                        backgroundColor:
-                                                                            "#e5e7eb",
-                                                                        overflow:
-                                                                            "hidden",
-                                                                    }}
-                                                                >
-                                                                    <div
-                                                                        style={{
-                                                                            width: `${
-                                                                                (t.totalOrdenes /
-                                                                                    maxTotal) *
-                                                                                100
-                                                                            }%`,
-                                                                            height:
-                                                                                "100%",
-                                                                            borderRadius:
-                                                                                "999px",
-                                                                            background:
-                                                                                "linear-gradient(90deg,#4f46e5,#22c55e)",
-                                                                        }}
-                                                                    />
                                                                 </div>
                                                             </div>
                                                         );
@@ -1039,6 +1027,10 @@ export default function DashboardPage() {
                     {activeSection === "fichas" && <FichaTecnicaModule />}
                     {activeSection === "equipo" && <EquipoModule />}
                     {activeSection === "usuarios" && <UsuarioModule />}
+
+                    {/* ===== SECCIÓN DE CITAS RENDERIZADA ===== */}
+                    {activeSection === "citas" && <CitasModule />}
+
                     {/* {activeSection === "roles" && <RolModule />} */}
                 </section>
             </main>
@@ -1146,37 +1138,6 @@ function DashboardCard({
                         {title.split(" ")[1] ?? ""}
                     </span>
                 )}
-            </div>
-        </div>
-    );
-}
-
-function KPICell({
-    label,
-    value,
-    color,
-}: {
-    label: string;
-    value: number;
-    color?: string;
-}) {
-    return (
-        <div>
-            <div
-                style={{
-                    color: color || "#6b7280",
-                    fontSize: "0.7rem",
-                }}
-            >
-                {label}
-            </div>
-            <div
-                style={{
-                    fontWeight: 600,
-                    color: "#111827",
-                }}
-            >
-                {value}
             </div>
         </div>
     );

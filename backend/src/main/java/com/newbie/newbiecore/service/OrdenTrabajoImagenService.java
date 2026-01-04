@@ -53,7 +53,7 @@ public class OrdenTrabajoImagenService {
         OrdenTrabajo orden = ordenTrabajoRepository.findById(ordenId)
                 .orElseThrow(() -> new IllegalArgumentException("Orden de trabajo no encontrada"));
 
-        String folderName = "ot-" + orden.getNumeroOrden() + "(" + orden.getId() + ")";
+        String folderName = "ot-" + orden.getNumeroOrden(); //+ "(" + orden.getId() + ")";
         Path folderPath = uploadPath.resolve(folderName);
         Files.createDirectories(folderPath);
 
