@@ -564,14 +564,14 @@ const descargarPdf = async () => {
                                 </Button>
                             </div>
                             <div className="flex gap-2">
-                              <Button
-    variant="outline"
-    size="sm"
-    className="flex items-center gap-2"
-    onClick={descargarPdf}
->
-    <FileUp className="h-4 w-4" /> Descargar PDF
-</Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex items-center gap-2"
+                                onClick={descargarPdf}
+                            >
+                            <FileUp className="h-4 w-4" /> Descargar PDF
+                            </Button>
 
                             </div>
                         </div>

@@ -70,7 +70,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/firmas/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/equipo/*/hardware/upload-xml").permitAll()
 
-                        // lo demás de /api necesita token
+
                         .requestMatchers("/api/**").authenticated()
 
                         .anyRequest().authenticated()
