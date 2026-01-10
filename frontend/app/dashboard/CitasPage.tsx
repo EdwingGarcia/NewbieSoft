@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, type FormEvent } from "react";
 import {
     Calendar,
     ChevronLeft,
@@ -9,16 +9,20 @@ import {
     UserCog,
     X,
     User,
-    FileText,
     Clock,
+    Search,
+    Check,
+    ChevronDown,
+    Wrench,
+    Loader2,
 } from "lucide-react";
-import AgendarCitaModal from "./AgendarCitaModal";
 
 /* =========================
    API + Tipos
 ========================= */
 
 const CITAS_API_BASE = "http://localhost:8080/api/citas";
+const USUARIOS_API = "http://localhost:8080/api/usuarios";
 
 type CitasScope = "TODAS" | "CLIENTE" | "TECNICO";
 
@@ -31,16 +35,11 @@ interface UsuarioDTO {
     telefono?: string;
 }
 
-/**
- * ✅ DTO “normalizado” para el front.
- * OJO: aunque tu backend hoy mande `usuario` y `fechaProgramada`,
- * acá lo convertimos a `cliente` y `fechaHoraInicio`.
- */
 interface CitaAdminDTO {
     id: number;
-    cliente: UsuarioDTO; // antes: usuario
-    tecnico?: UsuarioDTO; // puede ser null/undefined
-    fechaHoraInicio: string; // antes: fechaProgramada
+    cliente: UsuarioDTO;
+    tecnico?: UsuarioDTO;
+    fechaHoraInicio: string;
     motivo: string;
     estado: string;
     fechaCreacion: string;
@@ -49,15 +48,9 @@ interface CitaAdminDTO {
 /** ✅ Normalizador robusto (soporta nombres viejos y nuevos) */
 const normalizeCita = (c: any): CitaAdminDTO => ({
     id: Number(c.id),
-    // soporta backend viejo (usuario) o nuevo (cliente)
     cliente: (c.cliente ?? c.usuario) as UsuarioDTO,
-
-    // soporta si tu backend ya expone tecnico
     tecnico: (c.tecnico ?? c.tecnicoAsignado ?? undefined) as UsuarioDTO | undefined,
-
-    // soporta backend viejo (fechaProgramada) o nuevo (fechaHoraInicio)
     fechaHoraInicio: String(c.fechaHoraInicio ?? c.fechaProgramada),
-
     motivo: String(c.motivo ?? ""),
     estado: String(c.estado ?? ""),
     fechaCreacion: String(c.fechaCreacion ?? ""),
@@ -70,9 +63,6 @@ const buildCitasEndpoint = (scope: CitasScope, id?: string) => {
     return `${CITAS_API_BASE}/tecnico/${encodeURIComponent(id ?? "")}`;
 };
 
-/* =========================
-   COMPONENTE PRINCIPAL
-========================= */
 export default function CitasPage() {
     const [citas, setCitas] = useState<CitaAdminDTO[]>([]);
     const [loading, setLoading] = useState(true);
@@ -80,14 +70,16 @@ export default function CitasPage() {
     const [estadoFiltro, setEstadoFiltro] = useState("TODOS");
     const [fechaActual, setFechaActual] = useState(new Date());
 
-    // ✅ NUEVO: scope de consulta (usa endpoints nuevos)
     const [scope, setScope] = useState<CitasScope>("TODAS");
-    const [scopeId, setScopeId] = useState<string>(""); // cedula cliente/técnico según scope
+    const [scopeId, setScopeId] = useState<string>("");
 
     const [citaSeleccionada, setCitaSeleccionada] = useState<CitaAdminDTO | null>(null);
 
+    // ✅ Modal crear cita (integrado)
+    const [openCrear, setOpenCrear] = useState(false);
+
     /* =========================
-       1) CARGA DE DATOS (ENDPOINTS NUEVOS)
+       1) CARGA DE DATOS
     ========================= */
     const fetchCitas = async () => {
         setLoading(true);
@@ -95,7 +87,6 @@ export default function CitasPage() {
         try {
             const token = localStorage.getItem("token");
 
-            // ✅ validación simple: si pides CLIENTE/TECNICO necesitas id
             if ((scope === "CLIENTE" || scope === "TECNICO") && !scopeId.trim()) {
                 setCitas([]);
                 return;
@@ -124,7 +115,6 @@ export default function CitasPage() {
         }
     };
 
-    // ✅ recarga cuando cambias scope o scopeId
     useEffect(() => {
         fetchCitas();
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -290,7 +280,7 @@ export default function CitasPage() {
 
                 {/* Lado Derecho */}
                 <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
-                    {/* ✅ NUEVO: Selector de endpoint */}
+                    {/* Selector scope */}
                     <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
                         <select
                             value={scope}
@@ -328,7 +318,7 @@ export default function CitasPage() {
                         )}
                     </div>
 
-                    {/* Select Filtro Estado */}
+                    {/* Filtro Estado */}
                     <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
                         <Filter size={14} style={{ position: "absolute", left: "10px", color: "#64748b" }} />
                         <select
@@ -354,10 +344,26 @@ export default function CitasPage() {
                         </select>
                     </div>
 
-                    {/* Agendar */}
-                    <div style={{ display: "flex" }}>
-                        <AgendarCitaModal onCitaCreated={fetchCitas} />
-                    </div>
+                    {/* ✅ Botón abre modal (integrado) */}
+                    <button
+                        onClick={() => setOpenCrear(true)}
+                        style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "0.5rem",
+                            padding: "0.55rem 0.9rem",
+                            border: "1px solid #0f172a",
+                            background: "#0f172a",
+                            color: "#fff",
+                            fontWeight: 800,
+                            fontSize: "0.8rem",
+                            cursor: "pointer",
+                            borderRadius: 0,
+                        }}
+                    >
+                        <Calendar size={16} />
+                        Nueva Cita
+                    </button>
                 </div>
             </div>
 
@@ -382,7 +388,7 @@ export default function CitasPage() {
                         position: "sticky",
                         top: 0,
                         background: "#fff",
-                        zIndex: 20,
+                        zIndex: 5, // ✅ IMPORTANTE: bajo, para que cualquier modal fixed lo tape
                         boxShadow: "0 2px 4px rgba(0,0,0,0.02)",
                     }}
                 >
@@ -425,10 +431,7 @@ export default function CitasPage() {
                         <div style={{ padding: "1.5rem", color: "#64748b", fontFamily: "monospace" }}>Cargando...</div>
                     ) : (
                         horas.map((hour) => (
-                            <div
-                                key={hour}
-                                style={{ display: "grid", gridTemplateColumns: "60px repeat(7, 1fr)", minHeight: "100px" }}
-                            >
+                            <div key={hour} style={{ display: "grid", gridTemplateColumns: "60px repeat(7, 1fr)", minHeight: "100px" }}>
                                 {/* Columna Hora */}
                                 <div
                                     style={{
@@ -538,24 +541,589 @@ export default function CitasPage() {
                 </div>
             </div>
 
-            {/* --- MODAL DE DETALLES --- */}
-            {citaSeleccionada && (
-                <CitaDetailModal cita={citaSeleccionada} onClose={() => setCitaSeleccionada(null)} />
+            {/* ✅ MODAL CREAR CITA (FULL VIEWPORT FIXED) */}
+            {openCrear && (
+                <CrearCitaModal
+                    onClose={() => setOpenCrear(false)}
+                    onCreated={() => {
+                        setOpenCrear(false);
+                        fetchCitas();
+                    }}
+                />
             )}
+
+            {/* --- MODAL DE DETALLES --- */}
+            {citaSeleccionada && <CitaDetailModal cita={citaSeleccionada} onClose={() => setCitaSeleccionada(null)} />}
         </div>
     );
 }
 
 /* =========================
-   MODAL DETALLES
+   MODAL: CREAR CITA (integrado)
+   ✅ FIX: overlay fixed inset-0 => tapa header sticky
 ========================= */
-function CitaDetailModal({
-    cita,
+
+interface Rol {
+    id: number;
+    nombre: string;
+}
+interface Usuario {
+    cedula: string;
+    nombre: string;
+    apellido?: string;
+    email: string;
+    telefono?: string;
+    rol?: Rol;
+}
+
+function CrearCitaModal({
     onClose,
+    onCreated,
 }: {
-    cita: CitaAdminDTO;
     onClose: () => void;
+    onCreated: () => void;
 }) {
+    const [loading, setLoading] = useState(false);
+    const [loadingData, setLoadingData] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const [fecha, setFecha] = useState("");
+    const [hora, setHora] = useState("");
+    const [motivo, setMotivo] = useState("");
+
+    const [listaClientes, setListaClientes] = useState<Usuario[]>([]);
+    const [busquedaCliente, setBusquedaCliente] = useState("");
+    const [clienteSeleccionado, setClienteSeleccionado] = useState<Usuario | null>(null);
+    const [showDropCliente, setShowDropCliente] = useState(false);
+
+    const [listaTecnicos, setListaTecnicos] = useState<Usuario[]>([]);
+    const [busquedaTecnico, setBusquedaTecnico] = useState("");
+    const [tecnicoSeleccionado, setTecnicoSeleccionado] = useState<Usuario | null>(null);
+    const [showDropTecnico, setShowDropTecnico] = useState(false);
+
+    const wrapperRef = useRef<HTMLDivElement>(null);
+
+    // ✅ Bloquear scroll del body mientras el modal está abierto
+    useEffect(() => {
+        const prev = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+        return () => {
+            document.body.style.overflow = prev;
+        };
+    }, []);
+
+    // ESC para cerrar
+    useEffect(() => {
+        const onEsc = (e: KeyboardEvent) => {
+            if (e.key === "Escape") onClose();
+        };
+        window.addEventListener("keydown", onEsc);
+        return () => window.removeEventListener("keydown", onEsc);
+    }, [onClose]);
+
+    // Cargar usuarios
+    useEffect(() => {
+        const fetchCombos = async () => {
+            setLoadingData(true);
+            try {
+                const token = localStorage.getItem("token");
+                if (!token) return;
+
+                const resUsers = await fetch(USUARIOS_API, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+
+                if (resUsers.ok) {
+                    const usuarios: Usuario[] = await resUsers.json();
+                    setListaClientes(usuarios.filter((u) => u.rol?.nombre === "ROLE_CLIENTE"));
+                    setListaTecnicos(
+                        usuarios.filter((u) => u.rol?.nombre === "ROLE_TECNICO" || u.rol?.nombre === "ROLE_ADMIN")
+                    );
+                } else {
+                    setError("No se pudo cargar la lista de usuarios.");
+                }
+            } catch (err) {
+                console.error("Error cargando usuarios:", err);
+                setError("No se pudo cargar la lista de usuarios.");
+            } finally {
+                setLoadingData(false);
+            }
+        };
+
+        fetchCombos();
+    }, []);
+
+    // Click afuera dropdowns
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+                setShowDropCliente(false);
+                setShowDropTecnico(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    const filtrarUsuarios = (lista: Usuario[], busqueda: string) => {
+        const termino = busqueda.toLowerCase();
+        return lista.filter((u) => {
+            const nombreCompleto = `${u.nombre || ""} ${u.apellido || ""}`.toLowerCase();
+            return nombreCompleto.includes(termino) || u.cedula.includes(termino);
+        });
+    };
+
+    const renderDropdownItem = (u: Usuario, onSelect: (u: Usuario) => void) => (
+        <div
+            key={u.cedula}
+            onClick={() => onSelect(u)}
+            style={{
+                padding: "0.7rem 1rem",
+                cursor: "pointer",
+                borderBottom: "1px solid #f1f5f9",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+            }}
+            onMouseEnter={(e) => ((e.currentTarget.style.backgroundColor = "#f8fafc"))}
+            onMouseLeave={(e) => ((e.currentTarget.style.backgroundColor = "#fff"))}
+        >
+            <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                <span style={{ fontSize: "0.85rem", fontWeight: 800, color: "#0f172a" }}>
+                    {u.nombre} {u.apellido || ""}
+                </span>
+                <span style={{ fontSize: "0.75rem", color: "#64748b", display: "flex", alignItems: "center", gap: "6px" }}>
+                    <User size={12} /> {u.email}
+                </span>
+            </div>
+
+            <span
+                style={{
+                    fontSize: "0.75rem",
+                    fontFamily: "monospace",
+                    background: "#f1f5f9",
+                    color: "#334155",
+                    padding: "0.25rem 0.5rem",
+                    border: "1px solid #e2e8f0",
+                }}
+            >
+                {u.cedula}
+            </span>
+        </div>
+    );
+
+    const handleSubmit = async (e: FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+        setError(null);
+
+        if (!clienteSeleccionado || !fecha || !hora || !motivo) {
+            setError("Todos los campos son obligatorios.");
+            setLoading(false);
+            return;
+        }
+
+        try {
+            const token = localStorage.getItem("token");
+            const fechaHoraInicio = `${fecha}T${hora}:00`;
+
+            const response = await fetch(
+                `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"}/api/citas/agendar`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                        usuarioId: clienteSeleccionado.cedula,
+                        fechaHoraInicio,
+                        motivo,
+                        tecnicoId: tecnicoSeleccionado ? tecnicoSeleccionado.cedula : null,
+                    }),
+                }
+            );
+
+            if (response.ok) {
+                onCreated();
+            } else {
+                const txt = await response.text();
+                console.error("Error del servidor:", txt);
+                setError("Error al agendar. Verifique los datos.");
+            }
+        } catch (err) {
+            console.error(err);
+            setError("Error de conexión con el servidor");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div
+            role="dialog"
+            aria-modal="true"
+            onClick={onClose}
+            style={{
+                position: "fixed",
+                inset: 0,
+                width: "100vw",
+                height: "100vh",
+                background: "rgba(2, 6, 23, 0.55)",
+                backdropFilter: "blur(6px)",
+                zIndex: 2000, // ✅ MÁS ALTO que cualquier sticky header
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "1rem",
+            }}
+        >
+            <div
+                onClick={(e) => e.stopPropagation()}
+                ref={wrapperRef}
+                style={{
+                    width: "100%",
+                    maxWidth: "520px",
+                    background: "#fff",
+                    border: "1px solid #e2e8f0",
+                    boxShadow: "0 30px 60px rgba(2,6,23,0.35)",
+                    borderRadius: 0,
+                    overflow: "hidden",
+                }}
+            >
+                {/* Header */}
+                <div
+                    style={{
+                        padding: "1rem 1.25rem",
+                        background: "#f8fafc",
+                        borderBottom: "1px solid #e2e8f0",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: "1rem",
+                    }}
+                >
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                        <Calendar size={18} />
+                        <div>
+                            <div style={{ fontSize: "0.8rem", fontWeight: 900, color: "#0f172a", letterSpacing: "0.06em" }}>
+                                AGENDAR SERVICIO TÉCNICO
+                            </div>
+                            <div style={{ fontSize: "0.75rem", color: "#64748b" }}>
+                                Selecciona cliente, fecha/hora y detalle.
+                            </div>
+                        </div>
+                    </div>
+
+                    <button
+                        onClick={onClose}
+                        style={{
+                            width: 36,
+                            height: 36,
+                            display: "grid",
+                            placeItems: "center",
+                            background: "#fff",
+                            border: "1px solid #e2e8f0",
+                            cursor: "pointer",
+                        }}
+                        title="Cerrar"
+                    >
+                        <X size={18} />
+                    </button>
+                </div>
+
+                {/* Body */}
+                <form onSubmit={handleSubmit} style={{ padding: "1.25rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
+                    {error && (
+                        <div
+                            style={{
+                                background: "#fef2f2",
+                                border: "1px solid #fecaca",
+                                color: "#b91c1c",
+                                padding: "0.75rem",
+                                fontSize: "0.85rem",
+                                fontWeight: 700,
+                            }}
+                        >
+                            {error}
+                        </div>
+                    )}
+
+                    {/* Cliente */}
+                    <div style={{ position: "relative" }}>
+                        <label style={{ fontSize: "0.7rem", fontWeight: 900, color: "#64748b", letterSpacing: "0.12em" }}>
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
+                                <User size={12} /> CLIENTE *
+                            </span>
+                        </label>
+
+                        <div
+                            style={{
+                                marginTop: 6,
+                                position: "relative",
+                                display: "flex",
+                                alignItems: "center",
+                                border: showDropCliente ? "1px solid #2563eb" : "1px solid #cbd5e1",
+                                background: "#fff",
+                            }}
+                        >
+                            <Search size={16} style={{ position: "absolute", left: 10, color: "#94a3b8" }} />
+                            <input
+                                type="text"
+                                placeholder={loadingData ? "Cargando..." : "Buscar cliente..."}
+                                value={busquedaCliente}
+                                onChange={(e) => {
+                                    setBusquedaCliente(e.target.value);
+                                    setShowDropCliente(true);
+                                    setShowDropTecnico(false);
+                                    if (e.target.value === "") setClienteSeleccionado(null);
+                                }}
+                                onFocus={() => {
+                                    setShowDropCliente(true);
+                                    setShowDropTecnico(false);
+                                }}
+                                style={{
+                                    width: "100%",
+                                    padding: "0.7rem 2.2rem 0.7rem 2.2rem",
+                                    fontSize: "0.9rem",
+                                    outline: "none",
+                                    border: "none",
+                                }}
+                            />
+
+                            <div style={{ position: "absolute", right: 10, color: "#94a3b8" }}>
+                                {clienteSeleccionado ? <Check size={16} color="#059669" /> : <ChevronDown size={16} />}
+                            </div>
+                        </div>
+
+                        {showDropCliente && (
+                            <div
+                                style={{
+                                    position: "absolute",
+                                    top: "100%",
+                                    left: 0,
+                                    right: 0,
+                                    background: "#fff",
+                                    border: "1px solid #cbd5e1",
+                                    boxShadow: "0 12px 24px rgba(2,6,23,0.12)",
+                                    maxHeight: 190,
+                                    overflowY: "auto",
+                                    zIndex: 2100,
+                                    marginTop: 6,
+                                }}
+                            >
+                                {filtrarUsuarios(listaClientes, busquedaCliente).length > 0 ? (
+                                    filtrarUsuarios(listaClientes, busquedaCliente).map((u) =>
+                                        renderDropdownItem(u, (sel) => {
+                                            setClienteSeleccionado(sel);
+                                            setBusquedaCliente(`${sel.nombre} ${sel.apellido || ""} - ${sel.cedula}`);
+                                            setShowDropCliente(false);
+                                        })
+                                    )
+                                ) : (
+                                    <div style={{ padding: "0.9rem", textAlign: "center", fontSize: "0.8rem", color: "#64748b" }}>
+                                        Sin resultados
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Técnico */}
+                    <div style={{ position: "relative" }}>
+                        <label style={{ fontSize: "0.7rem", fontWeight: 900, color: "#64748b", letterSpacing: "0.12em" }}>
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
+                                <Wrench size={12} /> TÉCNICO (Opcional)
+                            </span>
+                        </label>
+
+                        <div
+                            style={{
+                                marginTop: 6,
+                                position: "relative",
+                                display: "flex",
+                                alignItems: "center",
+                                border: showDropTecnico ? "1px solid #2563eb" : "1px solid #cbd5e1",
+                                background: "#fff",
+                            }}
+                        >
+                            <Search size={16} style={{ position: "absolute", left: 10, color: "#94a3b8" }} />
+                            <input
+                                type="text"
+                                placeholder={loadingData ? "Cargando..." : "Buscar técnico..."}
+                                value={busquedaTecnico}
+                                onChange={(e) => {
+                                    setBusquedaTecnico(e.target.value);
+                                    setShowDropTecnico(true);
+                                    setShowDropCliente(false);
+                                    if (e.target.value === "") setTecnicoSeleccionado(null);
+                                }}
+                                onFocus={() => {
+                                    setShowDropTecnico(true);
+                                    setShowDropCliente(false);
+                                }}
+                                style={{
+                                    width: "100%",
+                                    padding: "0.7rem 2.2rem 0.7rem 2.2rem",
+                                    fontSize: "0.9rem",
+                                    outline: "none",
+                                    border: "none",
+                                }}
+                            />
+
+                            <div style={{ position: "absolute", right: 10, color: "#94a3b8" }}>
+                                {tecnicoSeleccionado ? <Check size={16} color="#059669" /> : <ChevronDown size={16} />}
+                            </div>
+                        </div>
+
+                        {showDropTecnico && (
+                            <div
+                                style={{
+                                    position: "absolute",
+                                    top: "100%",
+                                    left: 0,
+                                    right: 0,
+                                    background: "#fff",
+                                    border: "1px solid #cbd5e1",
+                                    boxShadow: "0 12px 24px rgba(2,6,23,0.12)",
+                                    maxHeight: 190,
+                                    overflowY: "auto",
+                                    zIndex: 2100,
+                                    marginTop: 6,
+                                }}
+                            >
+                                {filtrarUsuarios(listaTecnicos, busquedaTecnico).length > 0 ? (
+                                    filtrarUsuarios(listaTecnicos, busquedaTecnico).map((u) =>
+                                        renderDropdownItem(u, (sel) => {
+                                            setTecnicoSeleccionado(sel);
+                                            setBusquedaTecnico(`${sel.nombre} ${sel.apellido || ""} - ${sel.cedula}`);
+                                            setShowDropTecnico(false);
+                                        })
+                                    )
+                                ) : (
+                                    <div style={{ padding: "0.9rem", textAlign: "center", fontSize: "0.8rem", color: "#64748b" }}>
+                                        Sin resultados
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Fecha/Hora */}
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.8rem" }}>
+                        <div>
+                            <label style={{ fontSize: "0.7rem", fontWeight: 900, color: "#64748b", letterSpacing: "0.12em" }}>
+                                FECHA *
+                            </label>
+                            <input
+                                type="date"
+                                value={fecha}
+                                onChange={(e) => setFecha(e.target.value)}
+                                min={new Date().toISOString().split("T")[0]}
+                                style={{
+                                    width: "100%",
+                                    marginTop: 6,
+                                    padding: "0.65rem 0.7rem",
+                                    border: "1px solid #cbd5e1",
+                                    outline: "none",
+                                }}
+                            />
+                        </div>
+
+                        <div>
+                            <label style={{ fontSize: "0.7rem", fontWeight: 900, color: "#64748b", letterSpacing: "0.12em" }}>
+                                HORA *
+                            </label>
+                            <input
+                                type="time"
+                                value={hora}
+                                onChange={(e) => setHora(e.target.value)}
+                                style={{
+                                    width: "100%",
+                                    marginTop: 6,
+                                    padding: "0.65rem 0.7rem",
+                                    border: "1px solid #cbd5e1",
+                                    outline: "none",
+                                }}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Motivo */}
+                    <div>
+                        <label style={{ fontSize: "0.7rem", fontWeight: 900, color: "#64748b", letterSpacing: "0.12em" }}>
+                            DETALLE DEL SERVICIO *
+                        </label>
+                        <textarea
+                            value={motivo}
+                            onChange={(e) => setMotivo(e.target.value)}
+                            placeholder="Describa el problema técnico..."
+                            style={{
+                                width: "100%",
+                                marginTop: 6,
+                                minHeight: 110,
+                                padding: "0.75rem",
+                                border: "1px solid #cbd5e1",
+                                outline: "none",
+                                fontFamily: "monospace",
+                                fontSize: "0.85rem",
+                                resize: "vertical",
+                            }}
+                        />
+                    </div>
+
+                    {/* Footer */}
+                    <div style={{ display: "flex", gap: "0.6rem", justifyContent: "flex-end", paddingTop: "0.9rem", borderTop: "1px solid #f1f5f9" }}>
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            style={{
+                                padding: "0.6rem 0.9rem",
+                                border: "1px solid #cbd5e1",
+                                background: "#fff",
+                                fontWeight: 900,
+                                cursor: "pointer",
+                            }}
+                        >
+                            Cancelar
+                        </button>
+
+                        <button
+                            type="submit"
+                            disabled={loading || !clienteSeleccionado}
+                            style={{
+                                padding: "0.6rem 0.9rem",
+                                border: "1px solid #0f172a",
+                                background: "#0f172a",
+                                color: "#fff",
+                                fontWeight: 900,
+                                cursor: loading ? "not-allowed" : "pointer",
+                                opacity: loading || !clienteSeleccionado ? 0.7 : 1,
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "0.5rem",
+                            }}
+                        >
+                            {loading ? (
+                                <>
+                                    <Loader2 size={16} className="animate-spin" />
+                                    Asignando...
+                                </>
+                            ) : (
+                                "Confirmar Asignación"
+                            )}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+}
+
+/* =========================
+   MODAL DETALLES (el tuyo)
+========================= */
+function CitaDetailModal({ cita, onClose }: { cita: CitaAdminDTO; onClose: () => void }) {
     useEffect(() => {
         const handleEsc = (e: KeyboardEvent) => {
             if (e.key === "Escape") onClose();
@@ -567,36 +1135,22 @@ function CitaDetailModal({
     const estado = (cita.estado ?? "").toUpperCase();
 
     const estadoStyles = (() => {
-        // Ajusta nombres a tu backend
-        if (estado.includes("COMPLET")) {
-            return { bg: "#dcfce7", border: "#86efac", text: "#166534" };
-        }
-        if (estado.includes("CANCEL")) {
-            return { bg: "#fee2e2", border: "#fecaca", text: "#991b1b" };
-        }
-        if (estado.includes("REPRO") || estado.includes("NO")) {
-            return { bg: "#ffedd5", border: "#fed7aa", text: "#9a3412" };
-        }
-        // Pendiente / programada / en proceso (default)
+        if (estado.includes("COMPLET")) return { bg: "#dcfce7", border: "#86efac", text: "#166534" };
+        if (estado.includes("CANCEL")) return { bg: "#fee2e2", border: "#fecaca", text: "#991b1b" };
+        if (estado.includes("REPRO") || estado.includes("NO")) return { bg: "#ffedd5", border: "#fed7aa", text: "#9a3412" };
         return { bg: "#e0e7ff", border: "#c7d2fe", text: "#3730a3" };
     })();
 
     const fechaLabel = (() => {
         try {
-            return new Date(cita.fechaHoraInicio).toLocaleString("es-ES", {
-                dateStyle: "full",
-                timeStyle: "short",
-            });
+            return new Date(cita.fechaHoraInicio).toLocaleString("es-ES", { dateStyle: "full", timeStyle: "short" });
         } catch {
             return String(cita.fechaHoraInicio ?? "Sin fecha");
         }
     })();
 
     const clienteNombre = `${cita.cliente?.nombre ?? ""} ${cita.cliente?.apellido ?? ""}`.trim() || "—";
-    const tecnicoNombre =
-        cita.tecnico
-            ? `${cita.tecnico?.nombre ?? ""} ${cita.tecnico?.apellido ?? ""}`.trim() || "—"
-            : null;
+    const tecnicoNombre = cita.tecnico ? `${cita.tecnico?.nombre ?? ""} ${cita.tecnico?.apellido ?? ""}`.trim() || "—" : null;
 
     return (
         <div
@@ -611,12 +1165,11 @@ function CitaDetailModal({
                 height: "100vh",
                 background: "rgba(2, 6, 23, 0.55)",
                 backdropFilter: "blur(6px)",
-                zIndex: 100,
+                zIndex: 3000,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 padding: "1rem",
-                animation: "modalOverlayIn 0.16s ease-out",
             }}
         >
             <div
@@ -626,14 +1179,10 @@ function CitaDetailModal({
                     maxWidth: "720px",
                     borderRadius: "16px",
                     backgroundColor: "#fff",
-                    boxShadow:
-                        "0 0 0 1px rgba(148,163,184,0.35), 0 24px 50px -12px rgba(2,6,23,0.45)",
+                    boxShadow: "0 0 0 1px rgba(148,163,184,0.35), 0 24px 50px -12px rgba(2,6,23,0.45)",
                     overflow: "hidden",
-                    transform: "translateY(0)",
-                    animation: "modalCardIn 0.18s ease-out",
                 }}
             >
-                {/* ===== Header ===== */}
                 <div
                     style={{
                         padding: "1rem 1.25rem",
@@ -646,59 +1195,18 @@ function CitaDetailModal({
                     }}
                 >
                     <div style={{ display: "flex", flexDirection: "column", gap: "0.15rem" }}>
-                        <div
-                            style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "0.6rem",
-                                flexWrap: "wrap",
-                            }}
-                        >
-                            <span
-                                style={{
-                                    fontSize: "0.72rem",
-                                    color: "rgba(226,232,240,0.85)",
-                                    letterSpacing: "0.18em",
-                                    textTransform: "uppercase",
-                                    fontWeight: 700,
-                                }}
-                            >
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" }}>
+                            <span style={{ fontSize: "0.72rem", color: "rgba(226,232,240,0.85)", letterSpacing: "0.18em", textTransform: "uppercase", fontWeight: 700 }}>
                                 Detalle de cita
                             </span>
-
-                            <span
-                                style={{
-                                    fontSize: "0.75rem",
-                                    padding: "0.22rem 0.55rem",
-                                    borderRadius: "999px",
-                                    backgroundColor: "rgba(255,255,255,0.12)",
-                                    border: "1px solid rgba(255,255,255,0.18)",
-                                    fontWeight: 700,
-                                }}
-                            >
+                            <span style={{ fontSize: "0.75rem", padding: "0.22rem 0.55rem", borderRadius: "999px", backgroundColor: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.18)", fontWeight: 700 }}>
                                 #{String(cita.id).padStart(6, "0")}
                             </span>
                         </div>
 
-                        <div
-                            style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "0.6rem",
-                                flexWrap: "wrap",
-                                marginTop: "0.15rem",
-                            }}
-                        >
-                            <span
-                                style={{
-                                    fontSize: "0.72rem",
-                                    color: "rgba(226,232,240,0.85)",
-                                }}
-                            >
-                                <span style={{ opacity: 0.8 }}>Programada:</span>{" "}
-                                <b style={{ color: "#fff" }}>{fechaLabel}</b>
-                            </span>
-                        </div>
+                        <span style={{ fontSize: "0.72rem", color: "rgba(226,232,240,0.85)" }}>
+                            <span style={{ opacity: 0.8 }}>Programada:</span> <b style={{ color: "#fff" }}>{fechaLabel}</b>
+                        </span>
                     </div>
 
                     <button
@@ -713,10 +1221,7 @@ function CitaDetailModal({
                             cursor: "pointer",
                             display: "grid",
                             placeItems: "center",
-                            transition: "transform 0.15s ease, background 0.15s ease",
                         }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.18)")}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.12)")}
                         title="Cerrar"
                         aria-label="Cerrar"
                     >
@@ -724,9 +1229,7 @@ function CitaDetailModal({
                     </button>
                 </div>
 
-                {/* ===== Body ===== */}
                 <div style={{ padding: "1.25rem" }}>
-                    {/* ===== Row status + time ===== */}
                     <div
                         style={{
                             display: "grid",
@@ -740,82 +1243,21 @@ function CitaDetailModal({
                         }}
                     >
                         <div>
-                            <div
-                                style={{
-                                    fontSize: "0.7rem",
-                                    color: "#64748b",
-                                    textTransform: "uppercase",
-                                    fontWeight: 800,
-                                    letterSpacing: "0.12em",
-                                    marginBottom: "0.35rem",
-                                }}
-                            >
+                            <div style={{ fontSize: "0.7rem", color: "#64748b", textTransform: "uppercase", fontWeight: 800, letterSpacing: "0.12em", marginBottom: "0.35rem" }}>
                                 Estado
                             </div>
-
-                            <span
-                                style={{
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    gap: "0.45rem",
-                                    padding: "0.3rem 0.6rem",
-                                    borderRadius: "999px",
-                                    background: estadoStyles.bg,
-                                    border: `1px solid ${estadoStyles.border}`,
-                                    color: estadoStyles.text,
-                                    fontWeight: 900,
-                                    fontSize: "0.75rem",
-                                }}
-                            >
-                                <span
-                                    style={{
-                                        width: 8,
-                                        height: 8,
-                                        borderRadius: "999px",
-                                        backgroundColor: estadoStyles.text,
-                                        opacity: 0.9,
-                                    }}
-                                />
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: "0.45rem", padding: "0.3rem 0.6rem", borderRadius: "999px", background: estadoStyles.bg, border: `1px solid ${estadoStyles.border}`, color: estadoStyles.text, fontWeight: 900, fontSize: "0.75rem" }}>
+                                <span style={{ width: 8, height: 8, borderRadius: "999px", backgroundColor: estadoStyles.text, opacity: 0.9 }} />
                                 {cita.estado}
                             </span>
                         </div>
 
                         <div>
-                            <div
-                                style={{
-                                    fontSize: "0.7rem",
-                                    color: "#64748b",
-                                    textTransform: "uppercase",
-                                    fontWeight: 800,
-                                    letterSpacing: "0.12em",
-                                    marginBottom: "0.35rem",
-                                }}
-                            >
+                            <div style={{ fontSize: "0.7rem", color: "#64748b", textTransform: "uppercase", fontWeight: 800, letterSpacing: "0.12em", marginBottom: "0.35rem" }}>
                                 Horario programado
                             </div>
-
-                            <div
-                                style={{
-                                    fontWeight: 800,
-                                    fontSize: "0.92rem",
-                                    color: "#0f172a",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: "0.5rem",
-                                }}
-                            >
-                                <span
-                                    style={{
-                                        width: 28,
-                                        height: 28,
-                                        borderRadius: "10px",
-                                        border: "1px solid #e2e8f0",
-                                        backgroundColor: "#fff",
-                                        display: "grid",
-                                        placeItems: "center",
-                                        boxShadow: "0 6px 14px rgba(2,6,23,0.06)",
-                                    }}
-                                >
+                            <div style={{ fontWeight: 800, fontSize: "0.92rem", color: "#0f172a", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                <span style={{ width: 28, height: 28, borderRadius: "10px", border: "1px solid #e2e8f0", backgroundColor: "#fff", display: "grid", placeItems: "center", boxShadow: "0 6px 14px rgba(2,6,23,0.06)" }}>
                                     <Clock size={14} />
                                 </span>
                                 {fechaLabel}
@@ -823,63 +1265,14 @@ function CitaDetailModal({
                         </div>
                     </div>
 
-                    {/* ===== Grid: cliente / tecnico ===== */}
-                    <div
-                        style={{
-                            display: "grid",
-                            gridTemplateColumns: "1fr 1fr",
-                            gap: "1rem",
-                            marginBottom: "1rem",
-                        }}
-                    >
-                        {/* Cliente */}
-                        <div
-                            style={{
-                                borderRadius: "14px",
-                                border: "1px solid #e2e8f0",
-                                backgroundColor: "#ffffff",
-                                padding: "0.95rem",
-                                boxShadow: "0 10px 24px rgba(2,6,23,0.06)",
-                            }}
-                        >
-                            <div
-                                style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "space-between",
-                                    marginBottom: "0.85rem",
-                                }}
-                            >
-                                <h4
-                                    style={{
-                                        margin: 0,
-                                        fontSize: "0.75rem",
-                                        fontWeight: 900,
-                                        color: "#334155",
-                                        textTransform: "uppercase",
-                                        letterSpacing: "0.14em",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        gap: "0.5rem",
-                                    }}
-                                >
-                                    <span
-                                        style={{
-                                            width: 28,
-                                            height: 28,
-                                            borderRadius: "10px",
-                                            background: "#f1f5f9",
-                                            border: "1px solid #e2e8f0",
-                                            display: "grid",
-                                            placeItems: "center",
-                                        }}
-                                    >
-                                        <User size={14} />
-                                    </span>
-                                    Datos del cliente
-                                </h4>
-                            </div>
-
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
+                        <div style={{ borderRadius: "14px", border: "1px solid #e2e8f0", backgroundColor: "#ffffff", padding: "0.95rem", boxShadow: "0 10px 24px rgba(2,6,23,0.06)" }}>
+                            <h4 style={{ margin: 0, fontSize: "0.75rem", fontWeight: 900, color: "#334155", textTransform: "uppercase", letterSpacing: "0.14em", display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.85rem" }}>
+                                <span style={{ width: 28, height: 28, borderRadius: "10px", background: "#f1f5f9", border: "1px solid #e2e8f0", display: "grid", placeItems: "center" }}>
+                                    <User size={14} />
+                                </span>
+                                Datos del cliente
+                            </h4>
                             <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
                                 <InfoItem label="Nombre" value={clienteNombre} />
                                 <InfoItem label="Cédula" value={cita.cliente?.cedula ?? "—"} monospace />
@@ -887,188 +1280,47 @@ function CitaDetailModal({
                             </div>
                         </div>
 
-                        {/* Técnico */}
-                        <div
-                            style={{
-                                borderRadius: "14px",
-                                border: "1px solid #e2e8f0",
-                                backgroundColor: "#ffffff",
-                                padding: "0.95rem",
-                                boxShadow: "0 10px 24px rgba(2,6,23,0.06)",
-                            }}
-                        >
-                            <div
-                                style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "space-between",
-                                    marginBottom: "0.85rem",
-                                }}
-                            >
-                                <h4
-                                    style={{
-                                        margin: 0,
-                                        fontSize: "0.75rem",
-                                        fontWeight: 900,
-                                        color: "#334155",
-                                        textTransform: "uppercase",
-                                        letterSpacing: "0.14em",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        gap: "0.5rem",
-                                    }}
-                                >
-                                    <span
-                                        style={{
-                                            width: 28,
-                                            height: 28,
-                                            borderRadius: "10px",
-                                            background: "#f1f5f9",
-                                            border: "1px solid #e2e8f0",
-                                            display: "grid",
-                                            placeItems: "center",
-                                        }}
-                                    >
-                                        <UserCog size={14} />
-                                    </span>
-                                    Técnico asignado
-                                </h4>
-                            </div>
+                        <div style={{ borderRadius: "14px", border: "1px solid #e2e8f0", backgroundColor: "#ffffff", padding: "0.95rem", boxShadow: "0 10px 24px rgba(2,6,23,0.06)" }}>
+                            <h4 style={{ margin: 0, fontSize: "0.75rem", fontWeight: 900, color: "#334155", textTransform: "uppercase", letterSpacing: "0.14em", display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.85rem" }}>
+                                <span style={{ width: 28, height: 28, borderRadius: "10px", background: "#f1f5f9", border: "1px solid #e2e8f0", display: "grid", placeItems: "center" }}>
+                                    <UserCog size={14} />
+                                </span>
+                                Técnico asignado
+                            </h4>
 
                             {cita.tecnico ? (
                                 <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
                                     <InfoItem label="Nombre" value={tecnicoNombre ?? "—"} />
-                                    {/* Si tienes cédula del técnico, descomenta:
-                  <InfoItem label="Cédula" value={cita.tecnico?.cedula ?? "—"} monospace />
-                  */}
                                 </div>
                             ) : (
-                                <div
-                                    style={{
-                                        padding: "0.75rem",
-                                        borderRadius: "12px",
-                                        backgroundColor: "#f8fafc",
-                                        border: "1px dashed #cbd5e1",
-                                        color: "#64748b",
-                                        fontSize: "0.85rem",
-                                        fontStyle: "italic",
-                                    }}
-                                >
+                                <div style={{ padding: "0.75rem", borderRadius: "12px", backgroundColor: "#f8fafc", border: "1px dashed #cbd5e1", color: "#64748b", fontSize: "0.85rem", fontStyle: "italic" }}>
                                     Sin asignar
                                 </div>
                             )}
                         </div>
                     </div>
 
-                    {/* Motivo */}
-                    <div
-                        style={{
-                            borderRadius: "14px",
-                            border: "1px solid #e2e8f0",
-                            background: "linear-gradient(180deg, #ffffff, #f8fafc)",
-                            padding: "0.95rem",
-                        }}
-                    >
-                        <div
-                            style={{
-                                fontSize: "0.75rem",
-                                fontWeight: 900,
-                                color: "#334155",
-                                textTransform: "uppercase",
-                                letterSpacing: "0.14em",
-                                marginBottom: "0.6rem",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "space-between",
-                            }}
-                        >
+                    <div style={{ borderRadius: "14px", border: "1px solid #e2e8f0", background: "linear-gradient(180deg, #ffffff, #f8fafc)", padding: "0.95rem" }}>
+                        <div style={{ fontSize: "0.75rem", fontWeight: 900, color: "#334155", textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: "0.6rem", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                             <span>Detalle de solicitud</span>
-                            <span
-                                style={{
-                                    fontSize: "0.72rem",
-                                    color: "#64748b",
-                                    fontWeight: 800,
-                                    letterSpacing: 0,
-                                    textTransform: "none",
-                                }}
-                            >
-                                (Motivo)
-                            </span>
+                            <span style={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 800, textTransform: "none" }}></span>
                         </div>
 
-                        <div
-                            style={{
-                                backgroundColor: "#ffffff",
-                                border: "1px solid #e2e8f0",
-                                borderLeft: "4px solid #0f172a",
-                                borderRadius: "12px",
-                                padding: "0.85rem 0.9rem",
-                                fontSize: "0.9rem",
-                                color: "#0f172a",
-                                lineHeight: 1.5,
-                                boxShadow: "0 10px 20px rgba(2,6,23,0.06)",
-                                whiteSpace: "pre-wrap",
-                            }}
-                        >
+                        <div style={{ backgroundColor: "#ffffff", border: "1px solid #e2e8f0", borderLeft: "4px solid #0f172a", borderRadius: "12px", padding: "0.85rem 0.9rem", fontSize: "0.9rem", color: "#0f172a", lineHeight: 1.5, boxShadow: "0 10px 20px rgba(2,6,23,0.06)", whiteSpace: "pre-wrap" }}>
                             {cita.motivo || "Sin detalle"}
                         </div>
                     </div>
                 </div>
 
-                {/* ===== Footer ===== */}
-                <div
-                    style={{
-                        padding: "0.9rem 1.25rem",
-                        borderTop: "1px solid #e2e8f0",
-                        backgroundColor: "#ffffff",
-                        display: "flex",
-                        justifyContent: "flex-end",
-                        gap: "0.6rem",
-                    }}
-                >
-                    <button
-                        onClick={onClose}
-                        style={{
-                            border: "1px solid #e2e8f0",
-                            backgroundColor: "#fff",
-                            color: "#0f172a",
-                            padding: "0.45rem 0.9rem",
-                            borderRadius: "12px",
-                            fontSize: "0.85rem",
-                            fontWeight: 800,
-                            cursor: "pointer",
-                        }}
-                    >
+                <div style={{ padding: "0.9rem 1.25rem", borderTop: "1px solid #e2e8f0", backgroundColor: "#ffffff", display: "flex", justifyContent: "flex-end", gap: "0.6rem" }}>
+                    <button onClick={onClose} style={{ border: "1px solid #e2e8f0", backgroundColor: "#fff", color: "#0f172a", padding: "0.45rem 0.9rem", borderRadius: "12px", fontSize: "0.85rem", fontWeight: 800, cursor: "pointer" }}>
                         Cerrar
                     </button>
                 </div>
-
-                {/* Animaciones (inline) */}
-                <style jsx>{`
-          @keyframes modalOverlayIn {
-            from {
-              opacity: 0;
-            }
-            to {
-              opacity: 1;
-            }
-          }
-          @keyframes modalCardIn {
-            from {
-              opacity: 0;
-              transform: translateY(10px) scale(0.98);
-            }
-            to {
-              opacity: 1;
-              transform: translateY(0) scale(1);
-            }
-          }
-        `}</style>
             </div>
         </div>
     );
 }
-
 
 function InfoItem({ label, value, monospace }: { label: string; value: string; monospace?: boolean }) {
     return (
