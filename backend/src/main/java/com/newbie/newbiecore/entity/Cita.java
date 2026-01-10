@@ -7,30 +7,37 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "citas") // Asegúrate de que tu tabla en Postgres se llame "citas"
-@Data
+@Table(name = "citas")
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@ToString
 public class Cita {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // --- RELACIÓN CORREGIDA ---
-    @ManyToOne(fetch = FetchType.EAGER)
-    // 'name': Es el nombre de la columna en la tabla 'citas' (Tu DB pedía "cedula" en el primer error)
-    // 'referencedColumnName': Es el nombre de la llave primaria en la entidad Usuario (que es "cedula")
+    // ✅ Cliente (en tu front se llama "usuario")
+    @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "cedula", referencedColumnName = "cedula", nullable = false)
     @JsonIgnoreProperties({"password", "roles", "hibernateLazyInitializer", "handler"})
+    @ToString.Exclude
     private Usuario usuario;
-    // ---------------------------
+
+    // ✅ Técnico asignado (opcional) -> en tu front se llama "tecnico"
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "tecnico_cedula", referencedColumnName = "cedula")
+    @JsonIgnoreProperties({"password", "roles", "hibernateLazyInitializer", "handler"})
+    @ToString.Exclude
+    private Usuario tecnico;
 
     @Column(name = "fecha_programada", nullable = false)
     private LocalDateTime fechaProgramada;
 
-    @Column(name = "fecha_creacion")
+    @Column(name = "fecha_creacion", nullable = false)
     private LocalDateTime fechaCreacion;
 
     @Column(nullable = false)
@@ -41,11 +48,7 @@ public class Cita {
 
     @PrePersist
     public void prePersist() {
-        if (this.fechaCreacion == null) {
-            this.fechaCreacion = LocalDateTime.now();
-        }
-        if (this.estado == null) {
-            this.estado = "PENDIENTE";
-        }
+        if (this.fechaCreacion == null) this.fechaCreacion = LocalDateTime.now();
+        if (this.estado == null) this.estado = "PENDIENTE";
     }
 }

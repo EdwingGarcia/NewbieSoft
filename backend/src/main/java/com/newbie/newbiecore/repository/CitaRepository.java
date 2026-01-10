@@ -9,7 +9,8 @@ import java.util.List;
 @Repository
 public interface CitaRepository extends JpaRepository<Cita, Long> {
 
-    // CORRECCIÓN: Buscamos por la entidad completa, no por su ID interno.
-    // Spring traduce esto automáticamente a la columna usuario_id de la BD.
     List<Cita> findByUsuario(Usuario usuario);
+    List<Cita> findByTecnico(Usuario tecnico);
+
+
 }

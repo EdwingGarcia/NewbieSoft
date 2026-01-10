@@ -284,39 +284,39 @@ export default function FichasTecnicasPage() {
         "audioCodec",
         "audioHardwareId",
     ];
-const descargarPdf = async () => {
-    try {
-        if (!token) {
-            console.error("No hay token, usuario no autenticado");
-            return;
+    const descargarPdf = async () => {
+        try {
+            if (!token) {
+                console.error("No hay token, usuario no autenticado");
+                return;
+            }
+
+            const res = await fetch("http://localhost:8080/api/pdf/ficha", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`,
+                },
+                body: JSON.stringify(detalleForm), // tu FichaTecnicaDTO
+            });
+
+            if (!res.ok) {
+                console.error("Error al generar PDF", await res.text());
+                return;
+            }
+
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "ficha.pdf";
+            a.click();
+            window.URL.revokeObjectURL(url);
+        } catch (e) {
+            console.error(e);
         }
-
-        const res = await fetch("http://localhost:8080/api/pdf/ficha", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${token}`,
-            },
-            body: JSON.stringify(detalleForm), // tu FichaTecnicaDTO
-        });
-
-        if (!res.ok) {
-            console.error("Error al generar PDF", await res.text());
-            return;
-        }
-
-        const blob = await res.blob();
-        const url = window.URL.createObjectURL(blob);
-
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "ficha.pdf";
-        a.click();
-        window.URL.revokeObjectURL(url);
-    } catch (e) {
-        console.error(e);
-    }
-};
+    };
 
     const isAutoFromXml = (field: keyof FichaTecnicaDTO) =>
         AUTO_FROM_XML_FIELDS.includes(field) && !!detalle && detalle[field] !== null;
@@ -554,24 +554,17 @@ const descargarPdf = async () => {
                                     del equipo
                                 </Button>
 
+
+                            </div>
+                            <div className="flex gap-2">
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => router.push(`/firma?fichaId=${fichaId}`)}
                                     className="flex items-center gap-2"
+                                    onClick={descargarPdf}
                                 >
-                                    <FileUp className="h-4 w-4" /> Firmar Ficha Técnica
+                                    <FileUp className="h-4 w-4" /> Descargar PDF
                                 </Button>
-                            </div>
-                            <div className="flex gap-2">
-                              <Button
-    variant="outline"
-    size="sm"
-    className="flex items-center gap-2"
-    onClick={descargarPdf}
->
-    <FileUp className="h-4 w-4" /> Descargar PDF
-</Button>
 
                             </div>
                         </div>

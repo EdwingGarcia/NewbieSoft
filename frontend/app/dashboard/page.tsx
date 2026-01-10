@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import styles from "../styles/Dashboard.module.css";
 
-// 🔹 Carga dinámica de los módulos (sin SSR)
+/* =========================
+   Dynamic Modules (no SSR)
+========================= */
 const FichaTecnicaModule = dynamic(() => import("./FichasTecnicasPage"), {
     ssr: false,
 });
@@ -16,12 +18,11 @@ const UsuarioModule = dynamic(() => import("./GestionUsuario"), {
 const OrdenTrabajoModule = dynamic(() => import("./OrdenesTrabajoPage"), {
     ssr: false,
 });
-// --- NUEVO MÓDULO DE CITAS ---
-const CitasModule = dynamic(() => import("./CitasPage"), {
-    ssr: false,
-});
+const CitasModule = dynamic(() => import("./CitasPage"), { ssr: false });
 
-// 🔹 Tipo de sección
+/* =========================
+   Types / Constants
+========================= */
 type Section =
     | "dashboard"
     | "ordenes"
@@ -29,10 +30,47 @@ type Section =
     | "equipo"
     | "usuarios"
     | "roles"
-    | "citas"; // <-- AÑADIDO
+    | "citas";
 
 const DASHBOARD_API = "http://localhost:8080/api/dashboard/resumen";
 
+// ✅ Endpoint de citas por técnico (hardcode)
+const TECNICO_CEDULA = localStorage.getItem("cedula");
+const CITAS_API = `http://localhost:8080/api/citas/tecnico/${TECNICO_CEDULA}`;
+
+// ✅ Para actualizar estado
+const CITAS_API_BASE = "http://localhost:8080/api/citas";
+
+/* =========================
+   Helpers
+========================= */
+function getAuthToken(): string | null {
+    const direct =
+        localStorage.getItem("token") || localStorage.getItem("nb.auth.token");
+
+    if (direct) return direct.replace(/^Bearer\s+/i, "").trim();
+
+    try {
+        const raw = localStorage.getItem("nb.auth");
+        if (!raw) return null;
+        const obj = JSON.parse(raw);
+        const tk =
+            obj?.token ||
+            obj?.accessToken ||
+            obj?.jwt ||
+            obj?.data?.token ||
+            obj?.data?.accessToken;
+
+        if (!tk) return null;
+        return String(tk).replace(/^Bearer\s+/i, "").trim();
+    } catch {
+        return null;
+    }
+}
+
+/* =========================
+   Interfaces
+========================= */
 interface TecnicoDashboard {
     tecnicoCedula: string;
     tecnicoNombre: string;
@@ -55,18 +93,61 @@ interface DashboardResumen {
     fechaGeneracion: string;
 }
 
+interface Cita {
+    id: number;
+
+    usuario?: {
+        cedula?: string;
+        nombre?: string;
+        correo?: string;
+        telefono?: string;
+        direccion?: string;
+    };
+
+    tecnico?: {
+        cedula?: string;
+        nombre?: string;
+    };
+
+    fechaProgramada?: string;
+    fechaCreacion?: string;
+    motivo?: string;
+    estado?: string;
+
+    [key: string]: any;
+}
+
 export default function DashboardPage() {
     const router = useRouter();
 
     const [activeSection, setActiveSection] = useState<Section>("dashboard");
+
     const [dashboardData, setDashboardData] = useState<DashboardResumen | null>(
         null
     );
     const [dashboardError, setDashboardError] = useState<string | null>(null);
 
-    // 🔑 Verificar sesión activa y cargar dashboard
+    // ✅ Citas (bloque inferior en Dashboard)
+    const [citas, setCitas] = useState<Cita[]>([]);
+    const [citasLoading, setCitasLoading] = useState(false);
+    const [citasError, setCitasError] = useState<string | null>(null);
+
+    // ✅ Estado botón "Completada"
+    const [updatingCitaId, setUpdatingCitaId] = useState<number | null>(null);
+    const [citasActionError, setCitasActionError] = useState<string | null>(
+        null
+    );
+
+    // ✅ Vista de citas: pendientes vs completadas
+    const [citasView, setCitasView] = useState<
+        "PENDIENTES" | "COMPLETADAS"
+    >("PENDIENTES");
+
+    /* =========================
+       Fetch: Dashboard + Citas
+    ========================= */
     useEffect(() => {
-        const token = localStorage.getItem("token");
+        const token = getAuthToken();
         if (!token) {
             router.push("/");
             return;
@@ -75,12 +156,17 @@ export default function DashboardPage() {
         const cargarDashboard = async () => {
             try {
                 const res = await fetch(DASHBOARD_API, {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
+                    headers: { Authorization: `Bearer ${token}` },
                 });
 
                 if (!res.ok) {
+                    if (res.status === 401 || res.status === 403) {
+                        localStorage.removeItem("token");
+                        localStorage.removeItem("nb.auth");
+                        localStorage.removeItem("nb.auth.token");
+                        router.push("/");
+                        return;
+                    }
                     throw new Error(`Error ${res.status} al cargar dashboard`);
                 }
 
@@ -93,28 +179,110 @@ export default function DashboardPage() {
             }
         };
 
+        const cargarCitas = async () => {
+            setCitasLoading(true);
+            setCitasError(null);
+            try {
+                const res = await fetch(CITAS_API, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                if (!res.ok) throw new Error(`Error ${res.status} al cargar citas`);
+
+                const json = await res.json();
+                const arr: Cita[] = Array.isArray(json) ? json : json?.data ?? [];
+                setCitas(arr);
+            } catch (err) {
+                console.error("Error cargando citas:", err);
+                setCitasError("No se pudieron cargar las citas del técnico.");
+                setCitas([]);
+            } finally {
+                setCitasLoading(false);
+            }
+        };
+
         cargarDashboard();
+        cargarCitas();
     }, [router]);
 
-    // 🔹 Datos para la gráfica “Órdenes por estado”
+    // ✅ refrescar citas cuando vuelves a la sección "dashboard"
+    useEffect(() => {
+        if (activeSection !== "dashboard") return;
+
+        const token = getAuthToken();
+        if (!token) return;
+
+        const cargarCitas = async () => {
+            setCitasLoading(true);
+            setCitasError(null);
+            try {
+                const res = await fetch(CITAS_API, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                if (!res.ok) throw new Error(`Error ${res.status} al cargar citas`);
+
+                const json = await res.json();
+                const arr: Cita[] = Array.isArray(json) ? json : json?.data ?? [];
+                setCitas(arr);
+            } catch (err) {
+                console.error("Error recargando citas:", err);
+                setCitasError("No se pudieron cargar las citas del técnico.");
+                setCitas([]);
+            } finally {
+                setCitasLoading(false);
+            }
+        };
+
+        cargarCitas();
+    }, [activeSection]);
+
+    /* =========================
+       Acción: marcar completada
+       (ajusta endpoint si tu backend usa otro)
+    ========================= */
+    async function marcarCitaComoCompletada(citaId: number) {
+        const token = getAuthToken();
+        if (!token) return;
+
+        setUpdatingCitaId(citaId);
+        setCitasActionError(null);
+
+        try {
+            const res = await fetch(`${CITAS_API_BASE}/${citaId}/completar`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ estado: "COMPLETADA" }),
+            });
+
+            if (!res.ok) {
+                const msg = await res.text().catch(() => "");
+                throw new Error(`Error ${res.status} actualizando cita. ${msg}`);
+            }
+
+            setCitas((prev) =>
+                prev.map((c) =>
+                    c.id === citaId ? { ...c, estado: "COMPLETADA" } : c
+                )
+            );
+        } catch (e) {
+            console.error(e);
+            setCitasActionError("No se pudo marcar la cita como completada.");
+        } finally {
+            setUpdatingCitaId(null);
+        }
+    }
+
+    /* =========================
+       Dashboard computed values
+    ========================= */
     const chartData = useMemo(() => {
         if (!dashboardData) return [];
         return [
-            {
-                label: "Abiertas",
-                value: dashboardData.ordenesAbiertas,
-                color: "#f97316", // naranja suave
-            },
-            {
-                label: "En proceso",
-                value: dashboardData.ordenesEnProceso,
-                color: "#3b82f6", // azul
-            },
-            {
-                label: "Cerradas",
-                value: dashboardData.ordenesCerradas,
-                color: "#22c55e", // verde
-            },
+            { label: "Abiertas", value: dashboardData.ordenesAbiertas, color: "#f97316" },
+            { label: "En proceso", value: dashboardData.ordenesEnProceso, color: "#3b82f6" },
+            { label: "Cerradas", value: dashboardData.ordenesCerradas, color: "#22c55e" },
         ];
     }, [dashboardData]);
 
@@ -123,7 +291,6 @@ export default function DashboardPage() {
         return Math.max(...chartData.map((d) => d.value), 1);
     }, [chartData]);
 
-    // 🔹 Métricas derivadas para “gráficas extra”
     const completionRate = useMemo(() => {
         if (!dashboardData || dashboardData.totalOrdenes === 0) return 0;
         return (dashboardData.ordenesCerradas / dashboardData.totalOrdenes) * 100;
@@ -139,7 +306,6 @@ export default function DashboardPage() {
         return (dashboardData.ordenesEnProceso / dashboardData.totalOrdenes) * 100;
     }, [dashboardData]);
 
-    // 🔹 Top técnicos por total de órdenes
     const topTecnicos = useMemo(() => {
         if (!dashboardData) return [];
         const sorted = [...dashboardData.tecnicos].sort(
@@ -148,9 +314,11 @@ export default function DashboardPage() {
         return sorted.slice(0, 4);
     }, [dashboardData]);
 
-    // 🔒 Cerrar sesión
+    /* =========================
+       Logout
+    ========================= */
     const handleLogout = async () => {
-        const token = localStorage.getItem("token");
+        const token = getAuthToken();
         try {
             if (token) {
                 await fetch("http://localhost:8080/api/auth/logout", {
@@ -168,13 +336,97 @@ export default function DashboardPage() {
         }
     };
 
+    /* =========================
+       Helpers UI: citas
+    ========================= */
+    const formatCitaDate = (c: Cita) => {
+        const raw = c.fechaProgramada ?? c.fechaCreacion;
+        if (!raw) return "Sin fecha";
+
+        const d = new Date(raw);
+        if (Number.isNaN(d.getTime())) return String(raw);
+
+        return d.toLocaleString();
+    };
+
+    const getCitaTitle = (c: Cita) => c.motivo || `Cita #${c.id}`;
+
+    const getCitaSubtitle = (c: Cita) => {
+        const nombre = c.usuario?.nombre;
+        const cedula = c.usuario?.cedula;
+
+        const clienteLabel = nombre
+            ? cedula
+                ? `Cliente: ${nombre} (${cedula})`
+                : `Cliente: ${nombre}`
+            : cedula
+                ? `Cliente: ${cedula}`
+                : null;
+
+        const parts = [clienteLabel].filter(Boolean).join(" • ");
+
+        return parts || "—";
+    };
+
+    // ===== Helpers fechas (HOY / MAÑANA) =====
+    const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+    const getCitaDateObj = (c: Cita) => {
+        const raw = c.fechaProgramada ?? c.fechaCreacion;
+        if (!raw) return null;
+        const d = new Date(raw);
+        return Number.isNaN(d.getTime()) ? null : d;
+    };
+
+    const isSameDay = (a: Date, b: Date) =>
+        a.getFullYear() === b.getFullYear() &&
+        a.getMonth() === b.getMonth() &&
+        a.getDate() === b.getDate();
+
+    const normalizeEstado = (e?: string) => (e ?? "").toUpperCase().trim();
+    const isCompletada = (c: Cita) => {
+        const e = normalizeEstado(c.estado);
+        return e === "COMPLETADA" || e === "COMPLETADO";
+    };
+    const isPendiente = (c: Cita) => normalizeEstado(c.estado) === "PENDIENTE";
+
+    // ===== Agrupar HOY / MAÑANA según la vista =====
+    const { hoy, manana } = useMemo(() => {
+        const today = startOfDay(new Date());
+        const tomorrow = startOfDay(new Date(today.getTime() + 24 * 60 * 60 * 1000));
+
+        const base =
+            citasView === "PENDIENTES"
+                ? citas.filter(isPendiente)
+                : citas.filter(isCompletada);
+
+        const sortByTime = (a: Cita, b: Cita) => {
+            const da = getCitaDateObj(a)?.getTime() ?? 0;
+            const db = getCitaDateObj(b)?.getTime() ?? 0;
+            return da - db;
+        };
+
+        const hoyArr = base
+            .filter((c) => {
+                const d = getCitaDateObj(c);
+                return d ? isSameDay(d, today) : false;
+            })
+            .sort(sortByTime);
+
+        const mananaArr = base
+            .filter((c) => {
+                const d = getCitaDateObj(c);
+                return d ? isSameDay(d, tomorrow) : false;
+            })
+            .sort(sortByTime);
+
+        return { hoy: hoyArr, manana: mananaArr };
+    }, [citas, citasView]);
+
     return (
         <div
             className={styles.container}
-            style={{
-                backgroundColor: "#f5f5ff", // fondo claro lilita suave
-                color: "#111827",
-            }}
+            style={{ backgroundColor: "#f5f5ff", color: "#111827" }}
         >
             {/* ===== Sidebar ===== */}
             <aside
@@ -185,15 +437,10 @@ export default function DashboardPage() {
                     borderRight: "1px solid rgba(15,23,42,0.5)",
                 }}
             >
-                <h2
-                    style={{
-                        fontSize: "1.1rem",
-                        fontWeight: 700,
-                        marginBottom: "1.5rem",
-                    }}
-                >
+                <h2 style={{ fontSize: "1.1rem", fontWeight: 700, marginBottom: "1.5rem" }}>
                     Newbie Data Control
                 </h2>
+
                 <nav>
                     <ul
                         style={{
@@ -204,16 +451,14 @@ export default function DashboardPage() {
                             gap: "0.4rem",
                         }}
                     >
-                        {/* DASHBOARD */}
                         <SidebarItem
                             label="Dashboard"
                             isActive={activeSection === "dashboard"}
                             onClick={() => setActiveSection("dashboard")}
                         />
 
-                        {/* --- NUEVO ÍTEM CITAS --- */}
                         <SidebarItem
-                            label="Citas Técnicas"
+                            label="Citas"
                             isActive={activeSection === "citas"}
                             onClick={() => setActiveSection("citas")}
                         />
@@ -261,20 +506,13 @@ export default function DashboardPage() {
                         alignItems: "center",
                         marginBottom: "1rem",
                         padding: "0.8rem 1rem",
-                        background:
-                            "linear-gradient(90deg, #111827, #1f2937)",
+                        background: "linear-gradient(90deg, #111827, #1f2937)",
                         color: "#f9fafb",
                         boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
                     }}
                 >
                     <div>
-                        <span
-                            style={{
-                                fontWeight: 600,
-                                fontSize: "0.95rem",
-                                color: "#f9fafb",
-                            }}
-                        >
+                        <span style={{ fontWeight: 600, fontSize: "0.95rem", color: "#f9fafb" }}>
                             Administrador
                         </span>
                     </div>
@@ -323,26 +561,13 @@ export default function DashboardPage() {
                                     gap: "0.5rem",
                                 }}
                             >
-                                <h1
-                                    style={{
-                                        fontSize: "1.6rem",
-                                        fontWeight: 700,
-                                        color: "#0f172a",
-                                    }}
-                                >
+                                <h1 style={{ fontSize: "1.6rem", fontWeight: 700, color: "#0f172a" }}>
                                     Resumen de técnicos
                                 </h1>
                                 {dashboardData && (
-                                    <span
-                                        style={{
-                                            fontSize: "0.8rem",
-                                            color: "#6b7280",
-                                        }}
-                                    >
+                                    <span style={{ fontSize: "0.8rem", color: "#6b7280" }}>
                                         Actualizado:{" "}
-                                        {new Date(
-                                            dashboardData.fechaGeneracion
-                                        ).toLocaleDateString()}
+                                        {new Date(dashboardData.fechaGeneracion).toLocaleDateString()}
                                     </span>
                                 )}
                             </div>
@@ -368,15 +593,11 @@ export default function DashboardPage() {
                                     <div
                                         style={{
                                             display: "grid",
-                                            gridTemplateColumns:
-                                                "repeat(auto-fit, minmax(180px, 1fr))",
+                                            gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
                                             gap: "1rem",
                                         }}
                                     >
-                                        <DashboardCard
-                                            title="Total órdenes"
-                                            value={dashboardData.totalOrdenes}
-                                        />
+                                        <DashboardCard title="Total órdenes" value={dashboardData.totalOrdenes} />
                                         <DashboardCard
                                             title="Órdenes abiertas"
                                             value={dashboardData.ordenesAbiertas}
@@ -392,25 +613,14 @@ export default function DashboardPage() {
                                             value={dashboardData.ordenesCerradas}
                                             chipColor="#22c55e"
                                         />
-                                        <DashboardCard
-                                            title="Técnicos con órdenes"
-                                            value={dashboardData.totalTecnicos}
-                                        />
+                                        <DashboardCard title="Técnicos con órdenes" value={dashboardData.totalTecnicos} />
                                         <DashboardCard
                                             title="Técnicos con OT abiertas"
-                                            value={
-                                                dashboardData.tecnicosConOrdenesAbiertas
-                                            }
+                                            value={dashboardData.tecnicosConOrdenesAbiertas}
                                             chipColor="#f97316"
                                         />
-                                        <DashboardCard
-                                            title="Órdenes hoy"
-                                            value={dashboardData.ordenesHoy}
-                                        />
-                                        <DashboardCard
-                                            title="Órdenes este mes"
-                                            value={dashboardData.ordenesMes}
-                                        />
+                                        <DashboardCard title="Órdenes hoy" value={dashboardData.ordenesHoy} />
+                                        <DashboardCard title="Órdenes este mes" value={dashboardData.ordenesMes} />
                                     </div>
 
                                     {/* BLOQUE PRINCIPAL DE “GRÁFICAS” */}
@@ -418,19 +628,17 @@ export default function DashboardPage() {
                                         style={{
                                             marginTop: "0.25rem",
                                             display: "grid",
-                                            gridTemplateColumns:
-                                                "minmax(0, 2.2fr) minmax(0, 1.8fr)",
+                                            gridTemplateColumns: "minmax(0, 2.2fr) minmax(0, 1.8fr)",
                                             gap: "1.25rem",
                                         }}
                                     >
-                                        {/* Card: Órdenes por estado (barras) */}
+                                        {/* Card: Órdenes por estado */}
                                         <div
                                             style={{
                                                 padding: "1rem 1.25rem",
                                                 borderRadius: "12px",
                                                 backgroundColor: "#ffffff",
-                                                boxShadow:
-                                                    "0 10px 30px rgba(15,23,42,0.08)",
+                                                boxShadow: "0 10px 30px rgba(15,23,42,0.08)",
                                                 border: "1px solid #e5e7eb",
                                             }}
                                         >
@@ -445,64 +653,38 @@ export default function DashboardPage() {
                                                 Órdenes por estado
                                             </h2>
 
-                                            <div
-                                                style={{
-                                                    display: "flex",
-                                                    flexDirection: "column",
-                                                    gap: "0.75rem",
-                                                }}
-                                            >
+                                            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
                                                 {chartData.map((item) => (
                                                     <div key={item.label}>
                                                         <div
                                                             style={{
                                                                 display: "flex",
-                                                                justifyContent:
-                                                                    "space-between",
+                                                                justifyContent: "space-between",
                                                                 fontSize: "0.8rem",
-                                                                marginBottom:
-                                                                    "0.15rem",
+                                                                marginBottom: "0.15rem",
                                                             }}
                                                         >
-                                                            <span
-                                                                style={{
-                                                                    color: "#4b5563",
-                                                                }}
-                                                            >
-                                                                {item.label}
-                                                            </span>
-                                                            <span
-                                                                style={{
-                                                                    fontWeight: 600,
-                                                                    color: "#111827",
-                                                                }}
-                                                            >
+                                                            <span style={{ color: "#4b5563" }}>{item.label}</span>
+                                                            <span style={{ fontWeight: 600, color: "#111827" }}>
                                                                 {item.value}
                                                             </span>
                                                         </div>
+
                                                         <div
                                                             style={{
                                                                 height: "10px",
-                                                                borderRadius:
-                                                                    "999px",
-                                                                backgroundColor:
-                                                                    "#e5e7eb",
+                                                                borderRadius: "999px",
+                                                                backgroundColor: "#e5e7eb",
                                                                 overflow: "hidden",
                                                             }}
                                                         >
                                                             <div
                                                                 style={{
-                                                                    width: `${(item.value /
-                                                                            maxChartValue) *
-                                                                        100
-                                                                        }%`,
+                                                                    width: `${(item.value / maxChartValue) * 100}%`,
                                                                     height: "100%",
-                                                                    borderRadius:
-                                                                        "999px",
-                                                                    backgroundColor:
-                                                                        item.color,
-                                                                    transition:
-                                                                        "width 0.4s ease",
+                                                                    borderRadius: "999px",
+                                                                    backgroundColor: item.color,
+                                                                    transition: "width 0.4s ease",
                                                                 }}
                                                             />
                                                         </div>
@@ -511,48 +693,32 @@ export default function DashboardPage() {
                                             </div>
                                         </div>
 
-                                        {/* Card: Rendimiento general (gauge + porcentajes) */}
+                                        {/* Card: Rendimiento general */}
                                         <div
                                             style={{
                                                 padding: "1rem 1.25rem",
                                                 borderRadius: "12px",
                                                 backgroundColor: "#ffffff",
-                                                boxShadow:
-                                                    "0 10px 30px rgba(15,23,42,0.08)",
+                                                boxShadow: "0 10px 30px rgba(15,23,42,0.08)",
                                                 border: "1px solid #e5e7eb",
                                                 display: "flex",
                                                 flexDirection: "column",
                                                 gap: "0.75rem",
                                             }}
                                         >
-                                            <h2
-                                                style={{
-                                                    fontSize: "0.95rem",
-                                                    fontWeight: 600,
-                                                    color: "#0f172a",
-                                                }}
-                                            >
+                                            <h2 style={{ fontSize: "0.95rem", fontWeight: 600, color: "#0f172a" }}>
                                                 Rendimiento general
                                             </h2>
 
-                                            <div
-                                                style={{
-                                                    display: "flex",
-                                                    alignItems: "center",
-                                                    gap: "1rem",
-                                                    marginTop: "0.25rem",
-                                                }}
-                                            >
-                                                {/* Gauge circular */}
+                                            <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginTop: "0.25rem" }}>
+                                                {/* Gauge */}
                                                 <div
                                                     style={{
                                                         position: "relative",
                                                         width: "120px",
                                                         height: "120px",
                                                         borderRadius: "999px",
-                                                        background: `conic-gradient(#22c55e ${completionRate
-                                                            }%, #e5e7eb ${completionRate
-                                                            }%)`,
+                                                        background: `conic-gradient(#22c55e ${completionRate}%, #e5e7eb ${completionRate}%)`,
                                                         display: "flex",
                                                         alignItems: "center",
                                                         justifyContent: "center",
@@ -563,44 +729,24 @@ export default function DashboardPage() {
                                                             width: "80px",
                                                             height: "80px",
                                                             borderRadius: "999px",
-                                                            backgroundColor:
-                                                                "#ffffff",
+                                                            backgroundColor: "#ffffff",
                                                             display: "flex",
                                                             alignItems: "center",
-                                                            justifyContent:
-                                                                "center",
+                                                            justifyContent: "center",
                                                             flexDirection: "column",
-                                                            boxShadow:
-                                                                "0 0 0 1px #e5e7eb",
+                                                            boxShadow: "0 0 0 1px #e5e7eb",
                                                         }}
                                                     >
-                                                        <span
-                                                            style={{
-                                                                fontSize: "1.2rem",
-                                                                fontWeight: 700,
-                                                                color: "#16a34a",
-                                                            }}
-                                                        >
-                                                            {Math.trunc(
-                                                                completionRate
-                                                            )}
-                                                            %
+                                                        <span style={{ fontSize: "1.2rem", fontWeight: 700, color: "#16a34a" }}>
+                                                            {Math.trunc(completionRate)}%
                                                         </span>
-                                                        <span
-                                                            style={{
-                                                                fontSize: "0.7rem",
-                                                                color: "#6b7280",
-                                                                textAlign:
-                                                                    "center",
-                                                            }}
-                                                        >
-                                                            Órdenes
-                                                            completadas
+                                                        <span style={{ fontSize: "0.7rem", color: "#6b7280", textAlign: "center" }}>
+                                                            Órdenes completadas
                                                         </span>
                                                     </div>
                                                 </div>
 
-                                                {/* Detalle porcentual */}
+                                                {/* Detalle */}
                                                 <div
                                                     style={{
                                                         flex: 1,
@@ -612,86 +758,22 @@ export default function DashboardPage() {
                                                     }}
                                                 >
                                                     <div>
-                                                        <span
-                                                            style={{
-                                                                display:
-                                                                    "inline-flex",
-                                                                width: "10px",
-                                                                height: "10px",
-                                                                borderRadius:
-                                                                    "999px",
-                                                                backgroundColor:
-                                                                    "#22c55e",
-                                                                marginRight:
-                                                                    "0.4rem",
-                                                            }}
-                                                        />
-                                                        <b>
-                                                            {Math.trunc(
-                                                                completionRate
-                                                            )}
-                                                            %
-                                                        </b>{" "}
-                                                        cerradas del total de
-                                                        órdenes.
+                                                        <span style={{ display: "inline-flex", width: "10px", height: "10px", borderRadius: "999px", backgroundColor: "#22c55e", marginRight: "0.4rem" }} />
+                                                        <b>{Math.trunc(completionRate)}%</b> cerradas del total de órdenes.
                                                     </div>
+
                                                     <div>
-                                                        <span
-                                                            style={{
-                                                                display:
-                                                                    "inline-flex",
-                                                                width: "10px",
-                                                                height: "10px",
-                                                                borderRadius:
-                                                                    "999px",
-                                                                backgroundColor:
-                                                                    "#f97316",
-                                                                marginRight:
-                                                                    "0.4rem",
-                                                            }}
-                                                        />
-                                                        <b>
-                                                            {Math.trunc(
-                                                                openRate
-                                                            )}
-                                                            %
-                                                        </b>{" "}
-                                                        en estado abierto.
+                                                        <span style={{ display: "inline-flex", width: "10px", height: "10px", borderRadius: "999px", backgroundColor: "#f97316", marginRight: "0.4rem" }} />
+                                                        <b>{Math.trunc(openRate)}%</b> en estado abierto.
                                                     </div>
+
                                                     <div>
-                                                        <span
-                                                            style={{
-                                                                display:
-                                                                    "inline-flex",
-                                                                width: "10px",
-                                                                height: "10px",
-                                                                borderRadius:
-                                                                    "999px",
-                                                                backgroundColor:
-                                                                    "#3b82f6",
-                                                                marginRight:
-                                                                    "0.4rem",
-                                                            }}
-                                                        />
-                                                        <b>
-                                                            {Math.trunc(
-                                                                processRate
-                                                            )}
-                                                            %
-                                                        </b>{" "}
-                                                        en diagnóstico /
-                                                        reparación.
+                                                        <span style={{ display: "inline-flex", width: "10px", height: "10px", borderRadius: "999px", backgroundColor: "#3b82f6", marginRight: "0.4rem" }} />
+                                                        <b>{Math.trunc(processRate)}%</b> en diagnóstico / reparación.
                                                     </div>
-                                                    <div
-                                                        style={{
-                                                            marginTop: "0.3rem",
-                                                            fontSize: "0.75rem",
-                                                            color: "#6b7280",
-                                                        }}
-                                                    >
-                                                        Estos porcentajes se
-                                                        calculan sobre el total
-                                                        de órdenes registradas.
+
+                                                    <div style={{ marginTop: "0.3rem", fontSize: "0.75rem", color: "#6b7280" }}>
+                                                        Estos porcentajes se calculan sobre el total de órdenes registradas.
                                                     </div>
                                                 </div>
                                             </div>
@@ -703,311 +785,143 @@ export default function DashboardPage() {
                                         style={{
                                             marginTop: "1rem",
                                             display: "grid",
-                                            gridTemplateColumns:
-                                                "minmax(0, 2.2fr) minmax(0, 1.8fr)",
+                                            gridTemplateColumns: "minmax(0, 2.2fr) minmax(0, 1.8fr)",
                                             gap: "1.25rem",
                                         }}
                                     >
-                                        {/* Técnicos asignados (detalle por técnico) */}
+                                        {/* Técnicos asignados */}
                                         <div
                                             style={{
                                                 backgroundColor: "#ffffff",
                                                 borderRadius: "12px",
                                                 padding: "0.75rem 1rem 1rem",
                                                 border: "1px solid #e5e7eb",
-                                                boxShadow:
-                                                    "0 8px 24px rgba(15,23,42,0.06)",
+                                                boxShadow: "0 8px 24px rgba(15,23,42,0.06)",
                                             }}
                                         >
                                             <div
                                                 style={{
                                                     display: "flex",
-                                                    justifyContent:
-                                                        "space-between",
+                                                    justifyContent: "space-between",
                                                     alignItems: "center",
                                                     marginBottom: "0.6rem",
                                                 }}
                                             >
-                                                <h2
-                                                    style={{
-                                                        fontSize: "0.95rem",
-                                                        fontWeight: 600,
-                                                        color: "#0f172a",
-                                                    }}
-                                                >
+                                                <h2 style={{ fontSize: "0.95rem", fontWeight: 600, color: "#0f172a" }}>
                                                     Técnicos asignados
                                                 </h2>
-                                                <span
-                                                    style={{
-                                                        fontSize: "0.8rem",
-                                                        color: "#6b7280",
-                                                    }}
-                                                >
-                                                    {dashboardData.tecnicos.length}{" "}
-                                                    técnicos
+                                                <span style={{ fontSize: "0.8rem", color: "#6b7280" }}>
+                                                    {dashboardData.tecnicos.length} técnicos
                                                 </span>
                                             </div>
 
-                                            {/* “Tarjetas” por técnico */}
                                             <div
                                                 style={{
                                                     display: "grid",
-                                                    gridTemplateColumns:
-                                                        "repeat(auto-fit, minmax(260px, 1fr))",
+                                                    gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
                                                     gap: "0.75rem",
                                                     marginTop: "0.4rem",
                                                 }}
                                             >
-                                                {dashboardData.tecnicos.map(
-                                                    (t) => (
-                                                        <div
-                                                            key={
-                                                                t.tecnicoCedula
-                                                            }
-                                                            style={{
-                                                                borderRadius:
-                                                                    "10px",
-                                                                border: "1px solid #e5e7eb",
-                                                                padding:
-                                                                    "0.6rem 0.75rem",
-                                                                backgroundColor:
-                                                                    "#f9fafb",
-                                                            }}
-                                                        >
-                                                            <div
-                                                                style={{
-                                                                    display:
-                                                                        "flex",
-                                                                    justifyContent:
-                                                                        "space-between",
-                                                                    alignItems:
-                                                                        "center",
-                                                                    marginBottom:
-                                                                        "0.15rem",
-                                                                }}
-                                                            >
-                                                                <div>
-                                                                    <div
-                                                                        style={{
-                                                                            fontWeight: 600,
-                                                                            fontSize:
-                                                                                "0.9rem",
-                                                                            color: "#111827",
-                                                                        }}
-                                                                    >
-                                                                        {
-                                                                            t.tecnicoNombre
-                                                                        }
-                                                                    </div>
-                                                                    <div
-                                                                        style={{
-                                                                            fontSize:
-                                                                                "0.75rem",
-                                                                            color: "#6b7280",
-                                                                        }}
-                                                                    >
-                                                                        {
-                                                                            t.tecnicoCedula
-                                                                        }
-                                                                    </div>
+                                                {dashboardData.tecnicos.map((t) => (
+                                                    <div
+                                                        key={t.tecnicoCedula}
+                                                        style={{
+                                                            borderRadius: "10px",
+                                                            border: "1px solid #e5e7eb",
+                                                            padding: "0.6rem 0.75rem",
+                                                            backgroundColor: "#f9fafb",
+                                                        }}
+                                                    >
+                                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                                            <div>
+                                                                <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "#111827" }}>
+                                                                    {t.tecnicoNombre}
                                                                 </div>
-                                                            </div>
-
-                                                            <div
-                                                                style={{
-                                                                    display:
-                                                                        "grid",
-                                                                    gridTemplateColumns:
-                                                                        "repeat(4, minmax(0, 1fr))",
-                                                                    gap: "0.35rem",
-                                                                    fontSize:
-                                                                        "0.75rem",
-                                                                    marginTop:
-                                                                        "0.4rem",
-                                                                }}
-                                                            >
-                                                                <TecnicoMetric
-                                                                    label="Total"
-                                                                    value={
-                                                                        t.totalOrdenes
-                                                                    }
-                                                                />
-                                                                <TecnicoMetric
-                                                                    label="Abiertas"
-                                                                    value={
-                                                                        t.ordenesAbiertas
-                                                                    }
-                                                                    color="#f97316"
-                                                                />
-                                                                <TecnicoMetric
-                                                                    label="Proceso"
-                                                                    value={
-                                                                        t.ordenesEnProceso
-                                                                    }
-                                                                    color="#3b82f6"
-                                                                />
-                                                                <TecnicoMetric
-                                                                    label="Cerradas"
-                                                                    value={
-                                                                        t.ordenesCerradas
-                                                                    }
-                                                                    color="#22c55e"
-                                                                />
+                                                                <div style={{ fontSize: "0.75rem", color: "#6b7280" }}>{t.tecnicoCedula}</div>
                                                             </div>
                                                         </div>
-                                                    )
-                                                )}
+
+                                                        <div
+                                                            style={{
+                                                                display: "grid",
+                                                                gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+                                                                gap: "0.35rem",
+                                                                fontSize: "0.75rem",
+                                                                marginTop: "0.4rem",
+                                                            }}
+                                                        >
+                                                            <TecnicoMetric label="Total" value={t.totalOrdenes} />
+                                                            <TecnicoMetric label="Abiertas" value={t.ordenesAbiertas} color="#f97316" />
+                                                            <TecnicoMetric label="Proceso" value={t.ordenesEnProceso} color="#3b82f6" />
+                                                            <TecnicoMetric label="Cerradas" value={t.ordenesCerradas} color="#22c55e" />
+                                                        </div>
+                                                    </div>
+                                                ))}
                                             </div>
                                         </div>
 
-                                        {/* Top técnicos por órdenes (mini “gráfica” extra) */}
+                                        {/* Top técnicos */}
                                         <div
                                             style={{
                                                 backgroundColor: "#ffffff",
                                                 borderRadius: "12px",
                                                 padding: "0.75rem 1rem 1rem",
                                                 border: "1px solid #e5e7eb",
-                                                boxShadow:
-                                                    "0 8px 24px rgba(15,23,42,0.06)",
+                                                boxShadow: "0 8px 24px rgba(15,23,42,0.06)",
                                                 display: "flex",
                                                 flexDirection: "column",
                                                 gap: "0.5rem",
                                             }}
                                         >
-                                            <div
-                                                style={{
-                                                    display: "flex",
-                                                    justifyContent:
-                                                        "space-between",
-                                                    alignItems: "center",
-                                                }}
-                                            >
-                                                <h2
-                                                    style={{
-                                                        fontSize: "0.95rem",
-                                                        fontWeight: 600,
-                                                        color: "#0f172a",
-                                                    }}
-                                                >
+                                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                                <h2 style={{ fontSize: "0.95rem", fontWeight: 600, color: "#0f172a" }}>
                                                     Top técnicos por órdenes
                                                 </h2>
-                                                <span
-                                                    style={{
-                                                        fontSize: "0.75rem",
-                                                        color: "#6b7280",
-                                                    }}
-                                                >
-                                                    Vista rápida
-                                                </span>
+                                                <span style={{ fontSize: "0.75rem", color: "#6b7280" }}>Vista rápida</span>
                                             </div>
 
                                             {topTecnicos.length === 0 ? (
-                                                <div
-                                                    style={{
-                                                        fontSize: "0.8rem",
-                                                        color: "#6b7280",
-                                                        marginTop: "0.5rem",
-                                                    }}
-                                                >
-                                                    No hay datos de técnicos
-                                                    disponibles.
+                                                <div style={{ fontSize: "0.8rem", color: "#6b7280", marginTop: "0.5rem" }}>
+                                                    No hay datos de técnicos disponibles.
                                                 </div>
                                             ) : (
-                                                <div
-                                                    style={{
-                                                        display: "flex",
-                                                        flexDirection: "column",
-                                                        gap: "0.6rem",
-                                                        marginTop: "0.4rem",
-                                                    }}
-                                                >
-                                                    {topTecnicos.map((t, idx) => {
-                                                        const maxTotal =
-                                                            topTecnicos[0]
-                                                                ?.totalOrdenes ||
-                                                            1;
+                                                <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem", marginTop: "0.4rem" }}>
+                                                    {topTecnicos.map((t) => {
+                                                        const maxTotal = topTecnicos[0]?.totalOrdenes || 1;
 
                                                         return (
-                                                            <div
-                                                                key={
-                                                                    t.tecnicoCedula
-                                                                }
-                                                            >
-                                                                <div
-                                                                    style={{
-                                                                        display:
-                                                                            "flex",
-                                                                        justifyContent:
-                                                                            "space-between",
-                                                                        alignItems:
-                                                                            "center",
-                                                                        marginBottom:
-                                                                            "0.15rem",
-                                                                    }}
-                                                                >
+                                                            <div key={t.tecnicoCedula}>
+                                                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                                                     <div>
-                                                                        <div
-                                                                            style={{
-                                                                                fontWeight: 600,
-                                                                                fontSize:
-                                                                                    "0.9rem",
-                                                                                color: "#111827",
-                                                                            }}
-                                                                        >
-                                                                            {
-                                                                                t.tecnicoNombre
-                                                                            }
+                                                                        <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "#111827" }}>
+                                                                            {t.tecnicoNombre}
                                                                         </div>
-                                                                        <div
-                                                                            style={{
-                                                                                fontSize:
-                                                                                    "0.75rem",
-                                                                                color: "#6b7280",
-                                                                            }}
-                                                                        >
-                                                                            {
-                                                                                t.tecnicoCedula
-                                                                            }
-                                                                        </div>
+                                                                        <div style={{ fontSize: "0.75rem", color: "#6b7280" }}>{t.tecnicoCedula}</div>
                                                                     </div>
+
                                                                     <div
                                                                         style={{
-                                                                            height:
-                                                                                "8px",
-                                                                            borderRadius:
-                                                                                "999px",
-                                                                            backgroundColor:
-                                                                                "#e5e7eb",
-                                                                            overflow:
-                                                                                "hidden",
+                                                                            flex: 1,
+                                                                            margin: "0 0.8rem",
+                                                                            height: "8px",
+                                                                            borderRadius: "999px",
+                                                                            backgroundColor: "#e5e7eb",
+                                                                            overflow: "hidden",
                                                                         }}
                                                                     >
                                                                         <div
                                                                             style={{
-                                                                                width: `${(t.totalOrdenes /
-                                                                                        maxTotal) *
-                                                                                    100
-                                                                                    }%`,
+                                                                                width: `${(t.totalOrdenes / maxTotal) * 100}%`,
                                                                                 height: "100%",
-                                                                                borderRadius:
-                                                                                    "999px",
-                                                                                background:
-                                                                                    "linear-gradient(90deg,#4f46e5,#22c55e)",
+                                                                                borderRadius: "999px",
+                                                                                background: "linear-gradient(90deg,#4f46e5,#22c55e)",
                                                                             }}
                                                                         />
                                                                     </div>
-                                                                    <span
-                                                                        style={{
-                                                                            fontSize:
-                                                                                "0.8rem",
-                                                                            color: "#111827",
-                                                                            fontWeight: 500,
-                                                                        }}
-                                                                    >
-                                                                        {
-                                                                            t.totalOrdenes
-                                                                        }{" "}
-                                                                        OT
+
+                                                                    <span style={{ fontSize: "0.8rem", color: "#111827", fontWeight: 500 }}>
+                                                                        {t.totalOrdenes} OT
                                                                     </span>
                                                                 </div>
                                                             </div>
@@ -1016,6 +930,363 @@ export default function DashboardPage() {
                                                 </div>
                                             )}
                                         </div>
+                                    </div>
+
+                                    {/* ===========================
+                                       ✅ BLOQUE INFERIOR: CITAS DEL TÉCNICO
+                                    =========================== */}
+                                    <div
+                                        style={{
+                                            marginTop: "1.25rem",
+                                            backgroundColor: "#ffffff",
+                                            borderRadius: "12px",
+                                            padding: "1rem 1.25rem",
+                                            border: "1px solid #e5e7eb",
+                                            boxShadow: "0 10px 30px rgba(15,23,42,0.08)",
+                                        }}
+                                    >
+                                        <div
+                                            style={{
+                                                display: "flex",
+                                                justifyContent: "space-between",
+                                                alignItems: "center",
+                                                gap: "0.75rem",
+                                                flexWrap: "wrap",
+                                                marginBottom: "0.8rem",
+                                            }}
+                                        >
+                                            <div>
+                                                <h2 style={{ fontSize: "0.95rem", fontWeight: 700, color: "#0f172a" }}>
+                                                    Citas del técnico
+                                                </h2>
+                                                <div style={{ fontSize: "0.78rem", color: "#6b7280", marginTop: "0.15rem" }}>
+                                                    Técnico: <b>{TECNICO_CEDULA}</b>
+                                                </div>
+                                            </div>
+
+                                            <div style={{ display: "flex", gap: "0.6rem", alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
+                                                {/* Toggle Pendientes / Completadas */}
+                                                <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                                                    <button
+                                                        onClick={() => setCitasView("PENDIENTES")}
+                                                        style={{
+                                                            border: "1px solid #e5e7eb",
+                                                            background:
+                                                                citasView === "PENDIENTES"
+                                                                    ? "linear-gradient(90deg,#111827,#1f2937)"
+                                                                    : "#fff",
+                                                            color:
+                                                                citasView === "PENDIENTES"
+                                                                    ? "#fff"
+                                                                    : "#111827",
+                                                            padding: "0.35rem 0.7rem",
+                                                            borderRadius: "999px",
+                                                            fontSize: "0.78rem",
+                                                            fontWeight: 800,
+                                                            cursor: "pointer",
+                                                        }}
+                                                    >
+                                                        Pendientes
+                                                    </button>
+
+                                                    <button
+                                                        onClick={() => setCitasView("COMPLETADAS")}
+                                                        style={{
+                                                            border: "1px solid #e5e7eb",
+                                                            background:
+                                                                citasView === "COMPLETADAS"
+                                                                    ? "linear-gradient(90deg,#16a34a,#22c55e)"
+                                                                    : "#fff",
+                                                            color:
+                                                                citasView === "COMPLETADAS"
+                                                                    ? "#fff"
+                                                                    : "#111827",
+                                                            padding: "0.35rem 0.7rem",
+                                                            borderRadius: "999px",
+                                                            fontSize: "0.78rem",
+                                                            fontWeight: 800,
+                                                            cursor: "pointer",
+                                                        }}
+                                                    >
+                                                        Completadas
+                                                    </button>
+                                                </div>
+
+                                                <button
+                                                    onClick={() => setActiveSection("citas")}
+                                                    style={{
+                                                        background: "linear-gradient(90deg,#6366f1,#4f46e5)",
+                                                        borderRadius: "999px",
+                                                        border: "none",
+                                                        color: "#fff",
+                                                        cursor: "pointer",
+                                                        padding: "0.45rem 0.9rem",
+                                                        fontSize: "0.82rem",
+                                                        fontWeight: 700,
+                                                    }}
+                                                >
+                                                    Ver módulo completo
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {citasLoading && (
+                                            <div style={{ fontSize: "0.85rem", color: "#6b7280" }}>Cargando citas…</div>
+                                        )}
+
+                                        {citasError && (
+                                            <div
+                                                style={{
+                                                    fontSize: "0.85rem",
+                                                    color: "#b91c1c",
+                                                    backgroundColor: "#fee2e2",
+                                                    borderRadius: "8px",
+                                                    padding: "0.5rem 0.75rem",
+                                                    border: "1px solid #fecaca",
+                                                    marginBottom: "0.75rem",
+                                                }}
+                                            >
+                                                {citasError}
+                                            </div>
+                                        )}
+
+                                        {citasActionError && (
+                                            <div
+                                                style={{
+                                                    fontSize: "0.85rem",
+                                                    color: "#b91c1c",
+                                                    backgroundColor: "#fee2e2",
+                                                    borderRadius: "8px",
+                                                    padding: "0.5rem 0.75rem",
+                                                    border: "1px solid #fecaca",
+                                                    marginBottom: "0.75rem",
+                                                }}
+                                            >
+                                                {citasActionError}
+                                            </div>
+                                        )}
+
+                                        {!citasLoading && !citasError && (
+                                            <>
+                                                {hoy.length === 0 && manana.length === 0 ? (
+                                                    <div style={{ fontSize: "0.85rem", color: "#6b7280" }}>
+                                                        {citasView === "PENDIENTES"
+                                                            ? "No hay citas pendientes para hoy o mañana."
+                                                            : "No hay citas completadas para hoy o mañana."}
+                                                    </div>
+                                                ) : (
+                                                    <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                                                        {/* ===== HOY ===== */}
+                                                        <div>
+                                                            <div
+                                                                style={{
+                                                                    fontSize: "0.82rem",
+                                                                    fontWeight: 900,
+                                                                    color: "#111827",
+                                                                    marginBottom: "0.5rem",
+                                                                }}
+                                                            >
+                                                                Hoy ({hoy.length})
+                                                            </div>
+
+                                                            <div
+                                                                style={{
+                                                                    display: "grid",
+                                                                    gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+                                                                    gap: "0.75rem",
+                                                                }}
+                                                            >
+                                                                {hoy.slice(0, 8).map((c, idx) => {
+                                                                    const estado = (c.estado ?? "").toUpperCase();
+                                                                    const isDone = estado === "COMPLETADA" || estado === "COMPLETADO";
+                                                                    const isUpdating = updatingCitaId === c.id;
+
+                                                                    return (
+                                                                        <div
+                                                                            key={String(c.id ?? `hoy-${idx}`)}
+                                                                            style={{
+                                                                                borderRadius: "10px",
+                                                                                border: "1px solid #e5e7eb",
+                                                                                padding: "0.75rem 0.85rem",
+                                                                                backgroundColor: "#f9fafb",
+                                                                                display: "flex",
+                                                                                flexDirection: "column",
+                                                                                gap: "0.35rem",
+                                                                            }}
+                                                                        >
+                                                                            <div style={{ display: "flex", justifyContent: "space-between", gap: "0.75rem" }}>
+                                                                                <div style={{ fontWeight: 700, color: "#111827", fontSize: "0.9rem" }}>
+                                                                                    {getCitaTitle(c)}
+                                                                                </div>
+
+                                                                                <span
+                                                                                    style={{
+                                                                                        fontSize: "0.7rem",
+                                                                                        padding: "0.12rem 0.45rem",
+                                                                                        borderRadius: "999px",
+                                                                                        backgroundColor: isDone ? "#dcfce7" : "#e0e7ff",
+                                                                                        color: isDone ? "#166534" : "#3730a3",
+                                                                                        fontWeight: 800,
+                                                                                        height: "fit-content",
+                                                                                        whiteSpace: "nowrap",
+                                                                                    }}
+                                                                                >
+                                                                                    {c.estado ?? "CITA"}
+                                                                                </span>
+                                                                            </div>
+
+                                                                            <div style={{ fontSize: "0.78rem", color: "#374151" }}>
+                                                                                <b>Fecha:</b> {formatCitaDate(c)}
+                                                                            </div>
+
+                                                                            <div style={{ fontSize: "0.78rem", color: "#6b7280" }}>
+                                                                                {getCitaSubtitle(c)}
+                                                                            </div>
+
+                                                                            {/* Botón solo en pendientes */}
+                                                                            {citasView === "PENDIENTES" && (
+                                                                                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "0.35rem" }}>
+                                                                                    <button
+                                                                                        onClick={() => marcarCitaComoCompletada(c.id)}
+                                                                                        disabled={!c.id || isDone || isUpdating}
+                                                                                        style={{
+                                                                                            border: "1px solid #e5e7eb",
+                                                                                            background: isDone
+                                                                                                ? "#f3f4f6"
+                                                                                                : "linear-gradient(90deg,#111827,#1f2937)",
+                                                                                            color: isDone ? "#6b7280" : "#ffffff",
+                                                                                            padding: "0.35rem 0.75rem",
+                                                                                            borderRadius: "10px",
+                                                                                            fontSize: "0.8rem",
+                                                                                            fontWeight: 800,
+                                                                                            cursor: isDone ? "not-allowed" : "pointer",
+                                                                                            opacity: isUpdating ? 0.75 : 1,
+                                                                                        }}
+                                                                                        title={isDone ? "Ya está completada" : "Marcar como completada"}
+                                                                                    >
+                                                                                        {isUpdating ? "Actualizando..." : "Completada"}
+                                                                                    </button>
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+
+                                                            {hoy.length > 8 && (
+                                                                <div style={{ marginTop: "0.6rem", fontSize: "0.78rem", color: "#6b7280" }}>
+                                                                    Mostrando 8 de {hoy.length} citas de hoy.
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                        {/* ===== MAÑANA ===== */}
+                                                        <div>
+                                                            <div
+                                                                style={{
+                                                                    fontSize: "0.82rem",
+                                                                    fontWeight: 900,
+                                                                    color: "#111827",
+                                                                    marginBottom: "0.5rem",
+                                                                }}
+                                                            >
+                                                                Mañana ({manana.length})
+                                                            </div>
+
+                                                            <div
+                                                                style={{
+                                                                    display: "grid",
+                                                                    gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+                                                                    gap: "0.75rem",
+                                                                }}
+                                                            >
+                                                                {manana.slice(0, 8).map((c, idx) => {
+                                                                    const estado = (c.estado ?? "").toUpperCase();
+                                                                    const isDone = estado === "COMPLETADA" || estado === "COMPLETADO";
+                                                                    const isUpdating = updatingCitaId === c.id;
+
+                                                                    return (
+                                                                        <div
+                                                                            key={String(c.id ?? `manana-${idx}`)}
+                                                                            style={{
+                                                                                borderRadius: "10px",
+                                                                                border: "1px solid #e5e7eb",
+                                                                                padding: "0.75rem 0.85rem",
+                                                                                backgroundColor: "#f9fafb",
+                                                                                display: "flex",
+                                                                                flexDirection: "column",
+                                                                                gap: "0.35rem",
+                                                                            }}
+                                                                        >
+                                                                            <div style={{ display: "flex", justifyContent: "space-between", gap: "0.75rem" }}>
+                                                                                <div style={{ fontWeight: 700, color: "#111827", fontSize: "0.9rem" }}>
+                                                                                    {getCitaTitle(c)}
+                                                                                </div>
+
+                                                                                <span
+                                                                                    style={{
+                                                                                        fontSize: "0.7rem",
+                                                                                        padding: "0.12rem 0.45rem",
+                                                                                        borderRadius: "999px",
+                                                                                        backgroundColor: isDone ? "#dcfce7" : "#e0e7ff",
+                                                                                        color: isDone ? "#166534" : "#3730a3",
+                                                                                        fontWeight: 800,
+                                                                                        height: "fit-content",
+                                                                                        whiteSpace: "nowrap",
+                                                                                    }}
+                                                                                >
+                                                                                    {c.estado ?? "CITA"}
+                                                                                </span>
+                                                                            </div>
+
+                                                                            <div style={{ fontSize: "0.78rem", color: "#374151" }}>
+                                                                                <b>Fecha:</b> {formatCitaDate(c)}
+                                                                            </div>
+
+                                                                            <div style={{ fontSize: "0.78rem", color: "#6b7280" }}>
+                                                                                {getCitaSubtitle(c)}
+                                                                            </div>
+
+                                                                            {/* Botón solo en pendientes */}
+                                                                            {citasView === "PENDIENTES" && (
+                                                                                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "0.35rem" }}>
+                                                                                    <button
+                                                                                        onClick={() => marcarCitaComoCompletada(c.id)}
+                                                                                        disabled={!c.id || isDone || isUpdating}
+                                                                                        style={{
+                                                                                            border: "1px solid #e5e7eb",
+                                                                                            background: isDone
+                                                                                                ? "#f3f4f6"
+                                                                                                : "linear-gradient(90deg,#111827,#1f2937)",
+                                                                                            color: isDone ? "#6b7280" : "#ffffff",
+                                                                                            padding: "0.35rem 0.75rem",
+                                                                                            borderRadius: "10px",
+                                                                                            fontSize: "0.8rem",
+                                                                                            fontWeight: 800,
+                                                                                            cursor: isDone ? "not-allowed" : "pointer",
+                                                                                            opacity: isUpdating ? 0.75 : 1,
+                                                                                        }}
+                                                                                        title={isDone ? "Ya está completada" : "Marcar como completada"}
+                                                                                    >
+                                                                                        {isUpdating ? "Actualizando..." : "Completada"}
+                                                                                    </button>
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+
+                                                            {manana.length > 8 && (
+                                                                <div style={{ marginTop: "0.6rem", fontSize: "0.78rem", color: "#6b7280" }}>
+                                                                    Mostrando 8 de {manana.length} citas de mañana.
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </>
+                                        )}
                                     </div>
                                 </>
                             )}
@@ -1027,10 +1298,7 @@ export default function DashboardPage() {
                     {activeSection === "fichas" && <FichaTecnicaModule />}
                     {activeSection === "equipo" && <EquipoModule />}
                     {activeSection === "usuarios" && <UsuarioModule />}
-
-                    {/* ===== SECCIÓN DE CITAS RENDERIZADA ===== */}
                     {activeSection === "citas" && <CitasModule />}
-
                     {/* {activeSection === "roles" && <RolModule />} */}
                 </section>
             </main>
@@ -1040,8 +1308,7 @@ export default function DashboardPage() {
 
 /* =====================
    Componentes auxiliares
-   ===================== */
-
+===================== */
 function SidebarItem({
     label,
     isActive,
@@ -1099,38 +1366,22 @@ function DashboardCard({
                 minHeight: "82px",
             }}
         >
-            <div
-                style={{
-                    fontSize: "0.75rem",
-                    color: "#6b7280",
-                    fontWeight: 500,
-                }}
-            >
+            <div style={{ fontSize: "0.75rem", color: "#6b7280", fontWeight: 500 }}>
                 {title}
             </div>
-            <div
-                style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.4rem",
-                }}
-            >
-                <span
-                    style={{
-                        fontSize: "1.7rem",
-                        fontWeight: 700,
-                        color: "#0f172a",
-                    }}
-                >
+
+            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                <span style={{ fontSize: "1.7rem", fontWeight: 700, color: "#0f172a" }}>
                     {value}
                 </span>
+
                 {chipColor && (
                     <span
                         style={{
                             fontSize: "0.7rem",
                             padding: "0.1rem 0.5rem",
                             borderRadius: "999px",
-                            backgroundColor: chipColor + "1a", // color con transparencia
+                            backgroundColor: chipColor + "1a",
                             color: chipColor,
                             fontWeight: 600,
                         }}
@@ -1154,22 +1405,8 @@ function TecnicoMetric({
 }) {
     return (
         <div>
-            <div
-                style={{
-                    fontSize: "0.7rem",
-                    color: "#6b7280",
-                }}
-            >
-                {label}
-            </div>
-            <div
-                style={{
-                    fontWeight: 600,
-                    color: color || "#111827",
-                }}
-            >
-                {value}
-            </div>
+            <div style={{ fontSize: "0.7rem", color: "#6b7280" }}>{label}</div>
+            <div style={{ fontWeight: 600, color: color || "#111827" }}>{value}</div>
         </div>
     );
 }

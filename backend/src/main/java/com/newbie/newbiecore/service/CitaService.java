@@ -5,46 +5,84 @@ import com.newbie.newbiecore.entity.Cita;
 import com.newbie.newbiecore.entity.Usuario;
 import com.newbie.newbiecore.repository.CitaRepository;
 import com.newbie.newbiecore.repository.UsuarioRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 public class CitaService {
 
-    @Autowired
-    private CitaRepository citaRepository;
-
-    @Autowired
-    private UsuarioRepository usuarioRepository;
+    private final CitaRepository citaRepository;
+    private final UsuarioRepository usuarioRepository;
 
     public Cita agendarCita(CitaRequest request) {
-        // Busca usuario por su ID (Cédula)
-        Usuario usuario = usuarioRepository.findById(request.getUsuarioId())
-                .orElseThrow(() -> new RuntimeException("Error: Usuario no encontrado con ID: " + request.getUsuarioId()));
 
-        Cita nuevaCita = new Cita();
-        nuevaCita.setUsuario(usuario);
-        nuevaCita.setFechaProgramada(request.getFechaHoraInicio());
-        nuevaCita.setFechaCreacion(LocalDateTime.now());
-        nuevaCita.setMotivo(request.getMotivo());
-        nuevaCita.setEstado("PENDIENTE");
+        if (request.getClienteId() == null || request.getClienteId().trim().isEmpty())
+            throw new RuntimeException("clienteId es obligatorio");
 
-        return citaRepository.save(nuevaCita);
+        if (request.getFechaHoraInicio() == null)
+            throw new RuntimeException("fechaHoraInicio es obligatorio");
+
+        if (request.getMotivo() == null || request.getMotivo().trim().isEmpty())
+            throw new RuntimeException("motivo es obligatorio");
+
+        Usuario cliente = usuarioRepository.findById(request.getClienteId().trim())
+                .orElseThrow(() -> new RuntimeException("Cliente no encontrado: " + request.getClienteId()));
+
+        Usuario tecnico = null;
+        if (request.getTecnicoAsignadoId() != null && !request.getTecnicoAsignadoId().trim().isEmpty()) {
+            tecnico = usuarioRepository.findById(request.getTecnicoAsignadoId().trim())
+                    .orElseThrow(() -> new RuntimeException("Técnico no encontrado: " + request.getTecnicoAsignadoId()));
+        }
+
+        Cita nueva = Cita.builder()
+                .usuario(cliente) // cliente
+                .tecnico(tecnico) // opcional
+                .fechaProgramada(request.getFechaHoraInicio())
+                .motivo(request.getMotivo().trim())
+                // fechaCreacion y estado se setean en @PrePersist si no los mandas
+                .build();
+
+        return citaRepository.save(nueva);
     }
 
-    public List<Cita> obtenerCitasPorUsuario(String usuarioId) {
-        // PASO 1: Buscamos la entidad Usuario completa usando el repositorio de usuarios
-        Usuario usuario = usuarioRepository.findById(usuarioId)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+    public List<Cita> obtenerCitasPorCliente(String clienteId) {
+        Usuario cliente = usuarioRepository.findById(clienteId)
+                .orElseThrow(() -> new RuntimeException("Cliente no encontrado"));
+        return citaRepository.findByUsuario(cliente);
+    }
 
-        // PASO 2: Usamos el usuario encontrado para filtrar en CitaRepository
-        return citaRepository.findByUsuario(usuario);
+    public List<Cita> obtenerCitasPorTecnico(String tecnicoId) {
+        Usuario tecnico = usuarioRepository.findById(tecnicoId)
+                .orElseThrow(() -> new RuntimeException("Técnico no encontrado"));
+        return citaRepository.findByTecnico(tecnico);
     }
 
     public List<Cita> obtenerTodasLasCitas() {
         return citaRepository.findAll();
+    }
+    public boolean marcarComoCompletada(Long citaId) {
+        Cita cita = citaRepository.findById(citaId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Cita no encontrada"));
+
+        String estadoActual = cita.getEstado(); // "PENDIENTE", "COMPLETADA", etc.
+
+        // ✅ Si ya está completada, no hay cambio -> false
+        if (estadoActual != null && estadoActual.equalsIgnoreCase("COMPLETADA")) {
+            return false;
+        }
+
+        // (Opcional) Solo permitir pasar desde PENDIENTE
+        if (estadoActual != null && !estadoActual.equalsIgnoreCase("PENDIENTE")) {
+            return false;
+        }
+
+        cita.setEstado("COMPLETADA");
+        citaRepository.save(cita);
+        return true;
     }
 }
