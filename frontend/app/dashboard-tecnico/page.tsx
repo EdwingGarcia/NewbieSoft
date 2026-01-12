@@ -4,14 +4,17 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import styles from "../styles/Dashboard.module.css"; // puedes reusar el mismo CSS
-
+import DashboardView from "./dashboard/DashboardView";
 // Para las próximas vistas (las cargaremos luego)
 const EquiposTecnicoModule = dynamic(
     () => import("./EquiposTecnicoPage"),
     { ssr: false }
 );
-const OrdenesTecnicoModule = () => <div>Órdenes del técnico</div>;
-const FichasTecnicoModule =dynamic(
+const OrdenesTecnicoModule = dynamic(
+                                       () => import("./OrdenesTrabajoTecnicoPage"),
+                                       { ssr: false }
+                                   );
+const FichasTecnicoModule =  dynamic(
                                        () => import("./FichasTecnicoPage"),
                                        { ssr: false }
                                    );
@@ -123,7 +126,7 @@ export default function DashboardTecnico() {
                 </header>
 
                 <section className={styles.content}>
-                    {activeSection === "dashboard" && <h1>Dashboard del técnico</h1>}
+                    {activeSection === "dashboard" && <DashboardView />}
                     {activeSection === "ordenes" && <OrdenesTecnicoModule />}
                     {activeSection === "equipos" && <EquiposTecnicoModule />}
                     {activeSection === "fichas" && <FichasTecnicoModule />}

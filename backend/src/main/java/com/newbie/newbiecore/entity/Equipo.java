@@ -62,4 +62,10 @@ public class Equipo {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "hardware_json", columnDefinition = "jsonb")
     private JsonNode hardwareJson;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cedula_tecnico", nullable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private Usuario tecnico; // tecnico responsable
+
 }

@@ -165,11 +165,15 @@ export default function EquipoPage(): JSX.Element {
                     modelo,
                     marca,
                     cedulaCliente,
-                    tecnicoId,
+                    tecnicoCedula: tecnicoId,
                 }),
             });
 
             if (!res.ok) throw new Error(`Error ${res.status} al crear equipo`);
+            if (!tecnicoId) {
+                setError("Debe seleccionar un técnico");
+                return;
+                }
 
             alert("✅ Equipo creado correctamente");
 

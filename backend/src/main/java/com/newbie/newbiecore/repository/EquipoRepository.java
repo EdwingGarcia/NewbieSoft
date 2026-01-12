@@ -8,4 +8,7 @@ public interface EquipoRepository extends JpaRepository<Equipo, Long> {
 
     // Buscar equipos por la cédula del usuario relacionado
     List<Equipo> findByUsuario_Cedula(String clienteCedula);
+    List<Equipo> findByTecnico_Cedula(String tecnicoCedula);
+    boolean existsByTecnico_Cedula(String tecnicoCedula);
+
 }

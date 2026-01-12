@@ -12,5 +12,7 @@ public class EquipoDto {
     private String modelo;
     private String marca;
     private String cedulaCliente;
+    private String tecnicoCedula;
+    private String tecnicoNombre;
     private JsonNode hardwareJson;
 }

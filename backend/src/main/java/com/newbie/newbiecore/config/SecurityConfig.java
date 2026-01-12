@@ -71,7 +71,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/equipo/*/hardware/upload-xml").permitAll()
 
 
-                        .requestMatchers("/api/**").authenticated()
+                        .requestMatchers("/api/**").permitAll()
 
                         .anyRequest().authenticated()
                 )

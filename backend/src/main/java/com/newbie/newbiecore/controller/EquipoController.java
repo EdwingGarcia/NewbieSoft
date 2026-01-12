@@ -8,6 +8,8 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.security.core.Authentication;
+
 
 import java.util.List;
 
@@ -24,8 +26,8 @@ public class EquipoController {
 
     // Crear/registrar un equipo
     @PostMapping
-    public ResponseEntity<Equipo> register(@RequestBody EquipoDto dto) {
-        Equipo e = equipoService.registrarEquipo(dto);
+    public ResponseEntity<Equipo> register(@RequestBody EquipoDto dto,  Authentication auth) {
+        Equipo e = equipoService.registrarEquipo(dto, auth);
         return ResponseEntity.ok(e);
     }
 
@@ -66,6 +68,12 @@ public class EquipoController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound().build();
         }
+    }
+    @GetMapping("/mis-equipos")
+    public ResponseEntity<List<EquipoDto>> listarMisEquipos(Authentication auth) {
+        List<EquipoDto> equipos = equipoService.listarMisEquipos(auth);
+        if (equipos.isEmpty()) return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(equipos);
     }
 
 }
