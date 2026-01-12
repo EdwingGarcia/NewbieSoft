@@ -52,9 +52,12 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
                         // públicos
+                        .requestMatchers("/api/citas/**").permitAll() // Agrega esto en tu filterChain
+                        .requestMatchers("/api/public/**").permitAll()
                         .requestMatchers("/api/public/**").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/ordenes").permitAll()
+                        .requestMatchers("/api/firmas").permitAll()
                         .requestMatchers("/api/usuarios/**").permitAll()
                         .requestMatchers("/api/otp/**").permitAll()
                         .requestMatchers("/consultas/**").permitAll()

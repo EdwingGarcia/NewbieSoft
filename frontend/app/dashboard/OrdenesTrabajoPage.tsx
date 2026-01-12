@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback, ChangeEvent } from "react";
+import React, { useEffect, useState, useCallback, ChangeEvent, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
     Signature,
@@ -11,34 +11,36 @@ import {
     Upload,
     FileText,
     Plus,
+    User,
+    History,
 } from "lucide-react";
 
-import FichasTecnicasPage from "./FichasTecnicasPage"; // 👈 IMPORTAMOS TU PÁGINA
 import ModalNotificacion from "../components/ModalNotificacion";
 
 import { Button } from "@/components/ui/button";
-import {
-    Card,
-    CardHeader,
-    CardTitle,
-    CardDescription,
-    CardContent,
-} from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import {
-    Select,
-    SelectTrigger,
-    SelectContent,
-    SelectItem,
-    SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 
 const FICHAS_API_BASE = "http://localhost:8080/api/fichas";
 const API_BASE = "http://localhost:8080/api/ordenes";
 const OTP_API_BASE = "http://localhost:8080/api/otp";
 const buildUrl = (p: string = "") => `${API_BASE}${p}`;
 
-/* ===== DTOs ===== */
+/* =========================
+   DTOs / Interfaces base
+========================= */
+
+interface Rol {
+    idRol: number;
+    nombre: string;
+}
+
+interface Usuario {
+    cedula: string;
+    nombre: string;
+    rol?: Rol;
+}
 
 interface ImagenDTO {
     id: number;
@@ -48,7 +50,7 @@ interface ImagenDTO {
     fechaSubida: string;
 }
 
-/** DTO que devuelve GET /api/ordenes (lista) */
+/** DTO lista */
 interface OrdenTrabajoListaDTO {
     id: number;
     numeroOrden: string;
@@ -77,18 +79,16 @@ interface OrdenTrabajoListaDTO {
     observacionesIngreso?: string | null;
 }
 
-/** DTO que devuelve GET /api/ordenes/{id}/detalle */
+/** DTO detalle */
 interface OrdenTrabajoDetalleDTO extends OrdenTrabajoListaDTO {
     ordenId: number;
 
-    // correo del cliente para envío de OTP
     clienteCorreo?: string | null;
 
     diagnosticoTrabajo?: string | null;
     observacionesRecomendaciones?: string | null;
     imagenes?: ImagenDTO[];
 
-    // 🧮 Campos económicos
     costoManoObra?: number | null;
     costoRepuestos?: number | null;
     costoOtros?: number | null;
@@ -97,25 +97,22 @@ interface OrdenTrabajoDetalleDTO extends OrdenTrabajoListaDTO {
     iva?: number | null;
     total?: number | null;
 
-    // 🛠️ Tiempos de diagnóstico / reparación
     fechaHoraInicioDiagnostico?: string | null;
     fechaHoraFinDiagnostico?: string | null;
     fechaHoraInicioReparacion?: string | null;
     fechaHoraFinReparacion?: string | null;
 
-    // 🧾 Garantía y cierre
     esEnGarantia?: boolean | null;
     referenciaOrdenGarantia?: number | null;
     motivoCierre?: string | null;
     cerradaPor?: string | null;
 
-    // 🔐 OTP
     otpCodigo?: string | null;
     otpValidado?: boolean | null;
     otpFechaValidacion?: string | null;
 }
 
-/** Payload para crear OT */
+/** Payload crear OT */
 interface CrearOrdenPayload {
     clienteCedula: string;
     tecnicoCedula: string;
@@ -125,11 +122,11 @@ interface CrearOrdenPayload {
     accesorios: string;
     problemaReportado: string;
     observacionesIngreso: string;
-    tipoServicio: string;
+    tipoServicio: string; // ✅ servicio real
     prioridad: string;
 }
 
-/** Estado del form (equipoId como string para el input) */
+/** Form crear (equipoId string para input) */
 interface CrearOrdenFormState {
     clienteCedula: string;
     tecnicoCedula: string;
@@ -143,23 +140,217 @@ interface CrearOrdenFormState {
     prioridad: string;
 }
 
+/* =========================
+   Fichas (Historial)
+========================= */
+
+interface FichaTecnicaResumenDTO {
+    id: number;
+    fechaCreacion: string;
+    equipoModelo?: string | null;
+    tecnicoNombre?: string | null;
+    observaciones?: string | null;
+}
+
+/** Detalle (deja abierto para que no truene si tu backend trae más/menos campos) */
+interface FichaTecnicaDetalleDTO {
+    id: number;
+    fechaCreacion?: string;
+    equipoId?: number;
+    equipoModelo?: string | null;
+    equipoHostname?: string | null;
+    tecnicoCedula?: string | null;
+    tecnicoNombre?: string | null;
+    observaciones?: string | null;
+    hardwareJson?: any;
+    [key: string]: any;
+}
+
+/* ===== COMPONENTE: LISTA DE FICHAS POR CLIENTE ===== */
+const ListaFichasPorCliente: React.FC<{
+    clienteCedula: string;
+    onSelectFicha: (id: number) => void;
+}> = ({ clienteCedula, onSelectFicha }) => {
+    const [fichas, setFichas] = useState<FichaTecnicaResumenDTO[]>([]);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (!clienteCedula?.trim()) {
+            setFichas([]);
+            setLoading(false);
+            return;
+        }
+
+        const controller = new AbortController();
+
+        const run = async () => {
+            const token = localStorage.getItem("token");
+            if (!token) {
+                setFichas([]);
+                setLoading(false);
+                return;
+            }
+
+            setLoading(true);
+
+            try {
+                const res = await fetch(`${FICHAS_API_BASE}/cliente/${clienteCedula}`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                    signal: controller.signal,
+                });
+
+                // 204/404 = sin historial
+                if (res.status === 204 || res.status === 404) {
+                    setFichas([]);
+                    return;
+                }
+
+                if (!res.ok) throw new Error(`Error al cargar el historial (HTTP ${res.status})`);
+
+                const data: unknown = await res.json();
+
+                const lista: FichaTecnicaResumenDTO[] = Array.isArray(data)
+                    ? (data as FichaTecnicaResumenDTO[])
+                    : data
+                        ? ([data] as FichaTecnicaResumenDTO[])
+                        : [];
+
+                const ordenada = (typeof (lista as any).toSorted === "function"
+                    ? (lista as any).toSorted(
+                        (a: FichaTecnicaResumenDTO, b: FichaTecnicaResumenDTO) =>
+                            new Date(b.fechaCreacion).getTime() - new Date(a.fechaCreacion).getTime()
+                    )
+                    : lista
+                        .slice()
+                        .sort(
+                            (a, b) =>
+                                new Date(b.fechaCreacion).getTime() - new Date(a.fechaCreacion).getTime()
+                        )) as FichaTecnicaResumenDTO[];
+
+                setFichas(ordenada);
+            } catch (err: any) {
+                if (err?.name === "AbortError") return; // petición cancelada (normal)
+                console.error(err);
+                setFichas([]);
+            } finally {
+                if (!controller.signal.aborted) setLoading(false);
+            }
+        };
+
+        run();
+
+        return () => controller.abort();
+    }, [clienteCedula]);
+
+    if (loading) {
+        return (
+            <div className="flex flex-col items-center justify-center py-12 space-y-3">
+                <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
+                <p className="text-sm text-slate-500">Cargando historial del cliente...</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-6">
+            <div className="border-b border-slate-100 pb-4">
+                <h3 className="text-lg font-bold text-slate-800">Historial Técnico del Cliente</h3>
+                <p className="text-xs text-slate-500">
+                    Cédula: {clienteCedula} • Fichas encontradas: {fichas.length}
+                </p>
+            </div>
+
+            {fichas.length === 0 ? (
+                <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 py-12 text-center">
+                    <FileText className="h-10 w-10 text-slate-300 mb-3" />
+                    <p className="text-sm font-medium text-slate-900">Sin historial previo</p>
+                    <p className="text-xs text-slate-500 max-w-xs mx-auto mt-1">
+                        Este cliente no tiene fichas técnicas registradas anteriormente.
+                    </p>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {fichas.map((ficha) => (
+                        <Card
+                            key={ficha.id}
+                            className="group cursor-pointer border-slate-200 shadow-sm hover:border-indigo-300 hover:shadow-md transition-all flex flex-col"
+                            onClick={() => onSelectFicha(ficha.id)}
+                        >
+                            <CardHeader className="p-4 pb-2">
+                                <div className="flex justify-between items-start">
+                                    <div className="bg-slate-100 text-slate-700 text-[10px] font-bold px-2 py-1 rounded border border-slate-200">
+                                        ID #{ficha.id}
+                                    </div>
+                                    <CalendarDays className="h-4 w-4 text-slate-400" />
+                                </div>
+
+                                <CardTitle className="text-sm font-bold text-slate-800 mt-2 line-clamp-1">
+                                    {ficha.equipoModelo || "Equipo sin modelo"}
+                                </CardTitle>
+
+                                <p className="text-[11px] text-slate-500">
+                                    {new Date(ficha.fechaCreacion).toLocaleDateString("es-EC", {
+                                        year: "numeric",
+                                        month: "long",
+                                        day: "numeric",
+                                    })}
+                                </p>
+                            </CardHeader>
+
+                            <CardContent className="p-4 pt-2 flex-1">
+                                <div className="text-xs text-slate-500 space-y-1 h-full">
+                                    <p className="flex items-center gap-1">
+                                        <User className="h-3 w-3" />
+                                        {ficha.tecnicoNombre || "Técnico..."}
+                                    </p>
+
+                                    {ficha.observaciones && (
+                                        <p className="line-clamp-2 mt-2 italic text-slate-600 border-l-2 border-slate-200 pl-2 text-[11px]">
+                                            "{ficha.observaciones}"
+                                        </p>
+                                    )}
+                                </div>
+                            </CardContent>
+
+                            <div className="p-3 bg-slate-50 border-t border-slate-100 mt-auto">
+                                <div className="text-xs font-medium text-indigo-600 group-hover:underline text-center">
+                                    Ver detalles →
+                                </div>
+                            </div>
+                        </Card>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
+
+/* =========================
+   Modales
+========================= */
+
 type Paso = 1 | 2 | 3 | 4;
 
-/* ===== Util: qué paso mostrar según estado actual ===== */
 const mapEstadoToPaso = (estado: string | null): Paso => {
     const e = (estado || "").toUpperCase();
-
     if (e === "INGRESO" || e === "PENDIENTE") return 1;
     if (e === "EN_DIAGNOSTICO") return 2;
-    if (e === "EN_REPARACION") return 3;
+    if (e === "COSTOS") return 3;
     if (e === "LISTA_ENTREGA" || e === "CERRADA") return 4;
-
     return 1;
+};
+
+// ✅ Fuente de verdad del flujo (paso -> estado)
+const pasoToEstado = (p: Paso): string => {
+    if (p === 1) return "INGRESO";
+    if (p === 2) return "EN_DIAGNOSTICO";
+    if (p === 3) return "COSTOS";
+    return "LISTA_ENTREGA";
 };
 
 const estadoBadgeClasses = (estado: string | null) => {
     const e = (estado || "").toUpperCase();
-    if (e === "EN_DIAGNOSTICO" || e === "EN_REPARACION")
+    if (e === "EN_DIAGNOSTICO" || e === "COSTOS")
         return "bg-blue-50 text-blue-700 border border-blue-200";
     if (e === "INGRESO" || e === "PENDIENTE")
         return "bg-amber-50 text-amber-700 border border-amber-200";
@@ -168,62 +359,275 @@ const estadoBadgeClasses = (estado: string | null) => {
     return "bg-slate-50 text-slate-700 border border-slate-200";
 };
 
-/* ===== MODAL FICHA TÉCNICA RENDERIZANDO LA PAGE DIRECTAMENTE ===== */
+const StepPill: React.FC<{ active: boolean; label: string; desc: string }> = ({
+    active,
+    label,
+    desc,
+}) => (
+    <div
+        className={[
+            "flex items-center gap-2 rounded-full border px-3 py-1 transition select-none",
+            active ? "border-white bg-white/20 text-white" : "border-white/30 bg-slate-800/40 text-slate-200",
+        ].join(" ")}
+    >
+        <span className="text-[10px] font-semibold">{label}</span>
+        <span className="hidden sm:inline text-[10px] opacity-80">{desc}</span>
+    </div>
+);
 
-interface FichaTecnicaModalProps {
+interface HistorialFichasModalProps {
     open: boolean;
     onClose: () => void;
-    ordenTrabajoId: number;
-    equipoId: number;
+    clienteCedula: string;
+    ordenTrabajoId?: number;
+    equipoId?: number;
+    onSelectFicha: (id: number) => void;
+    onCrearNuevaFicha?: () => void;
 }
 
-/**
- * Wrapper que simula los searchParams que espera FichasTecnicasPage.
- * Así no tienes que tocar esa página.
- */
-const FichaTecnicaWrapper: React.FC<{
-    ordenTrabajoId: number;
-    equipoId: number;
-}> = ({ ordenTrabajoId, equipoId }) => {
-    const searchParams = {
-        ordenTrabajoId: String(ordenTrabajoId),
-        equipoId: String(equipoId),
-    };
-
-    // @ts-ignore – FichasTecnicasPage está tipada como página de Next con searchParams
-    return <FichasTecnicasPage searchParams={searchParams} />;
-};
-
-function FichaTecnicaModal({
+function HistorialFichasModal({
     open,
     onClose,
-    ordenTrabajoId,
-    equipoId,
-}: FichaTecnicaModalProps) {
+    clienteCedula,
+    onSelectFicha,
+    onCrearNuevaFicha,
+}: HistorialFichasModalProps) {
+    useEffect(() => {
+        if (!open) return;
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === "Escape") onClose();
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [open, onClose]);
+
     if (!open) return null;
 
     return (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70">
-            <div className="relative mx-4 flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl">
-                {/* Botón cerrar */}
-                <button
-                    onClick={onClose}
-                    className="absolute right-4 top-4 z-10 inline-flex h-7 w-7 items-center justify-center rounded-full bg-black/40 text-slate-50 hover:bg-black/60"
-                >
-                    <X className="h-4 w-4" />
-                </button>
+        <div
+            className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+            onMouseDown={(e) => {
+                if (e.target === e.currentTarget) onClose();
+            }}
+        >
+            <div className="relative mx-3 w-full max-w-6xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+                <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-4 py-3">
+                    <div className="flex items-center gap-2">
+                        <History className="h-4 w-4 text-slate-600" />
+                        <div>
+                            <p className="text-sm font-semibold text-slate-900">Fichas técnicas del cliente</p>
+                            <p className="text-[11px] text-slate-500">Cédula: {clienteCedula}</p>
+                        </div>
+                    </div>
 
-                {/* Aquí se muestra FichasTecnicasPage tal cual, pero solo para esa OT/equipo */}
-                <div className="h-full w-full overflow-y-auto pt-10 px-4 pb-4">
-                    <FichaTecnicaWrapper
-                        ordenTrabajoId={ordenTrabajoId}
-                        equipoId={equipoId}
-                    />
+                    <div className="flex items-center gap-2">
+                        {onCrearNuevaFicha && (
+                            <Button
+                                size="sm"
+                                className="h-8 bg-slate-900 text-white hover:bg-slate-800 text-[11px]"
+                                onClick={onCrearNuevaFicha}
+                            >
+                                <Plus className="h-4 w-4 mr-1" />
+                                Nueva ficha
+                            </Button>
+                        )}
+
+                        <button
+                            onClick={onClose}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-900/80 text-white hover:bg-slate-900"
+                            aria-label="Cerrar"
+                        >
+                            <X className="h-4 w-4" />
+                        </button>
+                    </div>
+                </div>
+
+                <div className="max-h-[80vh] overflow-y-auto p-4">
+                    <ListaFichasPorCliente clienteCedula={clienteCedula} onSelectFicha={onSelectFicha} />
                 </div>
             </div>
         </div>
     );
 }
+
+function FichaTecnicaDetalleModal({
+    open,
+    onClose,
+    loading,
+    error,
+    data,
+}: {
+    open: boolean;
+    onClose: () => void;
+    loading: boolean;
+    error: string | null;
+    data: FichaTecnicaDetalleDTO | null;
+}) {
+    useEffect(() => {
+        if (!open) return;
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === "Escape") onClose();
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [open, onClose]);
+
+    if (!open) return null;
+
+    const safeDate = (iso?: string) => {
+        if (!iso) return "-";
+        try {
+            return new Date(iso).toLocaleString("es-EC");
+        } catch {
+            return String(iso);
+        }
+    };
+
+    const fmt = (v: any) => (v === null || v === undefined || v === "" ? "-" : String(v));
+
+    const topEntries =
+        data
+            ? Object.entries(data)
+                .filter(([k]) => !["hardwareJson"].includes(k))
+                .filter(([k, v]) => typeof v !== "object" || v === null)
+                .slice(0, 20)
+            : [];
+
+    return (
+        <div
+            className="fixed inset-0 z-[90] flex items-center justify-center bg-black/70 backdrop-blur-sm"
+            onMouseDown={(e) => {
+                if (e.target === e.currentTarget) onClose();
+            }}
+        >
+            <div className="relative mx-3 w-full max-w-6xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+                <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-4 py-3">
+                    <div className="flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-slate-700" />
+                        <div>
+                            <p className="text-sm font-semibold text-slate-900">Detalle de Ficha Técnica</p>
+                            <p className="text-[11px] text-slate-500">
+                                {data ? `ID #${data.id}` : "—"} • {data?.fechaCreacion ? safeDate(data.fechaCreacion) : "-"}
+                            </p>
+                        </div>
+                    </div>
+
+                    <button
+                        onClick={onClose}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-900/80 text-white hover:bg-slate-900"
+                        aria-label="Cerrar"
+                    >
+                        <X className="h-4 w-4" />
+                    </button>
+                </div>
+
+                <div className="max-h-[82vh] overflow-y-auto p-4">
+                    {loading ? (
+                        <div className="flex flex-col items-center justify-center py-12 space-y-3">
+                            <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
+                            <p className="text-sm text-slate-500">Cargando detalles de la ficha...</p>
+                        </div>
+                    ) : error ? (
+                        <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+                            {error}
+                        </div>
+                    ) : !data ? (
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+                            No hay datos para mostrar.
+                        </div>
+                    ) : (
+                        <div className="space-y-4">
+                            <Card className="border-slate-200 shadow-sm">
+                                <CardHeader className="py-3">
+                                    <CardTitle className="text-sm">Resumen</CardTitle>
+                                    <CardDescription className="text-xs">
+                                        Información general de la ficha técnica.
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-3">
+                                    <div className="grid gap-3 md:grid-cols-3 text-[12px]">
+                                        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                            <p className="text-[11px] font-semibold text-slate-700">Equipo</p>
+                                            <p className="mt-1 text-slate-900">
+                                                {fmt(data.equipoModelo)} {data.equipoHostname ? `(${data.equipoHostname})` : ""}
+                                            </p>
+                                            <p className="mt-1 text-[11px] text-slate-500">EquipoId: {fmt(data.equipoId)}</p>
+                                        </div>
+
+                                        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                            <p className="text-[11px] font-semibold text-slate-700">Técnico</p>
+                                            <p className="mt-1 text-slate-900">{fmt(data.tecnicoNombre)}</p>
+                                            <p className="mt-1 text-[11px] text-slate-500">Cédula: {fmt(data.tecnicoCedula)}</p>
+                                        </div>
+
+                                        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                            <p className="text-[11px] font-semibold text-slate-700">Fecha</p>
+                                            <p className="mt-1 text-slate-900">{safeDate(data.fechaCreacion)}</p>
+                                            <p className="mt-1 text-[11px] text-slate-500">ID: #{data.id}</p>
+                                        </div>
+                                    </div>
+
+                                    {data.observaciones && (
+                                        <div className="rounded-lg border border-slate-200 bg-white p-3">
+                                            <p className="text-[11px] font-semibold text-slate-700">Observaciones</p>
+                                            <p className="mt-1 whitespace-pre-wrap text-[12px] text-slate-800">
+                                                {data.observaciones}
+                                            </p>
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+
+                            {topEntries.length > 0 && (
+                                <Card className="border-slate-200 shadow-sm">
+                                    <CardHeader className="py-3">
+                                        <CardTitle className="text-sm">Campos</CardTitle>
+                                        <CardDescription className="text-xs">
+                                            Valores principales detectados (top-level).
+                                        </CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="grid gap-2 md:grid-cols-2">
+                                            {topEntries.map(([k, v]) => (
+                                                <div
+                                                    key={k}
+                                                    className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3"
+                                                >
+                                                    <div className="text-[11px] font-semibold text-slate-700">{k}</div>
+                                                    <div className="text-[11px] text-slate-900 text-right break-all">{fmt(v)}</div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            )}
+
+                            {typeof data.hardwareJson !== "undefined" && (
+                                <Card className="border-slate-200 shadow-sm">
+                                    <CardHeader className="py-3">
+                                        <CardTitle className="text-sm">Hardware JSON</CardTitle>
+                                        <CardDescription className="text-xs">
+                                            Información técnica (puede ser extensa).
+                                        </CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <pre className="max-h-[420px] overflow-auto rounded-lg border border-slate-200 bg-slate-950 p-3 text-[11px] text-slate-100">
+                                            {JSON.stringify(data.hardwareJson, null, 2)}
+                                        </pre>
+                                    </CardContent>
+                                </Card>
+                            )}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+/* =========================
+   Página
+========================= */
 
 export default function OrdenesTrabajoPage() {
     const router = useRouter();
@@ -244,10 +648,10 @@ export default function OrdenesTrabajoPage() {
     const [selectedImg, setSelectedImg] = useState<string | null>(null);
     const [imgFilterCategoria, setImgFilterCategoria] = useState<string>("");
 
-    // === PASOS DEL FLUJO ===
+    // === PASOS ===
     const [pasoActivo, setPasoActivo] = useState<Paso>(1);
 
-    // === CAMPOS EDITABLES EN DETALLE ===
+    // === EDITABLES ===
     const [tipoServicioEdit, setTipoServicioEdit] = useState<string>("DIAGNOSTICO");
     const [prioridadEdit, setPrioridadEdit] = useState<string>("MEDIA");
     const [estadoEdit, setEstadoEdit] = useState<string>("INGRESO");
@@ -276,7 +680,6 @@ export default function OrdenesTrabajoPage() {
 
     // === CREAR OT ===
     const [showCrear, setShowCrear] = useState(false);
-    // === Listas para los combos ===
     const [listaClientes, setListaClientes] = useState<Usuario[]>([]);
     const [listaTecnicos, setListaTecnicos] = useState<Usuario[]>([]);
 
@@ -290,20 +693,28 @@ export default function OrdenesTrabajoPage() {
         accesorios: "",
         problemaReportado: "",
         observacionesIngreso: "",
-        tipoServicio: "DIAGNOSTICO",
+        tipoServicio: "DIAGNOSTICO", // ✅ servicio real
         prioridad: "MEDIA",
     });
 
-    // === MODAL FICHA TÉCNICA DESDE OT ===
-    const [showFichaModal, setShowFichaModal] = useState(false);
-    const [fichaOrdenId, setFichaOrdenId] = useState<number | null>(null);
-    const [fichaEquipoId, setFichaEquipoId] = useState<number | null>(null);
+    // === MODAL HISTORIAL FICHAS ===
+    const [showHistorialFichas, setShowHistorialFichas] = useState(false);
+    const [historialCedula, setHistorialCedula] = useState<string>("");
+    const [historialOtId, setHistorialOtId] = useState<number | null>(null);
+    const [historialEquipoId, setHistorialEquipoId] = useState<number | null>(null);
 
-    const token =
-        typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    // === MODAL DETALLE FICHA (✅ ahora en modal, NO pantalla aparte) ===
+    const [showFichaDetalle, setShowFichaDetalle] = useState(false);
+    const [fichaLoading, setFichaLoading] = useState(false);
+    const [fichaError, setFichaError] = useState<string | null>(null);
+    const [fichaDetalle, setFichaDetalle] = useState<FichaTecnicaDetalleDTO | null>(null);
 
-    const fmt = (v: unknown) =>
-        v === null || v === undefined || v === "" ? "-" : String(v);
+    // cuando vienes del listado por cliente, guardamos el id para abrir ese detalle
+    const [fichaDetalleId, setFichaDetalleId] = useState<number | null>(null);
+
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+
+    const fmt = (v: unknown) => (v === null || v === undefined || v === "" ? "-" : String(v));
 
     const fmtFecha = (iso?: string | null) => {
         if (!iso) return "-";
@@ -312,17 +723,18 @@ export default function OrdenesTrabajoPage() {
 
     const fmtMoney = (n?: number | null) => {
         if (n === null || n === undefined) return "-";
-        return n.toFixed(2);
+        return Number(n).toFixed(2);
     };
 
-    const toNumber = (value: string): number =>
-        value.trim() === "" || isNaN(Number(value)) ? 0 : Number(value);
+    const toNumber = (value: string): number => (value.trim() === "" || isNaN(Number(value)) ? 0 : Number(value));
 
-    const subtotalCalculado =
-        costoManoObra + costoRepuestos + costoOtros - descuento;
-    const totalCalculado = subtotalCalculado + iva;
+    const subtotalCalculado = useMemo(
+        () => costoManoObra + costoRepuestos + costoOtros - descuento,
+        [costoManoObra, costoRepuestos, costoOtros, descuento]
+    );
+    const totalCalculado = useMemo(() => subtotalCalculado + iva, [subtotalCalculado, iva]);
 
-    /* ===== GET lista de órdenes ===== */
+    /* ===== GET lista ===== */
     const fetchOrdenes = useCallback(async () => {
         setLoading(true);
         setError(null);
@@ -330,11 +742,7 @@ export default function OrdenesTrabajoPage() {
             const res = await fetch(buildUrl(""), {
                 headers: { Authorization: `Bearer ${token}` },
             });
-            if (!res.ok) {
-                throw new Error(
-                    `Error al cargar órdenes de trabajo (HTTP ${res.status})`
-                );
-            }
+            if (!res.ok) throw new Error(`Error al cargar órdenes de trabajo (HTTP ${res.status})`);
             const data: OrdenTrabajoListaDTO[] = await res.json();
             setOrdenes(data);
         } catch (e: any) {
@@ -344,31 +752,26 @@ export default function OrdenesTrabajoPage() {
         }
     }, [token]);
 
-    useEffect(() => {
-        fetchOrdenes();
-        fetchCombos();
-    }, [fetchOrdenes]);
-
-    const fetchCombos = async () => {
+    const fetchCombos = useCallback(async () => {
         if (!token) return;
-
         try {
-            // === Usuarios (clientes y técnicos) ===
             const resUsers = await fetch("http://localhost:8080/api/usuarios", {
-                headers: { Authorization: `Bearer ${token}` }
+                headers: { Authorization: `Bearer ${token}` },
             });
-
             const usuarios: Usuario[] = await resUsers.json();
-
-            setListaClientes(usuarios.filter(u => u.rol?.nombre === "ROLE_CLIENTE"));
-            setListaTecnicos(usuarios.filter(u => u.rol?.nombre === "ROLE_TECNICO"));
+            setListaClientes(usuarios.filter((u) => u.rol?.nombre === "ROLE_CLIENTE"));
+            setListaTecnicos(usuarios.filter((u) => u.rol?.nombre === "ROLE_TECNICO"));
         } catch (err) {
             console.error("Error cargando combos:", err);
         }
-    };
+    }, [token]);
 
+    useEffect(() => {
+        fetchOrdenes();
+        fetchCombos();
+    }, [fetchOrdenes, fetchCombos]);
 
-    /* ===== GET imágenes por orden ===== */
+    /* ===== GET imágenes ===== */
     const fetchImagenes = useCallback(
         async (ordenId: number) => {
             try {
@@ -381,12 +784,7 @@ export default function OrdenesTrabajoPage() {
                     return;
                 }
 
-                if (!res.ok) {
-                    throw new Error(
-                        `Error al cargar imágenes de la orden (HTTP ${res.status})`
-                    );
-                }
-
+                if (!res.ok) throw new Error(`Error al cargar imágenes (HTTP ${res.status})`);
                 const data: ImagenDTO[] = await res.json();
                 setImagenesDetalle(data);
             } catch (e) {
@@ -397,11 +795,17 @@ export default function OrdenesTrabajoPage() {
         [token]
     );
 
-    /* ===== Sincronizar estados editables con detalle ===== */
+    /* ===== sync editable con detalle ===== */
     const sincronizarDetalleEditable = (data: OrdenTrabajoDetalleDTO) => {
         setTipoServicioEdit(data.tipoServicio ?? "DIAGNOSTICO");
         setPrioridadEdit(data.prioridad ?? "MEDIA");
-        setEstadoEdit(data.estado ?? "INGRESO");
+
+        // ✅ 1) Determinamos paso por estado
+        const p = mapEstadoToPaso(data.estado ?? "INGRESO");
+        setPasoActivo(p);
+
+        // ✅ 2) EstadoEdit siempre alineado al flujo
+        setEstadoEdit(pasoToEstado(p));
 
         setDiagEdit(data.diagnosticoTrabajo ?? "");
         setObsRecEdit(data.observacionesRecomendaciones ?? "");
@@ -413,11 +817,7 @@ export default function OrdenesTrabajoPage() {
         setIva(data.iva ?? 0);
 
         setEsEnGarantia(!!data.esEnGarantia);
-        setReferenciaGarantia(
-            data.referenciaOrdenGarantia != null
-                ? String(data.referenciaOrdenGarantia)
-                : ""
-        );
+        setReferenciaGarantia(data.referenciaOrdenGarantia != null ? String(data.referenciaOrdenGarantia) : "");
         setMotivoCierre(data.motivoCierre ?? "");
         setCerradaPor(data.cerradaPor ?? "");
 
@@ -426,10 +826,23 @@ export default function OrdenesTrabajoPage() {
         setOtpMensaje(null);
         setOtpEnviando(false);
         setOtpVerificando(false);
-
-        // Paso inicial alineado con el estado actual
-        setPasoActivo(mapEstadoToPaso(data.estado ?? "INGRESO"));
     };
+
+    const closeDetalle = useCallback(() => {
+        setDetalle(null);
+        setImagenesDetalle([]);
+        setSelectedImg(null);
+        setImgFilterCategoria("");
+    }, []);
+
+    useEffect(() => {
+        if (!detalle) return;
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === "Escape") closeDetalle();
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [detalle, closeDetalle]);
 
     /* ===== GET detalle ===== */
     const abrirDetalle = async (id: number) => {
@@ -438,12 +851,9 @@ export default function OrdenesTrabajoPage() {
             const res = await fetch(buildUrl(`/${id}/detalle`), {
                 headers: { Authorization: `Bearer ${token}` },
             });
-            if (!res.ok) {
-                throw new Error(
-                    `Error al cargar detalles de la orden (HTTP ${res.status})`
-                );
-            }
+            if (!res.ok) throw new Error(`Error al cargar detalles (HTTP ${res.status})`);
             const data: OrdenTrabajoDetalleDTO = await res.json();
+
             setDetalle(data);
             setImagenesNuevas([]);
             setSelectedImg(null);
@@ -456,16 +866,22 @@ export default function OrdenesTrabajoPage() {
         }
     };
 
-    /* ===== Cambio de paso: SOLO secuencial con botones ===== */
-    const irSiguientePaso = () => {
-        setPasoActivo((prev) => (prev < 4 ? ((prev + 1) as Paso) : prev));
-    };
+    /* ===== Navegación pasos (✅ ahora sincroniza estadoEdit) ===== */
+    const irSiguientePaso = () =>
+        setPasoActivo((prev) => {
+            const next = prev < 4 ? ((prev + 1) as Paso) : prev;
+            setEstadoEdit(pasoToEstado(next));
+            return next;
+        });
 
-    const irPasoAnterior = () => {
-        setPasoActivo((prev) => (prev > 1 ? ((prev - 1) as Paso) : prev));
-    };
+    const irPasoAnterior = () =>
+        setPasoActivo((prev) => {
+            const next = prev > 1 ? ((prev - 1) as Paso) : prev;
+            setEstadoEdit(pasoToEstado(next));
+            return next;
+        });
 
-    /* ===== PUT /{id}/entrega – guardar todo lo editable ===== */
+    /* ===== PUT guardar ===== */
     const guardarCambiosOrden = async (esCierre: boolean = false) => {
         if (!detalle) return;
         if (!token) {
@@ -473,10 +889,14 @@ export default function OrdenesTrabajoPage() {
             return;
         }
 
+        // ✅ Estado siempre deriva del paso (evita desync)
+        const estadoFlujo = pasoToEstado(pasoActivo);
+
         const payload = {
             tipoServicio: tipoServicioEdit,
             prioridad: prioridadEdit,
-            estado: esCierre ? "CERRADA" : estadoEdit,
+            estado: esCierre ? "CERRADA" : estadoFlujo,
+
             diagnosticoTrabajo: diagEdit.trim(),
             observacionesRecomendaciones: obsRecEdit.trim(),
 
@@ -511,11 +931,7 @@ export default function OrdenesTrabajoPage() {
                 body: JSON.stringify(payload),
             });
 
-            if (!res.ok) {
-                throw new Error(
-                    `Error guardando datos de la orden (HTTP ${res.status})`
-                );
-            }
+            if (!res.ok) throw new Error(`Error guardando (HTTP ${res.status})`);
 
             alert(esCierre ? "✅ Orden cerrada correctamente" : "✅ Cambios guardados");
             await abrirDetalle(detalle.ordenId);
@@ -528,7 +944,6 @@ export default function OrdenesTrabajoPage() {
         }
     };
 
-    /* ===== Cerrar OT (flujo guiado) ===== */
     const cerrarOrden = async () => {
         if (!detalle) return;
 
@@ -544,9 +959,7 @@ export default function OrdenesTrabajoPage() {
         }
 
         if (totalCalculado <= 0 && !esEnGarantia) {
-            const seguir = window.confirm(
-                "El total es 0 y la orden no está marcada como garantía. ¿Cerrar igualmente?"
-            );
+            const seguir = window.confirm("El total es 0 y la orden no está marcada como garantía. ¿Cerrar igualmente?");
             if (!seguir) return;
         }
 
@@ -556,17 +969,14 @@ export default function OrdenesTrabajoPage() {
         }
 
         if (!otpValidado) {
-            const seguir = window.confirm(
-                "La OTP no está validada. ¿Cerrar de todas formas?"
-            );
+            const seguir = window.confirm("La OTP no está validada. ¿Cerrar de todas formas?");
             if (!seguir) return;
         }
 
         await guardarCambiosOrden(true);
     };
 
-    /* ===== OTP: enviar y validar ===== */
-
+    /* ===== OTP ===== */
     const handleEnviarOtp = async () => {
         if (!detalle) return;
 
@@ -574,12 +984,9 @@ export default function OrdenesTrabajoPage() {
         const correo = detalle.clienteCorreo;
 
         if (!cedula || !correo) {
-            setOtpMensaje(
-                "No se encontró la cédula o el correo del cliente para enviar el OTP."
-            );
+            setOtpMensaje("No se encontró la cédula o el correo del cliente para enviar el OTP.");
             return;
         }
-
         if (!token) {
             setOtpMensaje("Sesión inválida. Inicia sesión nuevamente.");
             return;
@@ -591,20 +998,11 @@ export default function OrdenesTrabajoPage() {
         try {
             const response = await fetch(`${OTP_API_BASE}/generar`, {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({
-                    cedula: Number(cedula),
-                    correo: correo,
-                }),
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ cedula: Number(cedula), correo }),
             });
 
-            if (!response.ok) {
-                throw new Error("No se pudo enviar el OTP.");
-            }
-
+            if (!response.ok) throw new Error("No se pudo enviar el OTP.");
             setOtpMensaje("OTP enviado al correo del cliente.");
         } catch (err: any) {
             console.error("Error al enviar OTP:", err);
@@ -616,7 +1014,6 @@ export default function OrdenesTrabajoPage() {
 
     const handleValidarOtp = async () => {
         if (!detalle) return;
-
         const cedula = detalle.clienteCedula;
 
         if (!cedula) {
@@ -627,7 +1024,6 @@ export default function OrdenesTrabajoPage() {
             setOtpMensaje("Ingrese el código OTP enviado al cliente.");
             return;
         }
-
         if (!token) {
             setOtpMensaje("Sesión inválida. Inicia sesión nuevamente.");
             return;
@@ -639,19 +1035,11 @@ export default function OrdenesTrabajoPage() {
         try {
             const response = await fetch(`${OTP_API_BASE}/validar`, {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({
-                    cedula: Number(cedula),
-                    codigo: otpCodigo,
-                }),
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ cedula: Number(cedula), codigo: otpCodigo }),
             });
 
-            if (!response.ok) {
-                throw new Error("OTP inválido o expirado.");
-            }
+            if (!response.ok) throw new Error("OTP inválido o expirado.");
 
             setOtpValidado(true);
             setOtpMensaje("OTP validado correctamente.");
@@ -664,7 +1052,7 @@ export default function OrdenesTrabajoPage() {
         }
     };
 
-    /* ===== Subir imágenes a la OT ===== */
+    /* ===== Subir imágenes ===== */
     const subirImagenes = async () => {
         if (!detalle) return;
         if (imagenesNuevas.length === 0) {
@@ -678,63 +1066,16 @@ export default function OrdenesTrabajoPage() {
 
             const res = await fetch(buildUrl(`/${detalle.ordenId}/imagenes`), {
                 method: "POST",
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
+                headers: { Authorization: `Bearer ${token}` },
                 body: formData,
             });
 
-            if (!res.ok) {
-                throw new Error(
-                    `Error ${res.status} subiendo imágenes de la orden`
-                );
-            }
-
+            if (!res.ok) throw new Error(`Error ${res.status} subiendo imágenes`);
             alert("📸 Imágenes subidas correctamente");
             setImagenesNuevas([]);
-
             await fetchImagenes(detalle.ordenId);
         } catch (e: any) {
             alert("❌ " + (e.message ?? "Error subiendo imágenes"));
-        }
-    };
-
-    /* ===== Navegar a Fichas Técnicas (sigue disponible si lo usas en otro lado) ===== */
-    const irAFichaTecnica = async (ordenId: number, equipoId: number) => {
-        if (!token) {
-            alert("Sesión inválida. Inicia sesión nuevamente.");
-            return;
-        }
-
-        try {
-            const res = await fetch(
-                `${FICHAS_API_BASE}/orden-trabajo/${ordenId}`,
-                {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
-                }
-            );
-
-            if (res.ok) {
-                const ficha = await res.json();
-                router.push(`/dashboard/fichas/${ficha.id}`);
-                return;
-            }
-
-            if (res.status === 404) {
-                router.push(
-                    `/dashboard/fichas/nueva?ordenTrabajoId=${ordenId}&equipoId=${equipoId}`
-                );
-                return;
-            }
-
-            throw new Error(
-                `Error buscando ficha técnica (HTTP ${res.status})`
-            );
-        } catch (e: any) {
-            console.error("Error al abrir ficha técnica:", e);
-            alert(e?.message ?? "Error al abrir la ficha técnica.");
         }
     };
 
@@ -742,15 +1083,132 @@ export default function OrdenesTrabajoPage() {
         router.push(`/firma?ordenId=${ordenId}&modo=aceptacion`);
     };
 
-    /* ===== Handlers formulario crear OT ===== */
-    const handleCrearChange = (
-        e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-    ) => {
+    /* =========================================================
+       ✅ FICHAS TÉCNICAS EN MODAL (NO pantalla aparte)
+       - Mantiene la firma requerida:
+         /* ===== Navegar a Fichas Técnicas (sigue disponible si lo usas en otro lado) ===== */
+
+    const closeFichaDetalle = () => {
+        setShowFichaDetalle(false);
+        setFichaLoading(false);
+        setFichaError(null);
+        setFichaDetalle(null);
+        setFichaDetalleId(null);
+    };
+
+    const tryFetchJson = async (urls: string[], tokenStr: string) => {
+        let lastStatus: number | null = null;
+        let lastErr: any = null;
+
+        for (const url of urls) {
+            try {
+                const res = await fetch(url, {
+                    headers: { Authorization: `Bearer ${tokenStr}` },
+                });
+
+                lastStatus = res.status;
+
+                if (res.status === 204) return null;
+                if (res.status === 404) continue;
+
+                if (!res.ok) {
+                    // intenta el siguiente endpoint por compatibilidad
+                    lastErr = new Error(`HTTP ${res.status} (${url})`);
+                    continue;
+                }
+
+                const data = (await res.json()) as any;
+                return data;
+            } catch (e) {
+                lastErr = e;
+                continue;
+            }
+        }
+
+        if (lastStatus === 404) return { __notFound: true };
+        throw lastErr ?? new Error("No se pudo obtener respuesta de fichas.");
+    };
+
+    const normalizeToFicha = (raw: any): FichaTecnicaDetalleDTO | null => {
+        if (!raw) return null;
+
+        // si el backend devuelve lista, agarramos la más reciente por fechaCreacion
+        if (Array.isArray(raw)) {
+            if (raw.length === 0) return null;
+            const sorted = raw
+                .slice()
+                .sort((a, b) => {
+                    const da = new Date(a?.fechaCreacion ?? 0).getTime();
+                    const db = new Date(b?.fechaCreacion ?? 0).getTime();
+                    return db - da;
+                });
+            return sorted[0] as FichaTecnicaDetalleDTO;
+        }
+
+        // si viene envuelto
+        if (raw?.data && (raw.data.id || Array.isArray(raw.data))) return normalizeToFicha(raw.data);
+
+        return raw as FichaTecnicaDetalleDTO;
+    };
+
+    /* ===== Navegar a Fichas Técnicas (sigue disponible si lo usas en otro lado) ===== */
+    const irAFichaTecnica = async (ordenId: number, equipoId: number) => {
+        if (!token) {
+            alert("No hay token de autenticación");
+            return;
+        }
+
+        setShowFichaDetalle(true);
+        setFichaLoading(true);
+        setFichaError(null);
+        setFichaDetalle(null);
+
+        try {
+            // Si seleccionaste una ficha específica desde el historial por cliente, se usa ese id:
+            if (fichaDetalleId) {
+                const raw = await tryFetchJson([`${FICHAS_API_BASE}/${fichaDetalleId}`], token);
+                if ((raw as any)?.__notFound) {
+                    setFichaError("No se encontró la ficha seleccionada.");
+                    return;
+                }
+                setFichaDetalle(normalizeToFicha(raw));
+                return;
+            }
+
+            // Si NO hay id específico, intentamos obtener la ficha por ordenId/equipoId (compatibilidad con varios endpoints)
+            const candidates = [
+                `${FICHAS_API_BASE}/orden/${ordenId}/equipo/${equipoId}`,
+                `${FICHAS_API_BASE}/ordenTrabajo/${ordenId}/equipo/${equipoId}`,
+                `${FICHAS_API_BASE}/orden/${ordenId}?equipoId=${equipoId}`,
+                `${FICHAS_API_BASE}?ordenTrabajoId=${ordenId}&equipoId=${equipoId}`,
+            ];
+
+            const raw = await tryFetchJson(candidates, token);
+
+            if ((raw as any)?.__notFound) {
+                setFichaError("No se encontró ficha para esta OT/equipo (o el endpoint no existe).");
+                return;
+            }
+
+            const ficha = normalizeToFicha(raw);
+            if (!ficha) {
+                setFichaError("No existe ficha técnica disponible para este caso.");
+                return;
+            }
+
+            setFichaDetalle(ficha);
+        } catch (e: any) {
+            console.error(e);
+            setFichaError(e?.message ?? "Error cargando detalle de la ficha técnica.");
+        } finally {
+            setFichaLoading(false);
+        }
+    };
+
+    /* ===== Crear OT ===== */
+    const handleCrearChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        setFormCrear((prev) => ({
-            ...prev,
-            [name]: value,
-        }));
+        setFormCrear((prev) => ({ ...prev, [name]: value }));
     };
 
     const resetCrearForm = () => {
@@ -774,7 +1232,6 @@ export default function OrdenesTrabajoPage() {
             return;
         }
 
-        // Validaciones mínimas
         if (!formCrear.clienteCedula.trim()) {
             alert("La cédula del cliente es obligatoria");
             return;
@@ -805,7 +1262,7 @@ export default function OrdenesTrabajoPage() {
             accesorios: formCrear.accesorios.trim(),
             problemaReportado: formCrear.problemaReportado.trim(),
             observacionesIngreso: formCrear.observacionesIngreso.trim(),
-            tipoServicio: formCrear.tipoServicio,
+            tipoServicio: formCrear.tipoServicio, // ✅ correcto
             prioridad: formCrear.prioridad,
         };
 
@@ -813,18 +1270,11 @@ export default function OrdenesTrabajoPage() {
             setCrearLoading(true);
             const res = await fetch(buildUrl(""), {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
                 body: JSON.stringify(payload),
             });
 
-            if (!res.ok) {
-                throw new Error(
-                    `Error creando la orden de trabajo (HTTP ${res.status})`
-                );
-            }
+            if (!res.ok) throw new Error(`Error creando OT (HTTP ${res.status})`);
 
             alert("✅ Orden de trabajo creada correctamente");
             resetCrearForm();
@@ -838,16 +1288,37 @@ export default function OrdenesTrabajoPage() {
         }
     };
 
-    /* ===== RENDER ===== */
+    /* ===== Historial fichas ===== */
+    const abrirHistorialFichas = (clienteCedula?: string | null, otId?: number, equipoId?: number) => {
+        if (!clienteCedula) {
+            alert("No se encontró la cédula del cliente para ver el historial.");
+            return;
+        }
+        setHistorialCedula(clienteCedula);
+        setHistorialOtId(otId ?? null);
+        setHistorialEquipoId(equipoId ?? null);
+        setShowHistorialFichas(true);
+    };
+
+    const onCrearNuevaFichaDesdeHistorial = () => {
+        if (!historialOtId || !historialEquipoId) {
+            alert("No se pudo determinar OT/equipo para crear ficha desde aquí.");
+            return;
+        }
+        // ✅ Ajusta a tu ruta real de página (evita /api en Next para UI)
+        router.push(`/fichas/nueva?ordenTrabajoId=${historialOtId}&equipoId=${historialEquipoId}`);
+    };
+
+    /* =========================
+       RENDER
+    ========================= */
     return (
         <div className="min-h-screen bg-slate-50 px-4 py-6 lg:px-8">
             <div className="mx-auto max-w-7xl space-y-6">
-                {/* HEADER PÁGINA */}
+                {/* HEADER */}
                 <div className="flex flex-col gap-3 rounded-md border border-slate-200 bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <h1 className="text-xl font-semibold tracking-tight text-slate-900">
-                            Órdenes de Trabajo
-                        </h1>
+                        <h1 className="text-xl font-semibold tracking-tight text-slate-900">Órdenes de Trabajo</h1>
                         <p className="mt-1 text-sm text-slate-500">
                             Gestiona los ingresos, diagnósticos, costos y cierres de cada equipo.
                         </p>
@@ -863,34 +1334,27 @@ export default function OrdenesTrabajoPage() {
                     </Button>
                 </div>
 
-                {/* FORMULARIO CREAR OT */}
+                {/* FORM CREAR */}
                 {showCrear && (
                     <Card className="border border-slate-200 bg-white shadow-sm">
                         <CardHeader className="border-b border-slate-100 pb-3">
-                            <CardTitle className="text-base font-semibold text-slate-900">
-                                Crear nueva Orden de Trabajo
-                            </CardTitle>
+                            <CardTitle className="text-base font-semibold text-slate-900">Crear nueva Orden de Trabajo</CardTitle>
                             <CardDescription className="text-xs text-slate-500">
                                 Completa los datos de ingreso y clasificación del servicio.
                             </CardDescription>
                         </CardHeader>
+
                         <CardContent className="space-y-4 pt-4">
-                            {/* Primera fila: cliente / técnico / equipo */}
                             <div className="grid gap-4 md:grid-cols-3">
                                 <div className="space-y-1.5">
-                                    <label className="text-xs font-medium text-slate-700">
-                                        Cédula cliente *
-                                    </label>
+                                    <label className="text-xs font-medium text-slate-700">Cédula cliente *</label>
                                     <select
                                         name="clienteCedula"
                                         value={formCrear.clienteCedula}
-                                        onChange={(e) =>
-                                            setFormCrear((prev) => ({ ...prev, clienteCedula: e.target.value }))
-                                        }
+                                        onChange={(e) => setFormCrear((prev) => ({ ...prev, clienteCedula: e.target.value }))}
                                         className="h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
                                     >
                                         <option value="">-- Selecciona Cliente --</option>
-
                                         {listaClientes.map((c) => (
                                             <option key={c.cedula} value={c.cedula}>
                                                 {c.nombre} — {c.cedula}
@@ -898,31 +1362,26 @@ export default function OrdenesTrabajoPage() {
                                         ))}
                                     </select>
                                 </div>
-                                <div className="space-y-1.5">
-                                    <label className="text-xs font-medium text-slate-700">
-                                        Cédula técnico
-                                    </label>
-                                        <select
-                                            name="tecnicoCedula"
-                                            value={formCrear.tecnicoCedula}
-                                            onChange={(e) =>
-                                                setFormCrear((prev) => ({ ...prev, tecnicoCedula: e.target.value }))
-                                            }
-                                            className="h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
-                                        >
-                                            <option value="">-- Selecciona Técnico --</option>
 
-                                            {listaTecnicos.map((t) => (
-                                                <option key={t.cedula} value={t.cedula}>
-                                                    {t.nombre} — {t.cedula}
-                                                </option>
-                                            ))}
-                                        </select>
-                                </div>
                                 <div className="space-y-1.5">
-                                    <label className="text-xs font-medium text-slate-700">
-                                        ID equipo *
-                                    </label>
+                                    <label className="text-xs font-medium text-slate-700">Cédula técnico</label>
+                                    <select
+                                        name="tecnicoCedula"
+                                        value={formCrear.tecnicoCedula}
+                                        onChange={(e) => setFormCrear((prev) => ({ ...prev, tecnicoCedula: e.target.value }))}
+                                        className="h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+                                    >
+                                        <option value="">-- Selecciona Técnico --</option>
+                                        {listaTecnicos.map((t) => (
+                                            <option key={t.cedula} value={t.cedula}>
+                                                {t.nombre} — {t.cedula}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-medium text-slate-700">ID equipo *</label>
                                     <Input
                                         name="equipoId"
                                         value={formCrear.equipoId}
@@ -933,12 +1392,9 @@ export default function OrdenesTrabajoPage() {
                                 </div>
                             </div>
 
-                            {/* Segunda fila: medio / tipo / prioridad */}
                             <div className="grid gap-4 md:grid-cols-3">
                                 <div className="space-y-1.5">
-                                    <label className="text-xs font-medium text-slate-700">
-                                        Medio de contacto
-                                    </label>
+                                    <label className="text-xs font-medium text-slate-700">Medio de contacto</label>
                                     <Input
                                         name="medioContacto"
                                         value={formCrear.medioContacto}
@@ -948,44 +1404,32 @@ export default function OrdenesTrabajoPage() {
                                     />
                                 </div>
 
+                                {/* ✅ CORREGIDO: tipoServicio real */}
                                 <div className="space-y-1.5">
-                                    <label className="text-xs font-medium text-slate-700">
-                                        Tipo de servicio *
-                                    </label>
+                                    <label className="text-xs font-medium text-slate-700">Tipo de servicio *</label>
                                     <Select
                                         value={formCrear.tipoServicio}
-                                        onValueChange={(value) =>
-                                            setFormCrear((prev) => ({
-                                                ...prev,
-                                                tipoServicio: value,
-                                            }))
-                                        }
+                                        onValueChange={(value) => setFormCrear((prev) => ({ ...prev, tipoServicio: value }))}
                                     >
                                         <SelectTrigger className="h-9 text-xs">
                                             <SelectValue placeholder="Selecciona tipo" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="INGRESO">INGRESO</SelectItem>
-                                            <SelectItem value="EN_DIAGNOSTICO">EN_DIAGNOSTICO</SelectItem>
-                                            <SelectItem value="EN_REPARACION">EN_REPARACION</SelectItem>
-                                            <SelectItem value="LISTA_ENTREGA">LISTA_ENTREGA</SelectItem>
-                                            {/* CERRADA solo se pone desde el botón "Cerrar OT" */}
+                                            <SelectItem value="DIAGNOSTICO">DIAGNOSTICO</SelectItem>
+                                            <SelectItem value="REPARACION">REPARACION</SelectItem>
+                                            <SelectItem value="MANTENIMIENTO">MANTENIMIENTO</SelectItem>
+                                            <SelectItem value="FORMATEO">FORMATEO</SelectItem>
+                                            <SelectItem value="INSTALACION_SO">INSTALACION_SO</SelectItem>
+                                            <SelectItem value="OTRO">OTRO</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>
 
                                 <div className="space-y-1.5">
-                                    <label className="text-xs font-medium text-slate-700">
-                                        Prioridad *
-                                    </label>
+                                    <label className="text-xs font-medium text-slate-700">Prioridad *</label>
                                     <Select
                                         value={formCrear.prioridad}
-                                        onValueChange={(value) =>
-                                            setFormCrear((prev) => ({
-                                                ...prev,
-                                                prioridad: value,
-                                            }))
-                                        }
+                                        onValueChange={(value) => setFormCrear((prev) => ({ ...prev, prioridad: value }))}
                                     >
                                         <SelectTrigger className="h-9 text-xs">
                                             <SelectValue placeholder="Selecciona prioridad" />
@@ -1000,12 +1444,9 @@ export default function OrdenesTrabajoPage() {
                                 </div>
                             </div>
 
-                            {/* Tercera fila: credenciales / accesorios */}
                             <div className="grid gap-4 md:grid-cols-3">
                                 <div className="space-y-1.5">
-                                    <label className="text-xs font-medium text-slate-700">
-                                        Contraseña equipo
-                                    </label>
+                                    <label className="text-xs font-medium text-slate-700">Contraseña equipo</label>
                                     <Input
                                         name="contrasenaEquipo"
                                         value={formCrear.contrasenaEquipo}
@@ -1014,10 +1455,9 @@ export default function OrdenesTrabajoPage() {
                                         className="h-9 text-sm"
                                     />
                                 </div>
+
                                 <div className="md:col-span-2 space-y-1.5">
-                                    <label className="text-xs font-medium text-slate-700">
-                                        Accesorios
-                                    </label>
+                                    <label className="text-xs font-medium text-slate-700">Accesorios</label>
                                     <Input
                                         name="accesorios"
                                         value={formCrear.accesorios}
@@ -1028,12 +1468,9 @@ export default function OrdenesTrabajoPage() {
                                 </div>
                             </div>
 
-                            {/* Descripción problema & observaciones */}
                             <div className="grid gap-4 md:grid-cols-2">
                                 <div className="space-y-1.5">
-                                    <label className="text-xs font-medium text-slate-700">
-                                        Problema reportado *
-                                    </label>
+                                    <label className="text-xs font-medium text-slate-700">Problema reportado *</label>
                                     <textarea
                                         name="problemaReportado"
                                         value={formCrear.problemaReportado}
@@ -1043,10 +1480,9 @@ export default function OrdenesTrabajoPage() {
                                         rows={3}
                                     />
                                 </div>
+
                                 <div className="space-y-1.5">
-                                    <label className="text-xs font-medium text-slate-700">
-                                        Observaciones de ingreso
-                                    </label>
+                                    <label className="text-xs font-medium text-slate-700">Observaciones de ingreso</label>
                                     <textarea
                                         name="observacionesIngreso"
                                         value={formCrear.observacionesIngreso}
@@ -1076,9 +1512,7 @@ export default function OrdenesTrabajoPage() {
                                     disabled={crearLoading}
                                     className="flex items-center gap-2 bg-slate-900 text-slate-50 hover:bg-slate-800"
                                 >
-                                    {crearLoading && (
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                    )}
+                                    {crearLoading && <Loader2 className="h-4 w-4 animate-spin" />}
                                     Guardar OT
                                 </Button>
                             </div>
@@ -1092,7 +1526,7 @@ export default function OrdenesTrabajoPage() {
                     </div>
                 )}
 
-                {/* LISTA DE ÓRDENES */}
+                {/* LISTA */}
                 {loading ? (
                     <div className="flex justify-center py-10">
                         <Loader2 className="h-6 w-6 animate-spin text-slate-500" />
@@ -1112,16 +1546,12 @@ export default function OrdenesTrabajoPage() {
                                 <CardHeader className="pb-3">
                                     <CardTitle className="flex items-start justify-between gap-2 text-sm">
                                         <div className="space-y-1">
-                                            <span className="block font-semibold text-slate-900">
-                                                {ot.numeroOrden}
-                                            </span>
+                                            <span className="block font-semibold text-slate-900">{ot.numeroOrden}</span>
                                             <span className="text-[11px] text-slate-500">
-                                                {fmt(ot.equipoModelo)}{" "}
-                                                {ot.equipoHostname
-                                                    ? `(${ot.equipoHostname})`
-                                                    : ""}
+                                                {fmt(ot.equipoModelo)} {ot.equipoHostname ? `(${ot.equipoHostname})` : ""}
                                             </span>
                                         </div>
+
                                         <div className="flex flex-col items-end gap-1">
                                             {ot.estado && (
                                                 <span
@@ -1146,23 +1576,16 @@ export default function OrdenesTrabajoPage() {
                                             </div>
                                         </div>
                                     </CardTitle>
+
                                     <CardDescription>
                                         <div className="mt-1 flex flex-col gap-1 text-xs text-slate-600">
                                             <div>
-                                                <span className="font-semibold text-slate-700">
-                                                    Cliente:{" "}
-                                                </span>
-                                                {fmt(ot.clienteNombre)}{" "}
-                                                {ot.clienteCedula
-                                                    ? `(${ot.clienteCedula})`
-                                                    : ""}
+                                                <span className="font-semibold text-slate-700">Cliente: </span>
+                                                {fmt(ot.clienteNombre)} {ot.clienteCedula ? `(${ot.clienteCedula})` : ""}
                                             </div>
                                             <div>
-                                                <span className="font-semibold text-slate-700">
-                                                    Técnico:{" "}
-                                                </span>
-                                                {fmt(ot.tecnicoNombre) ||
-                                                    fmt(ot.tecnicoCedula)}
+                                                <span className="font-semibold text-slate-700">Técnico: </span>
+                                                {fmt(ot.tecnicoNombre) || fmt(ot.tecnicoCedula)}
                                             </div>
                                             <div className="mt-1 flex items-center gap-1 text-[11px] text-slate-500">
                                                 <CalendarDays className="h-3 w-3" />
@@ -1171,28 +1594,26 @@ export default function OrdenesTrabajoPage() {
                                         </div>
                                     </CardDescription>
                                 </CardHeader>
+
                                 <CardContent className="space-y-3 pt-0">
                                     <div className="text-xs text-slate-600 line-clamp-3">
-                                        <span className="font-semibold text-slate-700">
-                                            Problema:{" "}
-                                        </span>
+                                        <span className="font-semibold text-slate-700">Problema: </span>
                                         {fmt(ot.problemaReportado)}
                                     </div>
+
                                     <div className="flex items-center justify-between pt-1">
-                                        <span className="text-[11px] text-slate-500">
-                                            Doble clic para ver detalle
-                                        </span>
+                                        <span className="text-[11px] text-slate-500">Doble clic para ver detalle</span>
                                         <Button
                                             variant="outline"
                                             size="sm"
                                             className="flex items-center gap-2 border-slate-300 text-xs"
-                                            onClick={() => {
-                                                setFichaOrdenId(ot.id);
-                                                setFichaEquipoId(ot.equipoId);
-                                                setShowFichaModal(true);
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                abrirHistorialFichas(ot.clienteCedula, ot.id, ot.equipoId);
                                             }}
                                         >
-                                            <FileText className="h-4 w-4" /> Ficha técnica
+                                            <History className="h-4 w-4" />
+                                            Fichas
                                         </Button>
                                     </div>
                                 </CardContent>
@@ -1201,98 +1622,76 @@ export default function OrdenesTrabajoPage() {
                     </div>
                 )}
 
-                {/* MODAL DETALLE – PANEL COMPLETO TÉCNICO */}
+                {/* ===== MODAL DETALLE OT ===== */}
                 {detalle && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-                        {/* Contenedor principal del modal */}
-                        <div className="relative mx-4 flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-xl border border-slate-300 bg-slate-50 shadow-2xl">
-                            {/* Botón cerrar */}
-                            <button
-                                onClick={() => {
-                                    setDetalle(null);
-                                    setImagenesDetalle([]);
-                                    setSelectedImg(null);
-                                }}
-                                className="absolute right-4 top-4 inline-flex h-7 w-7 items-center justify-center rounded-full bg-black/40 text-slate-50 hover:bg-black/60"
-                            >
-                                <X className="h-4 w-4" />
-                            </button>
-
-                            {/* HEADER */}
-                            <header className="border-b border-slate-200 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 px-6 py-4 pr-12">
+                    <div
+                        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+                        onMouseDown={(e) => {
+                            if (e.target === e.currentTarget) closeDetalle();
+                        }}
+                    >
+                        <div className="relative mx-3 flex h-[92vh] w-full max-w-7xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+                            {/* Header */}
+                            <header className="sticky top-0 z-20 border-b border-slate-200 bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 px-5 py-4">
                                 <div className="flex flex-wrap items-start justify-between gap-3">
-                                    <div className="space-y-1">
+                                    <div className="space-y-1 pr-10">
                                         <h2 className="text-base font-semibold leading-tight text-white">
-                                            Orden #{detalle.numeroOrden} · Equipo{" "}
-                                            <span className="font-bold">
-                                                {detalle.equipoModelo ??
-                                                    detalle.equipoId}
-                                            </span>
+                                            Orden #{detalle.numeroOrden} <span className="text-slate-300">·</span> Equipo{" "}
+                                            <span className="font-bold">{detalle.equipoModelo ?? detalle.equipoId}</span>
                                         </h2>
                                         <p className="text-[11px] text-slate-200">
-                                            Cliente:{" "}
-                                            <span className="font-medium text-white">
-                                                {fmt(detalle.clienteNombre)}
-                                            </span>{" "}
-                                            {detalle.clienteCedula
-                                                ? `(${detalle.clienteCedula})`
-                                                : ""}{" "}
-                                            · Técnico:{" "}
-                                            <span className="font-medium text-white">
-                                                {fmt(detalle.tecnicoNombre) ||
-                                                    fmt(detalle.tecnicoCedula)}
-                                            </span>
+                                            Cliente: <span className="font-medium text-white">{fmt(detalle.clienteNombre)}</span>{" "}
+                                            {detalle.clienteCedula ? `(${detalle.clienteCedula})` : ""} · Técnico:{" "}
+                                            <span className="font-medium text-white">{fmt(detalle.tecnicoNombre) || fmt(detalle.tecnicoCedula)}</span>
                                         </p>
+
+                                        <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-slate-200">
+                                            <span>
+                                                <span className="font-semibold text-white">Ingreso:</span> {fmtFecha(detalle.fechaHoraIngreso)}
+                                            </span>
+                                            <span className="hidden sm:inline text-slate-500">·</span>
+                                            <span>
+                                                <span className="font-semibold text-white">Entrega:</span> {fmtFecha(detalle.fechaHoraEntrega)}
+                                            </span>
+                                            {detalle.medioContacto && (
+                                                <>
+                                                    <span className="hidden sm:inline text-slate-500">·</span>
+                                                    <span>
+                                                        <span className="font-semibold text-white">Medio:</span> {detalle.medioContacto}
+                                                    </span>
+                                                </>
+                                            )}
+                                        </div>
                                     </div>
 
                                     <div className="flex flex-wrap items-center gap-2">
-                                        <Select
-                                            value={tipoServicioEdit}
-                                            onValueChange={setTipoServicioEdit}
-                                        >
-                                            <SelectTrigger className="h-8 min-w-[130px] border-slate-500 bg-slate-800/70 text-[11px] text-slate-100">
+                                        <Select value={tipoServicioEdit} onValueChange={setTipoServicioEdit}>
+                                            <SelectTrigger className="h-8 min-w-[150px] border-slate-500 bg-slate-900/60 text-[11px] text-slate-100">
                                                 <SelectValue placeholder="Tipo" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="DIAGNOSTICO">
-                                                    DIAGNOSTICO
-                                                </SelectItem>
-                                                <SelectItem value="REPARACION">
-                                                    REPARACION
-                                                </SelectItem>
-                                                <SelectItem value="MANTENIMIENTO">
-                                                    MANTENIMIENTO
-                                                </SelectItem>
-                                                <SelectItem value="FORMATEO">
-                                                    FORMATEO
-                                                </SelectItem>
-                                                <SelectItem value="INSTALACION_SO">
-                                                    INSTALACION_SO
-                                                </SelectItem>
-                                                <SelectItem value="OTRO">
-                                                    OTRO
-                                                </SelectItem>
+                                                <SelectItem value="DIAGNOSTICO">DIAGNOSTICO</SelectItem>
+                                                <SelectItem value="REPARACION">REPARACION</SelectItem>
+                                                <SelectItem value="MANTENIMIENTO">MANTENIMIENTO</SelectItem>
+                                                <SelectItem value="FORMATEO">FORMATEO</SelectItem>
+                                                <SelectItem value="INSTALACION_SO">INSTALACION_SO</SelectItem>
+                                                <SelectItem value="OTRO">OTRO</SelectItem>
                                             </SelectContent>
                                         </Select>
 
-                                        <Select
-                                            value={prioridadEdit}
-                                            onValueChange={setPrioridadEdit}
-                                        >
-                                            <SelectTrigger className="h-8 min-w-[120px] border-emerald-400 bg-emerald-800/60 text-[11px] text-emerald-50">
+                                        <Select value={prioridadEdit} onValueChange={setPrioridadEdit}>
+                                            <SelectTrigger className="h-8 min-w-[120px] border-emerald-400 bg-emerald-900/40 text-[11px] text-emerald-50">
                                                 <SelectValue placeholder="Prioridad" />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="BAJA">BAJA</SelectItem>
                                                 <SelectItem value="MEDIA">MEDIA</SelectItem>
                                                 <SelectItem value="ALTA">ALTA</SelectItem>
-                                                <SelectItem value="URGENTE">
-                                                    URGENTE
-                                                </SelectItem>
+                                                <SelectItem value="URGENTE">URGENTE</SelectItem>
                                             </SelectContent>
                                         </Select>
 
-                                        {/* Select estado */}
+                                        {/* ✅ EstadoSelect también mantiene pasoActivo */}
                                         <Select
                                             value={estadoEdit}
                                             onValueChange={(value) => {
@@ -1300,15 +1699,14 @@ export default function OrdenesTrabajoPage() {
                                                 setPasoActivo(mapEstadoToPaso(value));
                                             }}
                                         >
-                                            <SelectTrigger className="h-8 min-w-[140px] border-blue-400 bg-blue-800/60 text-[11px] text-blue-50">
+                                            <SelectTrigger className="h-8 min-w-[150px] border-blue-400 bg-blue-900/40 text-[11px] text-blue-50">
                                                 <SelectValue placeholder="Estado" />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="INGRESO">INGRESO</SelectItem>
                                                 <SelectItem value="EN_DIAGNOSTICO">EN_DIAGNOSTICO</SelectItem>
-                                                <SelectItem value="EN_REPARACION">EN_REPARACION</SelectItem>
+                                                <SelectItem value="COSTOS">COSTOS</SelectItem>
                                                 <SelectItem value="LISTA_ENTREGA">LISTA_ENTREGA</SelectItem>
-                                                {/* CERRADA solo se pone desde el botón "Cerrar OT" */}
                                             </SelectContent>
                                         </Select>
 
@@ -1322,28 +1720,20 @@ export default function OrdenesTrabajoPage() {
                                             variant="ghost"
                                             size="sm"
                                             className="flex items-center gap-2 border border-white/40 bg-white/10 px-3 text-[11px] text-white hover:bg-white/20"
-                                            onClick={() => {
-                                                setFichaOrdenId(detalle.ordenId);
-                                                setFichaEquipoId(detalle.equipoId);
-                                                setShowFichaModal(true);
-                                            }}
+                                            onClick={() => abrirHistorialFichas(detalle.clienteCedula, detalle.ordenId, detalle.equipoId)}
                                         >
-                                            <FileText className="h-4 w-4" /> Ficha Técnica
+                                            <History className="h-4 w-4" />
+                                            Fichas
                                         </Button>
-
 
                                         <Button
                                             variant="ghost"
                                             size="sm"
-                                            onClick={() =>
-                                                irAAprobacionProcedimiento(
-                                                    detalle.ordenId
-                                                )
-                                            }
+                                            onClick={() => irAAprobacionProcedimiento(detalle.ordenId)}
                                             className="flex items-center gap-2 border border-white/40 bg-white/10 px-3 text-[11px] text-white hover:bg-white/20"
                                         >
                                             <Signature className="h-4 w-4" />
-                                            Firma de Aprobación
+                                            Firma
                                         </Button>
 
                                         <Button
@@ -1356,795 +1746,533 @@ export default function OrdenesTrabajoPage() {
                                             className="flex items-center gap-2 border border-white/40 bg-white/10 px-3 text-[11px] text-white hover:bg-white/20"
                                         >
                                             <MessageCircle className="h-4 w-4" />
-                                            Enviar notificación
+                                            Notificar
                                         </Button>
+
+                                        <button
+                                            onClick={closeDetalle}
+                                            className="ml-1 inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/35 text-white hover:bg-black/60"
+                                            aria-label="Cerrar"
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </button>
                                     </div>
                                 </div>
 
-                                <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-slate-200">
-                                    <span>
-                                        <span className="font-semibold text-white">
-                                            Ingreso:
-                                        </span>{" "}
-                                        {fmtFecha(detalle.fechaHoraIngreso)}
-                                    </span>
-                                    <span className="hidden sm:inline text-slate-500">
-                                        ·
-                                    </span>
-                                    <span>
-                                        <span className="font-semibold text-white">
-                                            Entrega:
-                                        </span>{" "}
-                                        {fmtFecha(detalle.fechaHoraEntrega)}
-                                    </span>
-                                    {detalle.medioContacto && (
-                                        <>
-                                            <span className="hidden sm:inline text-slate-500">
-                                                ·
-                                            </span>
-                                            <span>
-                                                <span className="font-semibold text-white">
-                                                    Medio:
-                                                </span>{" "}
-                                                {detalle.medioContacto}
-                                            </span>
-                                        </>
-                                    )}
-                                </div>
-
-                                {/* STEPPER DE PASOS (solo visual, sin onClick) */}
                                 <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
                                     {[
-                                        {
-                                            paso: 1,
-                                            label: "1. Contexto",
-                                            desc: "Datos de ingreso",
-                                        },
-                                        {
-                                            paso: 2,
-                                            label: "2. Diagnóstico",
-                                            desc: "Trabajo realizado",
-                                        },
-                                        {
-                                            paso: 3,
-                                            label: "3. Costos",
-                                            desc: "Valores económicos",
-                                        },
-                                        {
-                                            paso: 4,
-                                            label: "4. Cierre / OTP",
-                                            desc: "Motivo y firma",
-                                        },
-                                    ].map((p) => {
-                                        const isActive = pasoActivo === p.paso;
-                                        return (
-                                            <div
-                                                key={p.paso}
-                                                className={`flex items-center gap-2 rounded-full border px-3 py-1 transition ${isActive
-                                                    ? "border-white bg-white/20 text-white"
-                                                    : "border-white/30 bg-slate-800/40 text-slate-200"
-                                                    }`}
-                                            >
-                                                <span className="text-[10px] font-semibold">
-                                                    {p.label}
-                                                </span>
-                                                <span className="hidden sm:inline text-[10px] opacity-80">
-                                                    {p.desc}
-                                                </span>
-                                            </div>
-                                        );
-                                    })}
+                                        { paso: 1, label: "1. Contexto", desc: "Datos de ingreso" },
+                                        { paso: 2, label: "2. Diagnóstico", desc: "Trabajo realizado" },
+                                        { paso: 3, label: "3. Costos", desc: "Valores económicos" },
+                                        { paso: 4, label: "4. Cierre / OTP", desc: "Motivo y firma" },
+                                    ].map((p) => (
+                                        <StepPill
+                                            key={p.paso}
+                                            active={pasoActivo === (p.paso as Paso)}
+                                            label={p.label}
+                                            desc={p.desc}
+                                        />
+                                    ))}
                                 </div>
                             </header>
 
-                            {/* CONTENIDO SCROLLABLE */}
-                            <div className="flex-1 overflow-y-auto px-6 py-4">
-                                <div className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-                                    {/* IZQUIERDA: Pasos del flujo */}
-                                    <div className="flex flex-col gap-4">
-                                        {/* PASO 1: CONTEXTO / INGRESO */}
-                                        {pasoActivo === 1 && (
-                                            <div className="border border-slate-400 bg-white p-3 text-xs transition">
-                                                <h3 className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-slate-700">
-                                                    <span>Datos de ingreso</span>
-                                                    <span className="text-[10px] text-slate-400">
-                                                        Paso 1 de 4
-                                                    </span>
-                                                </h3>
-                                                <p className="mt-2 text-[11px] text-slate-600">
-                                                    Revisa la información de entrada antes de
-                                                    continuar con el diagnóstico.
-                                                </p>
+                            {/* Body */}
+                            <div className="flex-1 overflow-y-auto bg-slate-50">
+                                <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+                                    {/* Izquierda */}
+                                    <div className="space-y-4">
+                                        <Card className="border-slate-200 shadow-sm">
+                                            <CardHeader className="py-3">
+                                                <CardTitle className="text-sm">Checklist técnico</CardTitle>
+                                                <CardDescription className="text-xs">
+                                                    Completa el flujo por pasos para no olvidar nada.
+                                                </CardDescription>
+                                            </CardHeader>
 
-                                                <div className="mt-3 grid grid-cols-1 gap-2 text-[11px] md:grid-cols-2">
-                                                    <div>
-                                                        <span className="font-semibold text-slate-700">
-                                                            Problema reportado:
-                                                        </span>
-                                                        <p className="mt-1 whitespace-pre-wrap text-slate-800">
-                                                            {fmt(
-                                                                detalle.problemaReportado
-                                                            )}
+                                            <CardContent className="space-y-4">
+                                                {/* PASO 1 */}
+                                                {pasoActivo === 1 && (
+                                                    <div className="rounded-xl border border-slate-200 bg-white p-4">
+                                                        <div className="flex items-center justify-between">
+                                                            <h3 className="text-[11px] font-semibold uppercase tracking-wide text-slate-700">
+                                                                Datos de ingreso
+                                                            </h3>
+                                                            <span className="text-[10px] text-slate-400">Paso 1 de 4</span>
+                                                        </div>
+
+                                                        <p className="mt-2 text-[11px] text-slate-600">
+                                                            Revisa la información de entrada antes de continuar con el diagnóstico.
                                                         </p>
+
+                                                        <div className="mt-3 grid grid-cols-1 gap-3 text-[11px] md:grid-cols-2">
+                                                            <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                                                                <span className="font-semibold text-slate-700">Problema:</span>
+                                                                <p className="mt-1 whitespace-pre-wrap text-slate-800">{fmt(detalle.problemaReportado)}</p>
+                                                            </div>
+
+                                                            <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                                                                <span className="font-semibold text-slate-700">Observaciones:</span>
+                                                                <p className="mt-1 whitespace-pre-wrap text-slate-800">{fmt(detalle.observacionesIngreso)}</p>
+                                                            </div>
+
+                                                            <div className="rounded-lg border border-slate-100 bg-slate-50 p-3 md:col-span-2">
+                                                                <span className="font-semibold text-slate-700">Equipo:</span>
+                                                                <p className="mt-1 text-slate-800">
+                                                                    {fmt(detalle.equipoModelo)} {detalle.equipoHostname ? `(${detalle.equipoHostname})` : ""}
+                                                                </p>
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                    <div>
-                                                        <span className="font-semibold text-slate-700">
-                                                            Observaciones de ingreso:
-                                                        </span>
-                                                        <p className="mt-1 whitespace-pre-wrap text-slate-800">
-                                                            {fmt(
-                                                                detalle.observacionesIngreso
-                                                            )}
+                                                )}
+
+                                                {/* PASO 2 */}
+                                                {pasoActivo === 2 && (
+                                                    <div className="rounded-xl border border-slate-200 bg-white p-4">
+                                                        <div className="flex items-center justify-between">
+                                                            <h3 className="text-[11px] font-semibold uppercase tracking-wide text-slate-700">
+                                                                Diagnóstico y trabajo realizado
+                                                            </h3>
+                                                            <span className="text-[10px] text-slate-400">Paso 2 de 4</span>
+                                                        </div>
+
+                                                        <p className="mt-2 text-[11px] text-slate-600">
+                                                            Registra tus pruebas, hallazgos y acciones realizadas.
                                                         </p>
-                                                    </div>
-                                                    <div>
-                                                        <span className="font-semibold text-slate-700">
-                                                            Equipo:
-                                                        </span>
-                                                        <p className="mt-1 text-slate-800">
-                                                            {fmt(detalle.equipoModelo)}{" "}
-                                                            {detalle.equipoHostname &&
-                                                                `(${detalle.equipoHostname})`}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
 
-                                        {/* PASO 2: DIAGNÓSTICO */}
-                                        {pasoActivo === 2 && (
-                                            <div className="border border-slate-400 bg-white p-3 text-xs transition">
-                                                <h3 className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-slate-700">
-                                                    <span>
-                                                        Diagnóstico y trabajo realizado
-                                                    </span>
-                                                    <span className="text-[10px] text-slate-400">
-                                                        Paso 2 de 4
-                                                    </span>
-                                                </h3>
-                                                <p className="mt-2 text-[11px] text-slate-600">
-                                                    Registra tus pruebas, hallazgos y acciones
-                                                    realizadas.
-                                                </p>
+                                                        <div className="mt-3 space-y-2">
+                                                            <label className="text-[11px] font-medium text-slate-700">Diagnóstico / trabajo realizado *</label>
+                                                            <textarea
+                                                                value={diagEdit}
+                                                                onChange={(e) => setDiagEdit(e.target.value)}
+                                                                placeholder="Describe el diagnóstico, pruebas realizadas y trabajo ejecutado..."
+                                                                className="min-h-[110px] w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+                                                            />
 
-                                                <div className="mt-3 space-y-2">
-                                                    <label className="text-[11px] font-medium text-slate-700">
-                                                        Diagnóstico / trabajo realizado *
-                                                    </label>
-                                                    <textarea
-                                                        value={diagEdit}
-                                                        onChange={(e) =>
-                                                            setDiagEdit(e.target.value)
-                                                        }
-                                                        placeholder="Describe el diagnóstico, pruebas realizadas y trabajo ejecutado..."
-                                                        className="min-h-[80px] w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
-                                                    />
-
-                                                    <label className="text-[11px] font-medium text-slate-700">
-                                                        Observaciones / recomendaciones
-                                                    </label>
-                                                    <textarea
-                                                        value={obsRecEdit}
-                                                        onChange={(e) =>
-                                                            setObsRecEdit(e.target.value)
-                                                        }
-                                                        placeholder="Notas finales para el cliente, recomendaciones de uso, próximos mantenimientos, etc."
-                                                        className="min-h-[80px] w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
-                                                    />
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* PASO 3: COSTOS */}
-                                        {pasoActivo === 3 && (
-                                            <div className="border border-slate-400 bg-white p-3 text-xs transition">
-                                                <h3 className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-slate-700">
-                                                    <span>Costos de la orden</span>
-                                                    <span className="text-[10px] text-slate-400">
-                                                        Paso 3 de 4
-                                                    </span>
-                                                </h3>
-                                                <p className="mt-2 text-[11px] text-slate-600">
-                                                    Ingresa los valores de mano de obra,
-                                                    repuestos y otros conceptos.
-                                                </p>
-
-                                                <div className="mt-3 grid grid-cols-2 gap-3">
-                                                    <div className="space-y-1.5">
-                                                        <label className="text-[11px] font-medium text-slate-700">
-                                                            Mano de obra
-                                                        </label>
-                                                        <Input
-                                                            type="number"
-                                                            step="0.01"
-                                                            value={costoManoObra}
-                                                            onChange={(e) =>
-                                                                setCostoManoObra(
-                                                                    toNumber(e.target.value)
-                                                                )
-                                                            }
-                                                            className="h-8 text-xs"
-                                                        />
-                                                    </div>
-                                                    <div className="space-y-1.5">
-                                                        <label className="text-[11px] font-medium text-slate-700">
-                                                            Repuestos
-                                                        </label>
-                                                        <Input
-                                                            type="number"
-                                                            step="0.01"
-                                                            value={costoRepuestos}
-                                                            onChange={(e) =>
-                                                                setCostoRepuestos(
-                                                                    toNumber(e.target.value)
-                                                                )
-                                                            }
-                                                            className="h-8 text-xs"
-                                                        />
-                                                    </div>
-                                                    <div className="space-y-1.5">
-                                                        <label className="text-[11px] font-medium text-slate-700">
-                                                            Otros costos
-                                                        </label>
-                                                        <Input
-                                                            type="number"
-                                                            step="0.01"
-                                                            value={costoOtros}
-                                                            onChange={(e) =>
-                                                                setCostoOtros(
-                                                                    toNumber(e.target.value)
-                                                                )
-                                                            }
-                                                            className="h-8 text-xs"
-                                                        />
-                                                    </div>
-                                                    <div className="space-y-1.5">
-                                                        <label className="text-[11px] font-medium text-slate-700">
-                                                            Descuento
-                                                        </label>
-                                                        <Input
-                                                            type="number"
-                                                            step="0.01"
-                                                            value={descuento}
-                                                            onChange={(e) =>
-                                                                setDescuento(
-                                                                    toNumber(e.target.value)
-                                                                )
-                                                            }
-                                                            className="h-8 text-xs"
-                                                        />
-                                                    </div>
-                                                    <div className="space-y-1.5">
-                                                        <label className="text-[11px] font-medium text-slate-700">
-                                                            IVA
-                                                        </label>
-                                                        <Input
-                                                            type="number"
-                                                            step="0.01"
-                                                            value={iva}
-                                                            onChange={(e) =>
-                                                                setIva(
-                                                                    toNumber(e.target.value)
-                                                                )
-                                                            }
-                                                            className="h-8 text-xs"
-                                                        />
-                                                        <p className="text-[10px] text-slate-400">
-                                                            Puedes calcularlo según la tasa
-                                                            vigente.
-                                                        </p>
-                                                    </div>
-                                                </div>
-
-                                                <div className="mt-3 space-y-1 border-t border-slate-200 pt-2 text-xs">
-                                                    <div className="flex justify-between">
-                                                        <span className="text-slate-600">
-                                                            Subtotal:
-                                                        </span>
-                                                        <span className="font-semibold text-slate-900">
-                                                            {fmtMoney(subtotalCalculado)}
-                                                        </span>
-                                                    </div>
-                                                    <div className="flex justify-between">
-                                                        <span className="text-slate-600">
-                                                            IVA:
-                                                        </span>
-                                                        <span className="font-semibold text-slate-900">
-                                                            {fmtMoney(iva)}
-                                                        </span>
-                                                    </div>
-                                                    <div className="flex justify-between text-sm">
-                                                        <span className="text-slate-700">
-                                                            Total:
-                                                        </span>
-                                                        <span className="font-bold text-slate-900">
-                                                            {fmtMoney(totalCalculado)}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* PASO 4: CIERRE / GARANTÍA / OTP */}
-                                        {pasoActivo === 4 && (
-                                            <div className="border border-slate-400 bg-white p-3 text-xs transition">
-                                                <h3 className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-slate-700">
-                                                    <span>Cierre de la orden / OTP</span>
-                                                    <span className="text-[10px] text-slate-400">
-                                                        Paso 4 de 4
-                                                    </span>
-                                                </h3>
-                                                <p className="mt-2 text-[11px] text-slate-600">
-                                                    Define si aplica garantía, gestiona el OTP
-                                                    con el cliente y registra el motivo de
-                                                    cierre.
-                                                </p>
-
-                                                <div className="mt-3 space-y-3">
-                                                    {/* GARANTÍA */}
-                                                    <div className="flex items-center gap-2">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() =>
-                                                                setEsEnGarantia(
-                                                                    (prev) => !prev
-                                                                )
-                                                            }
-                                                            className={`flex h-4 w-4 items-center justify-center rounded border ${esEnGarantia
-                                                                ? "border-emerald-500 bg-emerald-500"
-                                                                : "border-slate-400 bg-white"
-                                                                }`}
-                                                        >
-                                                            {esEnGarantia && (
-                                                                <span className="text-[10px] text-white">
-                                                                    ✓
-                                                                </span>
-                                                            )}
-                                                        </button>
-                                                        <span className="text-xs font-medium text-slate-700">
-                                                            Orden en garantía
-                                                        </span>
-                                                    </div>
-
-                                                    {esEnGarantia && (
-                                                        <div className="space-y-1.5">
-                                                            <label className="text-[11px] font-medium text-slate-700">
-                                                                Referencia orden de garantía
-                                                            </label>
-                                                            <Input
-                                                                value={referenciaGarantia}
-                                                                onChange={(e) =>
-                                                                    setReferenciaGarantia(
-                                                                        e.target.value
-                                                                    )
-                                                                }
-                                                                placeholder="ID de la orden original"
-                                                                className="h-8 text-xs"
+                                                            <label className="text-[11px] font-medium text-slate-700">Observaciones / recomendaciones</label>
+                                                            <textarea
+                                                                value={obsRecEdit}
+                                                                onChange={(e) => setObsRecEdit(e.target.value)}
+                                                                placeholder="Notas finales para el cliente, recomendaciones, etc."
+                                                                className="min-h-[110px] w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
                                                             />
                                                         </div>
-                                                    )}
+                                                    </div>
+                                                )}
 
-                                                    {/* OTP: ENVÍO Y VALIDACIÓN */}
-                                                    <div className="grid gap-3 md:grid-cols-2">
-                                                        {/* Columna 1: Código + validar */}
-                                                        <div className="space-y-1.5">
-                                                            <label className="text-[11px] font-medium text-slate-700">
-                                                                Código OTP recibido del cliente
-                                                            </label>
-                                                            <div className="flex gap-2">
-                                                                <Input
-                                                                    value={otpCodigo}
-                                                                    onChange={(e) =>
-                                                                        setOtpCodigo(
-                                                                            e.target.value
-                                                                        )
-                                                                    }
-                                                                    placeholder="Código enviado al correo del cliente"
-                                                                    className="h-8 text-xs"
-                                                                    disabled={
-                                                                        otpValidado ||
-                                                                        otpVerificando
-                                                                    }
-                                                                />
-                                                                <Button
-                                                                    type="button"
-                                                                    onClick={handleValidarOtp}
-                                                                    disabled={
-                                                                        otpValidado ||
-                                                                        otpVerificando ||
-                                                                        !otpCodigo
-                                                                    }
-                                                                    className="flex h-8 items-center gap-1 bg-emerald-600 text-[11px] text-white hover:bg-emerald-500"
-                                                                >
-                                                                    {otpVerificando && (
-                                                                        <Loader2 className="h-3 w-3 animate-spin" />
-                                                                    )}
-                                                                    Validar
-                                                                </Button>
-                                                            </div>
-                                                            {detalle.otpFechaValidacion &&
-                                                                otpValidado && (
-                                                                    <p className="text-[10px] text-emerald-700">
-                                                                        Validado el{" "}
-                                                                        {fmtFecha(
-                                                                            detalle.otpFechaValidacion
-                                                                        )}
-                                                                    </p>
-                                                                )}
+                                                {/* PASO 3 */}
+                                                {pasoActivo === 3 && (
+                                                    <div className="rounded-xl border border-slate-200 bg-white p-4">
+                                                        <div className="flex items-center justify-between">
+                                                            <h3 className="text-[11px] font-semibold uppercase tracking-wide text-slate-700">
+                                                                Costos de la orden
+                                                            </h3>
+                                                            <span className="text-[10px] text-slate-400">Paso 3 de 4</span>
                                                         </div>
 
-                                                        {/* Columna 2: Enviar OTP */}
-                                                        <div className="space-y-1.5">
-                                                            <label className="text-[11px] font-medium text-slate-700">
-                                                                Envío de OTP al cliente
-                                                            </label>
+                                                        <p className="mt-2 text-[11px] text-slate-600">
+                                                            Ingresa los valores de mano de obra, repuestos y otros conceptos.
+                                                        </p>
+
+                                                        <div className="mt-3 grid grid-cols-2 gap-3">
+                                                            <div className="space-y-1.5">
+                                                                <label className="text-[11px] font-medium text-slate-700">Mano de obra</label>
+                                                                <Input
+                                                                    type="number"
+                                                                    step="0.01"
+                                                                    value={costoManoObra}
+                                                                    onChange={(e) => setCostoManoObra(toNumber(e.target.value))}
+                                                                    className="h-9 text-xs"
+                                                                />
+                                                            </div>
+
+                                                            <div className="space-y-1.5">
+                                                                <label className="text-[11px] font-medium text-slate-700">Repuestos</label>
+                                                                <Input
+                                                                    type="number"
+                                                                    step="0.01"
+                                                                    value={costoRepuestos}
+                                                                    onChange={(e) => setCostoRepuestos(toNumber(e.target.value))}
+                                                                    className="h-9 text-xs"
+                                                                />
+                                                            </div>
+
+                                                            <div className="space-y-1.5">
+                                                                <label className="text-[11px] font-medium text-slate-700">Otros costos</label>
+                                                                <Input
+                                                                    type="number"
+                                                                    step="0.01"
+                                                                    value={costoOtros}
+                                                                    onChange={(e) => setCostoOtros(toNumber(e.target.value))}
+                                                                    className="h-9 text-xs"
+                                                                />
+                                                            </div>
+
+                                                            <div className="space-y-1.5">
+                                                                <label className="text-[11px] font-medium text-slate-700">Descuento</label>
+                                                                <Input
+                                                                    type="number"
+                                                                    step="0.01"
+                                                                    value={descuento}
+                                                                    onChange={(e) => setDescuento(toNumber(e.target.value))}
+                                                                    className="h-9 text-xs"
+                                                                />
+                                                            </div>
+
+                                                            <div className="space-y-1.5">
+                                                                <label className="text-[11px] font-medium text-slate-700">IVA</label>
+                                                                <Input
+                                                                    type="number"
+                                                                    step="0.01"
+                                                                    value={iva}
+                                                                    onChange={(e) => setIva(toNumber(e.target.value))}
+                                                                    className="h-9 text-xs"
+                                                                />
+                                                                <p className="text-[10px] text-slate-400">Puedes calcularlo según la tasa vigente.</p>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs">
+                                                            <div className="flex justify-between">
+                                                                <span className="text-slate-600">Subtotal:</span>
+                                                                <span className="font-semibold text-slate-900">{fmtMoney(subtotalCalculado)}</span>
+                                                            </div>
+                                                            <div className="mt-1 flex justify-between">
+                                                                <span className="text-slate-600">IVA:</span>
+                                                                <span className="font-semibold text-slate-900">{fmtMoney(iva)}</span>
+                                                            </div>
+                                                            <div className="mt-2 flex justify-between text-sm">
+                                                                <span className="text-slate-700">Total:</span>
+                                                                <span className="font-bold text-slate-900">{fmtMoney(totalCalculado)}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* PASO 4 */}
+                                                {pasoActivo === 4 && (
+                                                    <div className="rounded-xl border border-slate-200 bg-white p-4">
+                                                        <div className="flex items-center justify-between">
+                                                            <h3 className="text-[11px] font-semibold uppercase tracking-wide text-slate-700">
+                                                                Cierre de la orden / OTP
+                                                            </h3>
+                                                            <span className="text-[10px] text-slate-400">Paso 4 de 4</span>
+                                                        </div>
+
+                                                        <p className="mt-2 text-[11px] text-slate-600">
+                                                            Define si aplica garantía, gestiona el OTP y registra el motivo de cierre.
+                                                        </p>
+
+                                                        <div className="mt-3 space-y-3">
+                                                            <div className="flex items-center gap-2">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setEsEnGarantia((prev) => !prev)}
+                                                                    className={`flex h-4 w-4 items-center justify-center rounded border ${esEnGarantia ? "border-emerald-500 bg-emerald-500" : "border-slate-400 bg-white"
+                                                                        }`}
+                                                                >
+                                                                    {esEnGarantia && <span className="text-[10px] text-white">✓</span>}
+                                                                </button>
+                                                                <span className="text-xs font-medium text-slate-700">Orden en garantía</span>
+                                                            </div>
+
+                                                            {esEnGarantia && (
+                                                                <div className="space-y-1.5">
+                                                                    <label className="text-[11px] font-medium text-slate-700">Referencia orden de garantía</label>
+                                                                    <Input
+                                                                        value={referenciaGarantia}
+                                                                        onChange={(e) => setReferenciaGarantia(e.target.value)}
+                                                                        placeholder="ID de la orden original"
+                                                                        className="h-9 text-xs"
+                                                                    />
+                                                                </div>
+                                                            )}
+
+                                                            <div className="grid gap-3 md:grid-cols-2">
+                                                                <div className="space-y-1.5">
+                                                                    <label className="text-[11px] font-medium text-slate-700">Envío de OTP</label>
+                                                                    <Button
+                                                                        type="button"
+                                                                        onClick={handleEnviarOtp}
+                                                                        disabled={otpEnviando || otpValidado}
+                                                                        className="flex h-9 items-center gap-2 bg-slate-900 text-[11px] text-white hover:bg-slate-800"
+                                                                    >
+                                                                        {otpEnviando && <Loader2 className="h-3 w-3 animate-spin" />}
+                                                                        Enviar OTP
+                                                                    </Button>
+                                                                    <p className="text-[10px] text-slate-500">
+                                                                        Se enviará al correo: <span className="font-medium">{detalle.clienteCorreo ?? "—"}</span>
+                                                                    </p>
+                                                                </div>
+
+                                                                <div className="space-y-1.5">
+                                                                    <label className="text-[11px] font-medium text-slate-700">Validar OTP</label>
+                                                                    <div className="flex gap-2">
+                                                                        <Input
+                                                                            value={otpCodigo}
+                                                                            onChange={(e) => setOtpCodigo(e.target.value)}
+                                                                            placeholder="Código OTP"
+                                                                            className="h-9 text-xs"
+                                                                            disabled={otpValidado || otpVerificando}
+                                                                        />
+                                                                        <Button
+                                                                            type="button"
+                                                                            onClick={handleValidarOtp}
+                                                                            disabled={otpValidado || otpVerificando || !otpCodigo}
+                                                                            className="flex h-9 items-center gap-1 bg-emerald-600 text-[11px] text-white hover:bg-emerald-500"
+                                                                        >
+                                                                            {otpVerificando && <Loader2 className="h-3 w-3 animate-spin" />}
+                                                                            Validar
+                                                                        </Button>
+                                                                    </div>
+
+                                                                    {detalle.otpFechaValidacion && otpValidado && (
+                                                                        <p className="text-[10px] text-emerald-700">Validado el {fmtFecha(detalle.otpFechaValidacion)}</p>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+
+                                                            {otpMensaje && (
+                                                                <div className="rounded border border-slate-200 bg-slate-50 px-2 py-2 text-[11px] text-slate-700">
+                                                                    {otpMensaje}
+                                                                </div>
+                                                            )}
+
+                                                            <div className="space-y-1.5">
+                                                                <label className="text-[11px] font-medium text-slate-700">Motivo de cierre *</label>
+                                                                <textarea
+                                                                    value={motivoCierre}
+                                                                    onChange={(e) => setMotivoCierre(e.target.value)}
+                                                                    placeholder="Ej: Equipo entregado conforme..."
+                                                                    className="min-h-[90px] w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* Nav */}
+                                                <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-[11px] text-slate-500">
+                                                    <span>Pasos: {pasoActivo} / 4</span>
+                                                    <div className="flex gap-2">
+                                                        {pasoActivo > 1 && (
                                                             <Button
                                                                 type="button"
-                                                                onClick={handleEnviarOtp}
-                                                                disabled={
-                                                                    otpEnviando || otpValidado
-                                                                }
-                                                                className="flex h-8 items-center gap-2 bg-slate-900 text-[11px] text-white hover:bg-slate-800"
+                                                                variant="outline"
+                                                                size="sm"
+                                                                className="h-8 border-slate-300 text-[11px] text-slate-700"
+                                                                onClick={irPasoAnterior}
                                                             >
-                                                                {otpEnviando && (
-                                                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                                                )}
-                                                                Enviar OTP
+                                                                Anterior
                                                             </Button>
-                                                            <p className="text-[10px] text-slate-500">
-                                                                Se enviará al correo:{" "}
-                                                                <span className="font-medium">
-                                                                    {detalle.clienteCorreo ??
-                                                                        "—"}
-                                                                </span>
-                                                            </p>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Mensaje de estado OTP */}
-                                                    {otpMensaje && (
-                                                        <div className="rounded border border-slate-200 bg-slate-50 px-2 py-1.5 text-[11px] text-slate-700">
-                                                            {otpMensaje}
-                                                        </div>
-                                                    )}
-
-                                                    {/* MOTIVO DE CIERRE */}
-                                                    <div className="space-y-1.5">
-                                                        <label className="text-[11px] font-medium text-slate-700">
-                                                            Motivo de cierre *
-                                                        </label>
-                                                        <textarea
-                                                            value={motivoCierre}
-                                                            onChange={(e) =>
-                                                                setMotivoCierre(
-                                                                    e.target.value
-                                                                )
-                                                            }
-                                                            placeholder="Ej: Equipo entregado conforme, cliente aprueba trabajo y costos."
-                                                            className="min-h-[60px] w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
-                                                        />
-                                                    </div>
-
-                                                    {/* CERRADA POR */}
-                                                    <div className="space-y-1.5">
-                                                        <label className="text-[11px] font-medium text-slate-700">
-                                                            Cerrada por
-                                                        </label>
-                                                        <Input
-                                                            value={cerradaPor}
-                                                            onChange={(e) =>
-                                                                setCerradaPor(
-                                                                    e.target.value
-                                                                )
-                                                            }
-                                                            placeholder="Usuario / técnico que cierra la orden"
-                                                            className="h-8 text-xs"
-                                                        />
+                                                        )}
+                                                        {pasoActivo < 4 && (
+                                                            <Button
+                                                                type="button"
+                                                                variant="outline"
+                                                                size="sm"
+                                                                className="h-8 border-slate-300 text-[11px] text-slate-700"
+                                                                onClick={irSiguientePaso}
+                                                            >
+                                                                Siguiente
+                                                            </Button>
+                                                        )}
                                                     </div>
                                                 </div>
-                                            </div>
-                                        )}
-
-                                        {/* Navegación entre pasos */}
-                                        <div className="flex items-center justify-between pt-2 text-[11px] text-slate-500">
-                                            <span>
-                                                Paso actual: {pasoActivo} / 4 — sigue el
-                                                orden para no olvidar nada.
-                                            </span>
-                                            <div className="flex gap-2">
-                                                {pasoActivo > 1 && (
-                                                    <Button
-                                                        type="button"
-                                                        variant="outline"
-                                                        size="sm"
-                                                        className="h-7 border-slate-300 text-[11px] text-slate-700"
-                                                        onClick={irPasoAnterior}
-                                                    >
-                                                        Anterior
-                                                    </Button>
-                                                )}
-                                                {pasoActivo < 4 && (
-                                                    <Button
-                                                        type="button"
-                                                        variant="outline"
-                                                        size="sm"
-                                                        className="h-7 border-slate-300 text-[11px] text-slate-700"
-                                                        onClick={irSiguientePaso}
-                                                    >
-                                                        Siguiente
-                                                    </Button>
-                                                )}
-                                            </div>
-                                        </div>
+                                            </CardContent>
+                                        </Card>
                                     </div>
 
-                                    {/* DERECHA: Imágenes + subida */}
-                                    <div className="flex flex-col gap-4">
-                                        <div className="flex flex-wrap items-center justify-between gap-2">
-                                            <div>
-                                                <h3 className="text-[11px] font-semibold uppercase tracking-wide text-slate-700">
-                                                    Imágenes registradas
-                                                </h3>
-                                                <p className="text-[11px] text-slate-500">
-                                                    Haz clic en una miniatura para
-                                                    ampliarla.
-                                                </p>
-                                            </div>
+                                    {/* Derecha */}
+                                    <div className="space-y-4">
+                                        <Card className="border-slate-200 shadow-sm">
+                                            <CardHeader className="py-3">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <div>
+                                                        <CardTitle className="text-sm">Imágenes</CardTitle>
+                                                        <CardDescription className="text-xs">Clic para ampliar. Filtra por categoría.</CardDescription>
+                                                    </div>
+                                                    <Input
+                                                        placeholder="Filtro..."
+                                                        value={imgFilterCategoria}
+                                                        onChange={(e) => setImgFilterCategoria(e.target.value)}
+                                                        className="h-9 w-40 text-xs"
+                                                    />
+                                                </div>
+                                            </CardHeader>
 
-                                            <Input
-                                                placeholder="Filtrar por categoría..."
-                                                value={imgFilterCategoria}
-                                                onChange={(e) =>
-                                                    setImgFilterCategoria(
-                                                        e.target.value
-                                                    )
-                                                }
-                                                className="h-8 w-40 text-xs"
-                                            />
-                                        </div>
+                                            <CardContent className="space-y-3">
+                                                <div className="max-h-[360px] overflow-y-auto rounded-lg border border-slate-200 bg-white p-2">
+                                                    {imagenesDetalle && imagenesDetalle.length > 0 ? (
+                                                        (() => {
+                                                            const term = imgFilterCategoria.trim().toUpperCase();
+                                                            const categorias = Array.from(new Set(imagenesDetalle.map((img) => img.categoria)))
+                                                                .sort()
+                                                                .filter((cat) => (term ? cat.toUpperCase().includes(term) : true));
 
-                                        {/* LISTA DE IMÁGENES */}
-                                        <div className="max-h-[320px] flex-1 overflow-y-auto border border-slate-200 bg-white p-2 text-xs">
-                                            {imagenesDetalle &&
-                                                imagenesDetalle.length > 0 ? (
-                                                (() => {
-                                                    const term = imgFilterCategoria
-                                                        .trim()
-                                                        .toUpperCase();
-
-                                                    const categorias = Array.from(
-                                                        new Set(
-                                                            imagenesDetalle.map(
-                                                                (img) =>
-                                                                    img.categoria
-                                                            )
-                                                        )
-                                                    )
-                                                        .sort()
-                                                        .filter((cat) =>
-                                                            term
-                                                                ? cat
-                                                                    .toUpperCase()
-                                                                    .includes(term)
-                                                                : true
-                                                        );
-
-                                                    if (categorias.length === 0) {
-                                                        return (
-                                                            <div className="flex h-full items-center justify-center text-[11px] text-slate-400">
-                                                                No hay imágenes para ese
-                                                                filtro.
-                                                            </div>
-                                                        );
-                                                    }
-
-                                                    return (
-                                                        <div className="space-y-4">
-                                                            {categorias.map((cat) => {
-                                                                const imgsCat =
-                                                                    imagenesDetalle.filter(
-                                                                        (img) =>
-                                                                            img.categoria ===
-                                                                            cat
-                                                                    );
-                                                                if (
-                                                                    imgsCat.length ===
-                                                                    0
-                                                                )
-                                                                    return null;
-
+                                                            if (categorias.length === 0) {
                                                                 return (
-                                                                    <div
-                                                                        key={cat}
-                                                                        className="space-y-1"
-                                                                    >
-                                                                        <div className="flex items-center gap-2">
-                                                                            <span className="rounded-full bg-slate-900 px-2 py-[2px] text-[10px] font-semibold uppercase tracking-wide text-white">
-                                                                                {cat}
-                                                                            </span>
-                                                                            <span className="text-[10px] text-slate-500">
-                                                                                {
-                                                                                    imgsCat.length
-                                                                                }{" "}
-                                                                                imagen
-                                                                                {imgsCat.length >
-                                                                                    1
-                                                                                    ? "es"
-                                                                                    : ""}
-                                                                            </span>
-                                                                        </div>
-
-                                                                        <div className="mt-1 flex flex-wrap gap-2">
-                                                                            {imgsCat.map(
-                                                                                (
-                                                                                    img
-                                                                                ) => (
-                                                                                    <button
-                                                                                        key={
-                                                                                            img.id
-                                                                                        }
-                                                                                        type="button"
-                                                                                        className="group relative h-24 w-28 overflow-hidden border border-slate-200 bg-slate-100"
-                                                                                        onClick={() =>
-                                                                                            setSelectedImg(
-                                                                                                `http://localhost:8080${img.ruta}`
-                                                                                            )
-                                                                                        }
-                                                                                    >
-                                                                                        <img
-                                                                                            src={`http://localhost:8080${img.ruta}`}
-                                                                                            alt={img.descripcion ||
-                                                                                                "Imagen OT"}
-                                                                                            className="h-full w-full object-cover transition-transform group-hover:scale-110"
-                                                                                            onError={(
-                                                                                                e
-                                                                                            ) => {
-                                                                                                e.currentTarget.style.display =
-                                                                                                    "none";
-                                                                                            }}
-                                                                                        />
-                                                                                        <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent px-1.5 pb-1.5 pt-3">
-                                                                                            <p className="truncate text-[9px] text-slate-100">
-                                                                                                {new Date(
-                                                                                                    img.fechaSubida
-                                                                                                ).toLocaleString()}
-                                                                                            </p>
-                                                                                        </div>
-                                                                                    </button>
-                                                                                )
-                                                                            )}
-                                                                        </div>
+                                                                    <div className="flex h-[220px] items-center justify-center text-[11px] text-slate-400">
+                                                                        No hay imágenes para ese filtro.
                                                                     </div>
                                                                 );
-                                                            })}
+                                                            }
+
+                                                            return (
+                                                                <div className="space-y-4">
+                                                                    {categorias.map((cat) => {
+                                                                        const imgsCat = imagenesDetalle.filter((img) => img.categoria === cat);
+                                                                        if (imgsCat.length === 0) return null;
+
+                                                                        return (
+                                                                            <div key={cat} className="space-y-1">
+                                                                                <div className="flex items-center gap-2">
+                                                                                    <span className="rounded-full bg-slate-900 px-2 py-[2px] text-[10px] font-semibold uppercase tracking-wide text-white">
+                                                                                        {cat}
+                                                                                    </span>
+                                                                                    <span className="text-[10px] text-slate-500">
+                                                                                        {imgsCat.length} imagen{imgsCat.length > 1 ? "es" : ""}
+                                                                                    </span>
+                                                                                </div>
+
+                                                                                <div className="mt-1 flex flex-wrap gap-2">
+                                                                                    {imgsCat.map((img) => (
+                                                                                        <button
+                                                                                            key={img.id}
+                                                                                            type="button"
+                                                                                            className="group relative h-24 w-28 overflow-hidden rounded-lg border border-slate-200 bg-slate-100"
+                                                                                            onClick={() => setSelectedImg(`http://localhost:8080${img.ruta}`)}
+                                                                                        >
+                                                                                            <img
+                                                                                                src={`http://localhost:8080${img.ruta}`}
+                                                                                                alt={img.descripcion || "Imagen OT"}
+                                                                                                className="h-full w-full object-cover transition-transform group-hover:scale-110"
+                                                                                                onError={(e) => {
+                                                                                                    e.currentTarget.style.display = "none";
+                                                                                                }}
+                                                                                            />
+                                                                                            <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent px-1.5 pb-1.5 pt-3">
+                                                                                                <p className="truncate text-[9px] text-slate-100">
+                                                                                                    {new Date(img.fechaSubida).toLocaleString()}
+                                                                                                </p>
+                                                                                            </div>
+                                                                                        </button>
+                                                                                    ))}
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            );
+                                                        })()
+                                                    ) : (
+                                                        <div className="flex h-[220px] items-center justify-center text-[11px] text-slate-400">
+                                                            No hay imágenes registradas.
                                                         </div>
-                                                    );
-                                                })()
-                                            ) : (
-                                                <div className="flex h-full items-center justify-center text-[11px] text-slate-400">
-                                                    No hay imágenes registradas.
+                                                    )}
                                                 </div>
-                                            )}
-                                        </div>
 
-                                        {/* PANEL SUBIR IMÁGENES */}
-                                        <div className="space-y-2 border border-dashed border-slate-300 bg-slate-100 px-3 py-3 text-xs">
-                                            <p className="flex items-center gap-2 text-[11px] font-medium text-slate-700">
-                                                <Upload className="h-3 w-3" />
-                                                Subir nuevas imágenes
-                                            </p>
+                                                <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-3">
+                                                    <p className="flex items-center gap-2 text-[11px] font-medium text-slate-700">
+                                                        <Upload className="h-3 w-3" />
+                                                        Subir nuevas imágenes
+                                                    </p>
 
-                                            <div className="flex flex-col gap-2 sm:flex-row">
-                                                <Select
-                                                    value={categoriaImg}
-                                                    onValueChange={(value) =>
-                                                        setCategoriaImg(value)
-                                                    }
-                                                >
-                                                    <SelectTrigger className="h-9 text-xs">
-                                                        <SelectValue placeholder="Categoría" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="INGRESO">
-                                                            INGRESO
-                                                        </SelectItem>
-                                                        <SelectItem value="DIAGNOSTICO">
-                                                            DIAGNOSTICO
-                                                        </SelectItem>
-                                                        <SelectItem value="REPARACION">
-                                                            REPARACION
-                                                        </SelectItem>
-                                                        <SelectItem value="ENTREGA">
-                                                            ENTREGA
-                                                        </SelectItem>
-                                                        <SelectItem value="OTRO">
-                                                            OTRO
-                                                        </SelectItem>
-                                                    </SelectContent>
-                                                </Select>
+                                                    <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                                                        <Select value={categoriaImg} onValueChange={setCategoriaImg}>
+                                                            <SelectTrigger className="h-9 text-xs">
+                                                                <SelectValue placeholder="Categoría" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="INGRESO">INGRESO</SelectItem>
+                                                                <SelectItem value="DIAGNOSTICO">DIAGNOSTICO</SelectItem>
+                                                                <SelectItem value="REPARACION">REPARACION</SelectItem>
+                                                                <SelectItem value="ENTREGA">ENTREGA</SelectItem>
+                                                                <SelectItem value="OTRO">OTRO</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
 
-                                                <Input
-                                                    type="file"
-                                                    accept="image/*"
-                                                    multiple
-                                                    onChange={(e) =>
-                                                        setImagenesNuevas(
-                                                            Array.from(
-                                                                e.target.files || []
-                                                            )
-                                                        )
-                                                    }
-                                                    className="h-9 text-xs file:text-xs"
-                                                />
-                                            </div>
+                                                        <Input
+                                                            type="file"
+                                                            accept="image/*"
+                                                            multiple
+                                                            onChange={(e) => setImagenesNuevas(Array.from(e.target.files || []))}
+                                                            className="h-9 text-xs file:text-xs"
+                                                        />
+                                                    </div>
 
-                                            <div className="flex justify-end">
-                                                <Button
-                                                    onClick={subirImagenes}
-                                                    disabled={
-                                                        imagenesNuevas.length === 0
-                                                    }
-                                                    className="flex h-9 items-center gap-2 bg-slate-900 text-xs text-slate-50 hover:bg-slate-800"
-                                                >
-                                                    <Upload className="h-4 w-4" /> Subir
-                                                    imágenes
-                                                </Button>
-                                            </div>
-                                        </div>
+                                                    <div className="mt-2 flex justify-end">
+                                                        <Button
+                                                            onClick={subirImagenes}
+                                                            disabled={imagenesNuevas.length === 0}
+                                                            className="flex h-9 items-center gap-2 bg-slate-900 text-xs text-slate-50 hover:bg-slate-800"
+                                                        >
+                                                            <Upload className="h-4 w-4" />
+                                                            Subir imágenes
+                                                        </Button>
+                                                    </div>
+                                                </div>
+
+                                                {/* ✅ Botón rápido: ver ficha técnica (por OT/equipo) en modal */}
+                                                <div className="flex justify-end">
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="h-9 border-slate-300 text-[11px]"
+                                                        onClick={() => {
+                                                            // abre ficha por orden/equipo sin seleccionar una ficha específica
+                                                            setFichaDetalleId(null);
+                                                            irAFichaTecnica(detalle.ordenId, detalle.equipoId);
+                                                        }}
+                                                    >
+                                                        <FileText className="h-4 w-4 mr-2" />
+                                                        Ver ficha técnica (modal)
+                                                    </Button>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* FOOTER ACCIONES PRINCIPALES */}
-                            <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-white px-6 py-3 text-[11px] text-slate-600">
-                                <div>
-                                    Completa los 4 pasos y usa{" "}
-                                    <span className="font-semibold">
-                                        Guardar sin cerrar
-                                    </span>{" "}
-                                    o{" "}
-                                    <span className="font-semibold">Cerrar OT</span> cuando
-                                    esté lista.
-                                </div>
-                                <div className="flex gap-2">
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        disabled={guardando}
-                                        onClick={() => guardarCambiosOrden(false)}
-                                        className="flex h-8 items-center gap-2 border-slate-300 text-[11px] text-slate-700"
-                                    >
-                                        {guardando && (
-                                            <Loader2 className="h-4 w-4 animate-spin" />
-                                        )}
-                                        Guardar sin cerrar
-                                    </Button>
-                                    <Button
-                                        type="button"
-                                        size="sm"
-                                        disabled={guardando}
-                                        onClick={cerrarOrden}
-                                        className="flex h-8 items-center gap-2 bg-slate-900 text-[11px] text-slate-50 hover:bg-slate-800"
-                                    >
-                                        {guardando && (
-                                            <Loader2 className="h-4 w-4 animate-spin" />
-                                        )}
-                                        Cerrar OT
-                                    </Button>
+                            {/* Footer */}
+                            <footer className="sticky bottom-0 z-20 border-t border-slate-200 bg-white px-5 py-3">
+                                <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-600">
+                                    <div>
+                                        Usa <span className="font-semibold">Guardar</span> o <span className="font-semibold">Cerrar OT</span>{" "}
+                                        cuando esté lista.
+                                    </div>
+
+                                    <div className="flex gap-2">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            disabled={guardando}
+                                            onClick={() => guardarCambiosOrden(false)}
+                                            className="flex h-9 items-center gap-2 border-slate-300 text-[11px] text-slate-700"
+                                        >
+                                            {guardando && <Loader2 className="h-4 w-4 animate-spin" />}
+                                            Guardar
+                                        </Button>
+
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            disabled={guardando}
+                                            onClick={cerrarOrden}
+                                            className="flex h-9 items-center gap-2 bg-slate-900 text-[11px] text-slate-50 hover:bg-slate-800"
+                                        >
+                                            {guardando && <Loader2 className="h-4 w-4 animate-spin" />}
+                                            Cerrar OT
+                                        </Button>
+                                    </div>
                                 </div>
                             </footer>
 
-                            {/* OVERLAY IMAGEN SELECCIONADA */}
+                            {/* Overlay imagen */}
                             {selectedImg && (
-                                <div
-                                    className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80"
-                                    onClick={() => setSelectedImg(null)}
-                                >
-                                    <div
-                                        className="relative mx-4 max-h-[90vh] max-w-5xl"
-                                        onClick={(e) => e.stopPropagation()}
-                                    >
+                                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80" onClick={() => setSelectedImg(null)}>
+                                    <div className="relative mx-4 max-h-[90vh] max-w-5xl" onClick={(e) => e.stopPropagation()}>
                                         <button
                                             onClick={() => setSelectedImg(null)}
                                             className="absolute right-2 top-2 rounded-full bg-black/70 p-2 text-white hover:bg-black/90"
@@ -2152,38 +2280,51 @@ export default function OrdenesTrabajoPage() {
                                             <X className="h-4 w-4" />
                                         </button>
 
-                                        <img
-                                            src={selectedImg}
-                                            alt="Vista ampliada"
-                                            className="max-h-[90vh] w-full rounded-md object-contain shadow-2xl"
-                                        />
+                                        <img src={selectedImg} alt="Vista ampliada" className="max-h-[90vh] w-full rounded-md object-contain shadow-2xl" />
                                     </div>
                                 </div>
                             )}
 
-                            {/* MODAL NOTIFICACIÓN */}
+                            {/* Modal notificación */}
                             {showNotifModal && notifOtId !== null && (
-                                <ModalNotificacion
-                                    otId={notifOtId}
-                                    open={showNotifModal}
-                                    onClose={() => setShowNotifModal(false)}
-                                />
+                                <ModalNotificacion otId={notifOtId} open={showNotifModal} onClose={() => setShowNotifModal(false)} />
                             )}
                         </div>
                     </div>
                 )}
 
-                {/* MODAL FICHA TÉCNICA (UNA FICHA ESPECÍFICA) */}
-                {showFichaModal &&
-                    fichaOrdenId !== null &&
-                    fichaEquipoId !== null && (
-                        <FichaTecnicaModal
-                            open={showFichaModal}
-                            onClose={() => setShowFichaModal(false)}
-                            ordenTrabajoId={fichaOrdenId}
-                            equipoId={fichaEquipoId}
-                        />
-                    )}
+                {/* Modal Historial */}
+                <HistorialFichasModal
+                    open={showHistorialFichas}
+                    onClose={() => setShowHistorialFichas(false)}
+                    clienteCedula={historialCedula}
+                    ordenTrabajoId={historialOtId ?? undefined}
+                    equipoId={historialEquipoId ?? undefined}
+                    onSelectFicha={(id) => {
+                        // ✅ antes: router.push(`/api/fichas/${id}`)
+                        // ✅ ahora: se abre el modal del detalle
+                        setShowHistorialFichas(false);
+                        setFichaDetalleId(id);
+
+                        // si tenemos OT/equipo (cuando se abrió desde una OT), mantenemos tu firma requerida:
+                        if (historialOtId && historialEquipoId) {
+                            irAFichaTecnica(historialOtId, historialEquipoId);
+                        } else {
+                            // fallback: abrir por id igual, usando la misma función
+                            irAFichaTecnica(0, 0);
+                        }
+                    }}
+                    onCrearNuevaFicha={historialOtId && historialEquipoId ? onCrearNuevaFichaDesdeHistorial : undefined}
+                />
+
+                {/* ✅ Modal detalle ficha técnica */}
+                <FichaTecnicaDetalleModal
+                    open={showFichaDetalle}
+                    onClose={closeFichaDetalle}
+                    loading={fichaLoading}
+                    error={fichaError}
+                    data={fichaDetalle}
+                />
             </div>
         </div>
     );

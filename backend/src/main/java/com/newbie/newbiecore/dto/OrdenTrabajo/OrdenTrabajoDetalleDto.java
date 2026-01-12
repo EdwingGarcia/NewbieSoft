@@ -1,7 +1,9 @@
 package com.newbie.newbiecore.dto.OrdenTrabajo;
 
-import java.time.Instant;
 import com.fasterxml.jackson.databind.JsonNode;
+
+import java.math.BigDecimal;
+import java.time.Instant;
 
 public record OrdenTrabajoDetalleDto(
         // ===== ORDEN =====
@@ -10,8 +12,8 @@ public record OrdenTrabajoDetalleDto(
         Instant fechaHoraIngreso,
         String medioContacto,
         String estado,
-        String tipoServicio,   // 👈 NUEVO
-        String prioridad,      // 👈 NUEVO
+        String tipoServicio,
+        String prioridad,
 
         // Técnico asignado (cabecera)
         String tecnicoCedula,
@@ -58,7 +60,27 @@ public record OrdenTrabajoDetalleDto(
         boolean firmaClienteEntrega,
         boolean recibeASatisfaccion,
 
-        // Ficha técnica (meta)
+        // ✅ CAMPOS ECONÓMICOS
+        BigDecimal costoManoObra,
+        BigDecimal costoRepuestos,
+        BigDecimal costoOtros,
+        BigDecimal descuento,
+        BigDecimal subtotal,
+        BigDecimal iva,
+        BigDecimal total,
+
+        // ✅ GARANTÍA / CIERRE
+        Boolean esEnGarantia,
+        Long referenciaOrdenGarantia,
+        String motivoCierre,
+        String cerradaPor,
+
+        // ✅ OTP
+        String otpCodigo,
+        Boolean otpValidado,
+        Instant otpFechaValidacion,
+
+        // ===== Ficha técnica (meta) =====
         Long fichaId,
         Instant fechaFicha,
         String observacionesFicha,

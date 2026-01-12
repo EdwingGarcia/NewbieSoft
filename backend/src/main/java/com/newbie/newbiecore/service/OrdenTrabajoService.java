@@ -1,5 +1,6 @@
 package com.newbie.newbiecore.service;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 
@@ -154,51 +155,108 @@ public class OrdenTrabajoService {
     /* =============================
        ACTUALIZAR ENTREGA / CIERRE
        ============================= */
-
+    private BigDecimal bd(Double v) {
+        return v == null ? null : BigDecimal.valueOf(v);
+    }
     @Transactional
     public void actualizarEntrega(Long ordenId, ActualizarEntregaRequest request) {
+
         var orden = ordenTrabajoRepository.findById(ordenId)
                 .orElseThrow(() -> new RuntimeException("Orden no encontrada"));
 
-        // ==== Datos comunes que siempre se pueden actualizar ====
-        orden.setDiagnosticoTrabajo(request.diagnosticoTrabajo());
-        orden.setObservacionesRecomendaciones(request.observacionesRecomendaciones());
-        orden.setModalidad(request.modalidad());
 
-        orden.setNumeroFactura(request.numeroFactura());
-        orden.setFormaPago(request.formaPago());
-        orden.setFirmaTecnicoEntrega(request.firmaTecnicoEntrega());
-        orden.setFirmaClienteEntrega(request.firmaClienteEntrega());
-        orden.setRecibeASatisfaccion(request.recibeASatisfaccion());
+        // =========================
+        // 1) Campos editables (no pisar con null)
+        // =========================
+        if (request.diagnosticoTrabajo() != null)
+            orden.setDiagnosticoTrabajo(request.diagnosticoTrabajo());
 
-        // ==== Manejo de estados ====
+        if (request.observacionesRecomendaciones() != null)
+            orden.setObservacionesRecomendaciones(request.observacionesRecomendaciones());
+
+        if (request.tipoServicio() != null && !request.tipoServicio().isBlank())
+            orden.setTipoServicio(request.tipoServicio().toUpperCase());
+
+        if (request.prioridad() != null && !request.prioridad().isBlank())
+            orden.setPrioridad(request.prioridad().toUpperCase());
+
+        // =========================
+        // 2) Costos (Double -> BigDecimal)
+        // =========================
+        if (request.costoManoObra() != null)   orden.setCostoManoObra(bd(request.costoManoObra()));
+        if (request.costoRepuestos() != null)  orden.setCostoRepuestos(bd(request.costoRepuestos()));
+        if (request.costoOtros() != null)      orden.setCostoOtros(bd(request.costoOtros()));
+        if (request.descuento() != null)       orden.setDescuento(bd(request.descuento()));
+        if (request.subtotal() != null)        orden.setSubtotal(bd(request.subtotal()));
+        if (request.iva() != null)             orden.setIva(bd(request.iva()));
+        if (request.total() != null)           orden.setTotal(bd(request.total()));
+
+        // =========================
+        // 3) Garantía
+        // =========================
+        if (request.esEnGarantia() != null) {
+            orden.setEsEnGarantia(request.esEnGarantia());
+
+            if (Boolean.TRUE.equals(request.esEnGarantia())) {
+                // solo si es garantía, permite referencia
+                orden.setReferenciaOrdenGarantia(request.referenciaOrdenGarantia());
+            } else {
+                orden.setReferenciaOrdenGarantia(null);
+            }
+        } else if (request.referenciaOrdenGarantia() != null) {
+            // si mandan referencia pero no mandan esEnGarantia, solo asigna si ya está en garantía
+            if (Boolean.TRUE.equals(orden.getEsEnGarantia())) {
+                orden.setReferenciaOrdenGarantia(request.referenciaOrdenGarantia());
+            }
+        }
+
+        // =========================
+        // 4) Cierre info
+        // =========================
+        if (request.motivoCierre() != null)
+            orden.setMotivoCierre(request.motivoCierre());
+
+        if (request.cerradaPor() != null)
+            orden.setCerradaPor(request.cerradaPor());
+
+        // =========================
+        // 5) OTP
+        // =========================
+        if (request.otpCodigo() != null)
+            orden.setOtpCodigo(request.otpCodigo());
+
+        if (request.otpValidado() != null)
+            orden.setOtpValidado(request.otpValidado());
+
+        // =========================
+        // 6) Estado (tu lógica)
+        // =========================
         if (Boolean.TRUE.equals(request.cerrarOrden())) {
-            // 🔒 CIERRE DEFINITIVO
-            orden.setEstado("CERRADA");  // 👈 Usa el mismo valor que en el front
 
-            Instant fechaEntrega = request.fechaHoraEntrega() != null
-                    ? request.fechaHoraEntrega()
-                    : Instant.now();
-            orden.setFechaHoraEntrega(fechaEntrega);
+            orden.setEstado("CERRADA");
+
+            if (orden.getFechaHoraEntrega() == null) {
+                orden.setFechaHoraEntrega(Instant.now());
+            }
 
         } else if (request.estado() != null && !request.estado().isBlank()) {
-            // 💡 CAMBIO DE FASE SIN CERRAR
+
             String nuevoEstado = request.estado().toUpperCase();
 
-            // (Opcional pero recomendado) validar transición:
+            // Si esto te bloquea, comenta temporalmente
             validarTransicionEstado(orden.getEstado(), nuevoEstado);
 
             orden.setEstado(nuevoEstado);
 
-            // Si pasa a LISTA_ENTREGA y no tiene fecha de entrega, puedes setearla:
-            if ((nuevoEstado.equals("LISTA_ENTREGA") || nuevoEstado.equals("CERRADA"))
-                    && orden.getFechaHoraEntrega() == null) {
+            // si pasa a LISTA_ENTREGA y no hay fecha, setearla
+            if ("LISTA_ENTREGA".equals(nuevoEstado) && orden.getFechaHoraEntrega() == null) {
                 orden.setFechaHoraEntrega(Instant.now());
             }
         }
 
         ordenTrabajoRepository.save(orden);
     }
+
 
     private void validarTransicionEstado(String actual, String nuevo) {
         if (actual == null || nuevo == null) return;
@@ -254,7 +312,6 @@ public class OrdenTrabajoService {
             fechaFicha = ficha.getFechaCreacion();
             observacionesFicha = ficha.getObservaciones();
 
-            // Ahora la ficha solo tiene tecnicoId (cedula)
             tecnicoFichaCedula = ficha.getTecnicoId();
 
             if (tecnicoFichaCedula != null) {
@@ -265,6 +322,7 @@ public class OrdenTrabajoService {
         }
 
         return new OrdenTrabajoDetalleDto(
+                // ===== ORDEN =====
                 orden.getId(),
                 orden.getNumeroOrden(),
                 orden.getFechaHoraIngreso(),
@@ -273,41 +331,41 @@ public class OrdenTrabajoService {
                 orden.getTipoServicio(),
                 orden.getPrioridad(),
 
-                // Técnico asignado
-                tecnico.getCedula(),
-                tecnico.getNombre(),
-                tecnico.getTelefono(),
-                tecnico.getCorreo(),
+                // ===== Técnico asignado =====
+                tecnico != null ? tecnico.getCedula() : null,
+                tecnico != null ? tecnico.getNombre() : null,
+                tecnico != null ? tecnico.getTelefono() : null,
+                tecnico != null ? tecnico.getCorreo() : null,
 
-                // Cliente
-                cliente.getCedula(),
-                cliente.getNombre(),
-                cliente.getTelefono(),
-                cliente.getDireccion(),
-                cliente.getCorreo(),
+                // ===== Cliente =====
+                cliente != null ? cliente.getCedula() : null,
+                cliente != null ? cliente.getNombre() : null,
+                cliente != null ? cliente.getTelefono() : null,
+                cliente != null ? cliente.getDireccion() : null,
+                cliente != null ? cliente.getCorreo() : null,
 
-                // Equipo
-                equipo.getIdEquipo(),
-                equipo.getTipo(),
-                equipo.getMarca(),
-                equipo.getModelo(),
-                equipo.getNumeroSerie(),
-                equipo.getHostname(),
-                equipo.getSistemaOperativo(),
-                equipo.getHardwareJson(),
+                // ===== Equipo =====
+                equipo != null ? equipo.getIdEquipo() : null,
+                equipo != null ? equipo.getTipo() : null,
+                equipo != null ? equipo.getMarca() : null,
+                equipo != null ? equipo.getModelo() : null,
+                equipo != null ? equipo.getNumeroSerie() : null,
+                equipo != null ? equipo.getHostname() : null,
+                equipo != null ? equipo.getSistemaOperativo() : null,
+                equipo != null ? equipo.getHardwareJson() : null,
 
-                // Ingreso
+                // ===== Ingreso =====
                 orden.getContrasenaEquipo(),
                 orden.getAccesorios(),
                 orden.getProblemaReportado(),
                 orden.getObservacionesIngreso(),
 
-                // Recepción
+                // ===== Recepción =====
                 orden.getFechaHoraRecepcion(),
                 orden.isFirmaTecnicoRecepcion(),
                 orden.isFirmaClienteRecepcion(),
 
-                // Entrega
+                // ===== Entrega =====
                 orden.getDiagnosticoTrabajo(),
                 orden.getObservacionesRecomendaciones(),
                 orden.getModalidad(),
@@ -318,7 +376,27 @@ public class OrdenTrabajoService {
                 orden.isFirmaClienteEntrega(),
                 orden.isRecibeASatisfaccion(),
 
-                // Ficha técnica (meta)
+                // ✅ ECONÓMICOS (ESTO ES LO QUE TE FALTABA)
+                orden.getCostoManoObra(),
+                orden.getCostoRepuestos(),
+                orden.getCostoOtros(),
+                orden.getDescuento(),
+                orden.getSubtotal(),
+                orden.getIva(),
+                orden.getTotal(),
+
+                // ✅ GARANTÍA / CIERRE
+                orden.getEsEnGarantia(),
+                orden.getReferenciaOrdenGarantia(),
+                orden.getMotivoCierre(),
+                orden.getCerradaPor(),
+
+                // ✅ OTP
+                orden.getOtpCodigo(),
+                orden.getOtpValidado(),
+                orden.getOtpFechaValidacion(),
+
+                // ===== Ficha técnica (meta) =====
                 fichaId,
                 fechaFicha,
                 observacionesFicha,

@@ -1,17 +1,32 @@
 package com.newbie.newbiecore.dto.OrdenTrabajo;
 
-import java.time.Instant;
-
 public record ActualizarEntregaRequest(
+        // Estado + clasificación
+        String tipoServicio,
+        String prioridad,
+        String estado,
+        Boolean cerrarOrden,
+
+        // Texto técnico
         String diagnosticoTrabajo,
         String observacionesRecomendaciones,
-        String modalidad,          // 👈 solo en la entrega
-        Instant fechaHoraEntrega,
-        String numeroFactura,
-        String formaPago,
-        boolean firmaTecnicoEntrega,
-        boolean firmaClienteEntrega,
-        boolean recibeASatisfaccion,
-           String estado,         // 👈 NUEVO: estado que maneja el front
-        Boolean cerrarOrden    // 👈 NUEVO: true = cerrar definitivamente
+
+        // Costos (vienen como number desde el front)
+        Double costoManoObra,
+        Double costoRepuestos,
+        Double costoOtros,
+        Double descuento,
+        Double subtotal,
+        Double iva,
+        Double total,
+
+        // Garantía y cierre
+        Boolean esEnGarantia,
+        Long referenciaOrdenGarantia,
+        String motivoCierre,
+        String cerradaPor,
+
+        // OTP
+        String otpCodigo,
+        Boolean otpValidado
 ) {}
