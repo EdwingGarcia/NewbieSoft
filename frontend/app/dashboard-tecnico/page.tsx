@@ -19,7 +19,13 @@ const FichasTecnicoModule =  dynamic(
                                        { ssr: false }
                                    );
 
-type Section = "dashboard" | "ordenes" | "equipos" | "fichas";
+const CitasTecnicoModule = dynamic(
+                                        () => import("./CitasTecnicoPage"),
+                                        { ssr: false }
+                                    );
+
+
+type Section = "dashboard" | "ordenes" | "equipos" | "fichas" | "citas";
 
 export default function DashboardTecnico() {
     const router = useRouter();
@@ -91,6 +97,11 @@ export default function DashboardTecnico() {
                             active={activeSection === "fichas"}
                             onClick={() => setActiveSection("fichas")}
                         />
+                        <SidebarItem
+                            label="Mis Citas"
+                            active={activeSection === "citas"}
+                            onClick={() => setActiveSection("citas")}
+                        />
                     </ul>
                 </nav>
             </aside>
@@ -126,10 +137,13 @@ export default function DashboardTecnico() {
                 </header>
 
                 <section className={styles.content}>
-                    {activeSection === "dashboard" && <DashboardView />}
+                    {activeSection === "dashboard" && (
+                    <DashboardView onGoCitas={() => setActiveSection("citas")} />
+                    )}
                     {activeSection === "ordenes" && <OrdenesTecnicoModule />}
                     {activeSection === "equipos" && <EquiposTecnicoModule />}
                     {activeSection === "fichas" && <FichasTecnicoModule />}
+                    {activeSection === "citas" && <CitasTecnicoModule />}
                 </section>
             </main>
         </div>
