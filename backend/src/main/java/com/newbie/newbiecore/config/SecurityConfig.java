@@ -69,13 +69,23 @@ public class SecurityConfig {
                         // Se permite acceso público aquí porque el SecureFileController valida el token manualmente.
                        // .requestMatchers("/uploads/**").permitAll()
 
-                        // 3. 🟢 RUTAS PÚBLICAS PARA CONSULTA DE CLIENTES
+                       // 3. 🟢 RUTAS PÚBLICAS PARA CONSULTA DE CLIENTES
                         // Permite flujo de OTP, Captcha y ver estado de orden sin login de empleado.
                         .requestMatchers("/api/public/consultas/**").permitAll()
                         .requestMatchers("/api/public/otp/**").permitAll()
 
-                        // 4. 🔒 RUTAS PROTEGIDAS (Todo lo demás)
-                        // Requiere header "Authorization: Bearer <token>"
+                        // 👇 servir archivos subidos (IMPORTANTE)
+                        .requestMatchers("/uploads/**").permitAll()
+
+                        // tus endpoints de prueba
+                        .requestMatchers("/api/ordenes/**").permitAll()
+                        .requestMatchers("/api/firmas/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/equipo/*/hardware/upload-xml").permitAll()
+
+                        // lo demás de /api necesita token
+                        .requestMatchers("/api/**").authenticated()
+                        .requestMatchers("/api/**").permitAll()
+
                         .anyRequest().authenticated()
                 );
 

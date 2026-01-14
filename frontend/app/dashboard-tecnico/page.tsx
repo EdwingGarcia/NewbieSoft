@@ -4,19 +4,28 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import styles from "../styles/Dashboard.module.css"; // puedes reusar el mismo CSS
-
+import DashboardView from "./dashboard/DashboardView";
 // Para las próximas vistas (las cargaremos luego)
 const EquiposTecnicoModule = dynamic(
     () => import("./EquiposTecnicoPage"),
     { ssr: false }
 );
-const OrdenesTecnicoModule = () => <div>Órdenes del técnico</div>;
-const FichasTecnicoModule =dynamic(
+const OrdenesTecnicoModule = dynamic(
+                                       () => import("./OrdenesTrabajoTecnicoPage"),
+                                       { ssr: false }
+                                   );
+const FichasTecnicoModule =  dynamic(
                                        () => import("./FichasTecnicoPage"),
                                        { ssr: false }
                                    );
 
-type Section = "dashboard" | "ordenes" | "equipos" | "fichas";
+const CitasTecnicoModule = dynamic(
+                                        () => import("./CitasTecnicoPage"),
+                                        { ssr: false }
+                                    );
+
+
+type Section = "dashboard" | "ordenes" | "equipos" | "fichas" | "citas";
 
 export default function DashboardTecnico() {
     const router = useRouter();
@@ -88,6 +97,11 @@ export default function DashboardTecnico() {
                             active={activeSection === "fichas"}
                             onClick={() => setActiveSection("fichas")}
                         />
+                        <SidebarItem
+                            label="Mis Citas"
+                            active={activeSection === "citas"}
+                            onClick={() => setActiveSection("citas")}
+                        />
                     </ul>
                 </nav>
             </aside>
@@ -123,10 +137,13 @@ export default function DashboardTecnico() {
                 </header>
 
                 <section className={styles.content}>
-                    {activeSection === "dashboard" && <h1>Dashboard del técnico</h1>}
+                    {activeSection === "dashboard" && (
+                    <DashboardView onGoCitas={() => setActiveSection("citas")} />
+                    )}
                     {activeSection === "ordenes" && <OrdenesTecnicoModule />}
                     {activeSection === "equipos" && <EquiposTecnicoModule />}
                     {activeSection === "fichas" && <FichasTecnicoModule />}
+                    {activeSection === "citas" && <CitasTecnicoModule />}
                 </section>
             </main>
         </div>
