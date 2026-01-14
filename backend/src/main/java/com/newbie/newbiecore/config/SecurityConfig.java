@@ -67,7 +67,7 @@ public class SecurityConfig {
 
                         // 2. 🟢 RUTAS DE ARCHIVOS (IMÁGENES)
                         // Se permite acceso público aquí porque el SecureFileController valida el token manualmente.
-                        .requestMatchers("/uploads/**").permitAll()
+                       // .requestMatchers("/uploads/**").permitAll()
 
                         // 3. 🟢 RUTAS PÚBLICAS PARA CONSULTA DE CLIENTES
                         // Permite flujo de OTP, Captcha y ver estado de orden sin login de empleado.

@@ -16,13 +16,13 @@ import {
 } from "lucide-react";
 
 import ModalNotificacion from "../components/ModalNotificacion";
+// 👇 IMPORTANTE: Importamos el componente de imagen segura
+import SecureImage from "../components/SecureImage";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
-// 1. IMPORTAR LA FUNCIÓN DE UTILIDAD (Asegúrate de tener este archivo creado)
-import { getAuthImageUrl } from "@/lib/utils";
 
 const FICHAS_API_BASE = "http://localhost:8080/api/fichas";
 const API_BASE = "http://localhost:8080/api/ordenes";
@@ -2138,28 +2138,23 @@ export default function OrdenesTrabajoPage() {
 
                                                                                 <div className="mt-1 flex flex-wrap gap-2">
                                                                                     {imgsCat.map((img) => (
-                                                                                        <button
+                                                                                        <div
                                                                                             key={img.id}
-                                                                                            type="button"
-                                                                                            className="group relative h-24 w-28 overflow-hidden rounded-lg border border-slate-200 bg-slate-100"
-                                                                                            // 2. USAR LA FUNCION AQUI
-                                                                                            onClick={() => setSelectedImg(getAuthImageUrl(img.ruta))}
+                                                                                            className="group relative h-24 w-28 overflow-hidden rounded-lg border border-slate-200 bg-slate-100 cursor-pointer"
+                                                                                            onClick={() => setSelectedImg(img.ruta)}
                                                                                         >
-                                                                                            <img
-                                                                                                // 3. Y AQUI TAMBIEN
-                                                                                                src={getAuthImageUrl(img.ruta)}
+                                                                                            {/* 👇 USAMOS SecureImage AQUÍ */}
+                                                                                            <SecureImage
+                                                                                                src={img.ruta}
                                                                                                 alt={img.descripcion || "Imagen OT"}
                                                                                                 className="h-full w-full object-cover transition-transform group-hover:scale-110"
-                                                                                                onError={(e) => {
-                                                                                                    e.currentTarget.style.display = "none";
-                                                                                                }}
                                                                                             />
                                                                                             <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent px-1.5 pb-1.5 pt-3">
                                                                                                 <p className="truncate text-[9px] text-slate-100">
                                                                                                     {new Date(img.fechaSubida).toLocaleString()}
                                                                                                 </p>
                                                                                             </div>
-                                                                                        </button>
+                                                                                        </div>
                                                                                     ))}
                                                                                 </div>
                                                                             </div>
@@ -2279,12 +2274,17 @@ export default function OrdenesTrabajoPage() {
                                     <div className="relative mx-4 max-h-[90vh] max-w-5xl" onClick={(e) => e.stopPropagation()}>
                                         <button
                                             onClick={() => setSelectedImg(null)}
-                                            className="absolute right-2 top-2 rounded-full bg-black/70 p-2 text-white hover:bg-black/90"
+                                            className="absolute right-2 top-2 rounded-full bg-black/70 p-2 text-white hover:bg-black/90 z-50"
                                         >
                                             <X className="h-4 w-4" />
                                         </button>
-                                        {/* La imagen seleccionada YA tiene el token porque viene del state */}
-                                        <img src={selectedImg} alt="Vista ampliada" className="max-h-[90vh] w-full rounded-md object-contain shadow-2xl" />
+
+                                        {/* 👇 USAMOS SecureImage TAMBIÉN EN EL MODAL DE VISTA PREVIA */}
+                                        <SecureImage
+                                            src={selectedImg}
+                                            alt="Vista ampliada"
+                                            className="max-h-[90vh] w-full rounded-md object-contain shadow-2xl"
+                                        />
                                     </div>
                                 </div>
                             )}
@@ -2305,16 +2305,12 @@ export default function OrdenesTrabajoPage() {
                     ordenTrabajoId={historialOtId ?? undefined}
                     equipoId={historialEquipoId ?? undefined}
                     onSelectFicha={(id) => {
-                        // ✅ antes: router.push(`/api/fichas/${id}`)
-                        // ✅ ahora: se abre el modal del detalle
                         setShowHistorialFichas(false);
                         setFichaDetalleId(id);
 
-                        // si tenemos OT/equipo (cuando se abrió desde una OT), mantenemos tu firma requerida:
                         if (historialOtId && historialEquipoId) {
                             irAFichaTecnica(historialOtId, historialEquipoId);
                         } else {
-                            // fallback: abrir por id igual, usando la misma función
                             irAFichaTecnica(0, 0);
                         }
                     }}
