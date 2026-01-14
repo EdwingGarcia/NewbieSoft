@@ -21,6 +21,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
+// 1. IMPORTAR LA FUNCIÓN DE UTILIDAD (Asegúrate de tener este archivo creado)
+import { getAuthImageUrl } from "@/lib/utils";
 
 const FICHAS_API_BASE = "http://localhost:8080/api/fichas";
 const API_BASE = "http://localhost:8080/api/ordenes";
@@ -1310,7 +1312,7 @@ export default function OrdenesTrabajoPage() {
     };
 
     /* =========================
-       RENDER
+        RENDER
     ========================= */
     return (
         <div className="min-h-screen bg-slate-50 px-4 py-6 lg:px-8">
@@ -2140,10 +2142,12 @@ export default function OrdenesTrabajoPage() {
                                                                                             key={img.id}
                                                                                             type="button"
                                                                                             className="group relative h-24 w-28 overflow-hidden rounded-lg border border-slate-200 bg-slate-100"
-                                                                                            onClick={() => setSelectedImg(`http://localhost:8080${img.ruta}`)}
+                                                                                            // 2. USAR LA FUNCION AQUI
+                                                                                            onClick={() => setSelectedImg(getAuthImageUrl(img.ruta))}
                                                                                         >
                                                                                             <img
-                                                                                                src={`http://localhost:8080${img.ruta}`}
+                                                                                                // 3. Y AQUI TAMBIEN
+                                                                                                src={getAuthImageUrl(img.ruta)}
                                                                                                 alt={img.descripcion || "Imagen OT"}
                                                                                                 className="h-full w-full object-cover transition-transform group-hover:scale-110"
                                                                                                 onError={(e) => {
@@ -2279,7 +2283,7 @@ export default function OrdenesTrabajoPage() {
                                         >
                                             <X className="h-4 w-4" />
                                         </button>
-
+                                        {/* La imagen seleccionada YA tiene el token porque viene del state */}
                                         <img src={selectedImg} alt="Vista ampliada" className="max-h-[90vh] w-full rounded-md object-contain shadow-2xl" />
                                     </div>
                                 </div>

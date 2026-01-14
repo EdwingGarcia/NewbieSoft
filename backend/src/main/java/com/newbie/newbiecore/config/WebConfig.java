@@ -13,11 +13,13 @@ public class WebConfig implements WebMvcConfigurer {
     @Value("${app.upload-dir:uploads}")
     private String uploadDir;
 
-    @Override
-    public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        String path = Paths.get(uploadDir).toAbsolutePath().normalize().toUri().toString();
-
-        registry.addResourceHandler("/uploads/**")
-                .addResourceLocations(path);
-    }
+//Comenta todo este método para que Spring deje de servir los archivos automáticamente
+/*
+@Override
+public void addResourceHandlers(ResourceHandlerRegistry registry) {
+    String path = Paths.get(uploadDir).toAbsolutePath().normalize().toUri().toString();
+    registry.addResourceHandler("/uploads/**")
+            .addResourceLocations(path);
+}
+*/
 }

@@ -2,11 +2,12 @@ package com.newbie.newbiecore.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -14,18 +15,20 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 import com.newbie.newbiecore.service.CustomUserDetailsService;
-import com.newbie.newbiecore.config.JwtAuthenticationFilter;
 
 @Configuration
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final CustomUserDetailsService userDetailsService;
+    private final JwtAuthenticationEntryPoint unauthorizedHandler; // Manejador de errores 401
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
-                          CustomUserDetailsService userDetailsService) {
+                          CustomUserDetailsService userDetailsService,
+                          JwtAuthenticationEntryPoint unauthorizedHandler) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.userDetailsService = userDetailsService;
+        this.unauthorizedHandler = unauthorizedHandler;
     }
 
     @Bean
@@ -49,37 +52,35 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .csrf(csrf -> csrf.disable())
+                .csrf(AbstractHttpConfigurer::disable) // Deshabilitar CSRF para APIs REST stateless
+                .cors(Customizer.withDefaults()) // Usar configuración de CorsConfig
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint(unauthorizedHandler) // Retorna 401 limpio si falla la auth
+                )
+                .sessionManagement(session -> session
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS) // Sin estado (JWT)
+                )
                 .authorizeHttpRequests(auth -> auth
-                        // públicos
-                        .requestMatchers("/api/citas/**").permitAll() // Agrega esto en tu filterChain
-                        .requestMatchers("/api/public/**").permitAll()
-                        .requestMatchers("/api/public/**").permitAll()
+                        // 1. 🟢 RUTAS DE AUTENTICACIÓN Y DOCUMENTACIÓN
                         .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/api/ordenes").permitAll()
-                        .requestMatchers("/api/firmas").permitAll()
-                        .requestMatchers("/api/usuarios/**").permitAll()
-                        .requestMatchers("/api/otp/**").permitAll()
-                        .requestMatchers("/consultas/**").permitAll()
-                        .requestMatchers("/api/pdf/**").permitAll()
-                        .requestMatchers("/api/notificaciones/**").permitAll()
-                        .requestMatchers("/", "/index.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                        .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
 
-                        // 👇 servir archivos subidos (IMPORTANTE)
+                        // 2. 🟢 RUTAS DE ARCHIVOS (IMÁGENES)
+                        // Se permite acceso público aquí porque el SecureFileController valida el token manualmente.
                         .requestMatchers("/uploads/**").permitAll()
 
-                        // tus endpoints de prueba
-                        .requestMatchers("/api/ordenes/**").permitAll()
-                        .requestMatchers("/api/firmas/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/equipo/*/hardware/upload-xml").permitAll()
+                        // 3. 🟢 RUTAS PÚBLICAS PARA CONSULTA DE CLIENTES
+                        // Permite flujo de OTP, Captcha y ver estado de orden sin login de empleado.
+                        .requestMatchers("/api/public/consultas/**").permitAll()
+                        .requestMatchers("/api/public/otp/**").permitAll()
 
-                        // lo demás de /api necesita token
-                        .requestMatchers("/api/**").authenticated()
-
+                        // 4. 🔒 RUTAS PROTEGIDAS (Todo lo demás)
+                        // Requiere header "Authorization: Bearer <token>"
                         .anyRequest().authenticated()
-                )
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+                );
+
+        http.authenticationProvider(authenticationProvider());
+        http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
