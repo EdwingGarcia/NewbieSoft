@@ -1,8 +1,11 @@
-
 // components/consultas/api.ts
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
-export type OtpSendReq = { cedula: string; correo: string };
+export type OtpSendReq = {
+    cedula: string;
+    correo: string;
+    recaptchaToken?: string; // Agregado para soportar el Captcha
+};
 export type OtpSendRes = { ok: boolean; message?: string };
 
 export type OtpVerifyReq = { cedula: string; codigo: string };

@@ -1,7 +1,9 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef } from "react";
 import OTPModal from "./OTPModal";
 import "../consultas.css";
+// 1. Importar ReCAPTCHA
+import ReCAPTCHA from "react-google-recaptcha";
 
 import { ConsultasAPI, OrdenPublicaDto } from "./api";
 
@@ -19,11 +21,18 @@ export default function ConsultaForm() {
     const [resultadoProc, setResultadoProc] = useState<OrdenPublicaDto | null>(null);
     const [error, setError] = useState<string | null>(null);
 
+    // 2. Estado para el token del Captcha
+    const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+    // Referencia para resetear el captcha si falla la solicitud
+    const recaptchaRef = useRef<ReCAPTCHA>(null);
+
     const canSubmit = useMemo(() => {
         if (!cedula.trim() || !correo.trim()) return false;
         if (tipoConsulta === "procedimiento" && !procedimiento.trim()) return false;
+        // 3. Validar que exista el token del captcha para habilitar el botón
+        if (!captchaToken) return false;
         return true;
-    }, [cedula, correo, tipoConsulta, procedimiento]);
+    }, [cedula, correo, tipoConsulta, procedimiento, captchaToken]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -32,12 +41,27 @@ export default function ConsultaForm() {
         setResultadoProc(null);
         setConsultaToken(null);
 
+        // Validación extra de seguridad
+        if (!captchaToken) {
+            setError("Por favor, completa el captcha.");
+            return;
+        }
+
         setLoading(true);
         try {
-            await ConsultasAPI.sendOtp({ cedula: cedula.trim(), correo: correo.trim() });
+            // 4. Enviamos el token junto con la cédula y el correo
+            // Nota: Debes actualizar la definición de sendOtp en api.ts
+            await ConsultasAPI.sendOtp({
+                cedula: cedula.trim(),
+                correo: correo.trim(),
+                recaptchaToken: captchaToken
+            });
             setMostrarOTP(true);
         } catch (err: any) {
             setError(err?.message || "No se pudo solicitar el OTP.");
+            // Si falla, reseteamos el captcha para que el usuario intente de nuevo
+            setCaptchaToken(null);
+            recaptchaRef.current?.reset();
         } finally {
             setLoading(false);
         }
@@ -123,6 +147,16 @@ export default function ConsultaForm() {
                             placeholder="Ej: OT-00012"
                             disabled={tipoConsulta !== "procedimiento"}
                         />
+
+                        {/* 5. Componente visual del Captcha */}
+                        <div style={{ display: "flex", justifyContent: "center", margin: "20px 0" }}>
+                            <ReCAPTCHA
+                                ref={recaptchaRef}
+                                // Usa una variable de entorno o tu clave pública de pruebas
+                                sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || "6LeSskosAAAAAO8GxgSqZIeFblYsCPFbBkZBN9vs"}
+                                onChange={(token) => setCaptchaToken(token)}
+                            />
+                        </div>
 
                         <button type="submit" disabled={!canSubmit || loading}>
                             {loading ? "Enviando OTP..." : "Consultar"}
