@@ -1,39 +1,64 @@
 'use client';
 
 import { useRef, useState, useEffect } from 'react';
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation"; // ✅ Importamos useRouter
 
 export default function FirmaPage() {
-    const searchParams = useSearchParams();
-    const ordenId = searchParams.get("ordenId");
-    const modo = searchParams.get("modo");
+  const searchParams = useSearchParams();
+  const router = useRouter(); // ✅ Para redirigir si no hay token
+  const ordenId = searchParams.get("ordenId");
+  const modo = searchParams.get("modo");
 
-    const [orden, setOrden] = useState<any>(null);
-    const [loading, setLoading] = useState(true);
+  const [orden, setOrden] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-      if (!ordenId) return;
+  // 1. CARGAR DATOS (GET) CON TOKEN
+  useEffect(() => {
+    if (!ordenId) return;
 
-      const fetchData = async () => {
-        try {
-          const res = await fetch(`http://localhost:8080/api/ordenes/${ordenId}/detalle`);
-          if (!res.ok) throw new Error("No se pudo cargar la orden");
-          const data = await res.json();
-          setOrden(data);
-        } catch (err) {
-          console.error("ERROR CARGANDO ORDEN:", err);
-        } finally {
-          setLoading(false);
+    const fetchData = async () => {
+      // ✅ Recuperar token
+      const token = localStorage.getItem("token");
+
+      // Si no hay token, redirigir al login (opcional pero recomendado)
+      if (!token) {
+        alert("No tienes sesión iniciada.");
+        // router.push("/login"); // Descomenta esto si tienes ruta de login
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const res = await fetch(`http://localhost:8080/api/ordenes/${ordenId}/detalle`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}` // ✅ HEADER AGREGADO
+          }
+        });
+
+        if (!res.ok) {
+          if (res.status === 401) throw new Error("Sesión expirada o inválida");
+          throw new Error("No se pudo cargar la orden");
         }
-      };
 
-      fetchData();
-    }, [ordenId]);
+        const data = await res.json();
+        setOrden(data);
+      } catch (err: any) {
+        console.error("ERROR CARGANDO ORDEN:", err);
+        alert(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [ordenId, router]);
 
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
-  const [acuerdo, setAcuerdo] = useState(true);
+  // const [acuerdo, setAcuerdo] = useState(true); // (Variable no usada en tu render, la comento para limpiar warnings)
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -82,8 +107,15 @@ export default function FirmaPage() {
     if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
   };
 
+  // 2. ENVIAR FIRMA (POST) CON TOKEN
   const handleSubmit = async () => {
     if (!orden) return;
+
+    const token = localStorage.getItem("token"); // ✅ Recuperar token nuevamente
+    if (!token) {
+      alert("Tu sesión ha expirado. Por favor inicia sesión nuevamente.");
+      return;
+    }
 
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -102,7 +134,10 @@ export default function FirmaPage() {
     try {
       const response = await fetch("http://localhost:8080/api/firmas/confirmacion", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}` // ✅ HEADER AGREGADO
+        },
         body: JSON.stringify(payload)
       });
 
@@ -116,10 +151,12 @@ export default function FirmaPage() {
       link.click();
 
       alert("✅ Firma registrada y PDF generado correctamente");
-      window.location.href = "/dashboard"; // 👈 Redirección al dashboard
+
+      // Usamos router.push en lugar de window.location para navegación SPA más suave
+      router.push("/dashboard");
     } catch (err) {
       console.error(err);
-      alert("❌ Error al procesar la firma.");
+      alert("❌ Error al procesar la firma. Revisa la consola.");
     }
   };
 
@@ -128,8 +165,8 @@ export default function FirmaPage() {
   }
 
   if (!orden) {
-      console.log("ORDEN CARGADA:", orden);
-    return <div className="p-6 text-center text-red-600">No se encontró la orden.</div>;
+    console.log("ORDEN NULL");
+    return <div className="p-6 text-center text-red-600">No se pudo cargar la información de la orden o no tienes permisos.</div>;
   }
 
   return (
@@ -142,7 +179,6 @@ export default function FirmaPage() {
 
         <div className="mt-4">
           <label className="block mb-2">¿Está de acuerdo con el procedimiento propuesto?</label>
-
         </div>
 
         <div className="mt-4">
@@ -151,7 +187,7 @@ export default function FirmaPage() {
             ref={canvasRef}
             width={350}
             height={150}
-            className="border border-gray-400 bg-white rounded-md shadow-sm mx-auto"
+            className="border border-gray-400 bg-white rounded-md shadow-sm mx-auto touch-none" // Agregué touch-none para evitar scroll al firmar en móviles
             onMouseDown={startDrawing}
             onMouseMove={draw}
             onMouseUp={stopDrawing}
