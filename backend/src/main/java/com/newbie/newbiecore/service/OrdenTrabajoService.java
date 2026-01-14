@@ -14,6 +14,8 @@ import com.newbie.newbiecore.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.core.Authentication;
+
 
 @Service
 @RequiredArgsConstructor
@@ -28,17 +30,29 @@ public class OrdenTrabajoService {
        CREAR ORDEN (INGRESO)
        ============================= */
     @Transactional
-    public OrdenTrabajoIngresoDto crearOrden(CrearOrdenTrabajoRequest request) {
+    public OrdenTrabajoIngresoDto crearOrden(CrearOrdenTrabajoRequest request, Authentication auth) {
 
         System.out.println("clienteCedula = " + request.getClienteCedula());
         System.out.println("tecnicoCedula = " + request.getTecnicoCedula());
         System.out.println("equipoId      = " + request.getEquipoId());
 
-        var cliente = usuarioRepository.findById(request.getClienteCedula())
-                .orElseThrow(() -> new RuntimeException("Cliente no encontrado"));
+        var usuarioAuth = usuarioRepository.findByCorreo(auth.getName())
+        .orElseThrow(() -> new RuntimeException("Usuario autenticado no encontrado"));
 
-        var tecnico = usuarioRepository.findById(request.getTecnicoCedula())
-                .orElseThrow(() -> new RuntimeException("Técnico no encontrado"));
+        boolean esTecnico = usuarioAuth.getRol() != null
+                && "ROLE_TECNICO".equals(usuarioAuth.getRol().getNombre());
+
+        Usuario tecnico;
+
+        if (esTecnico) {
+            tecnico = usuarioAuth; // 👈 auto-asignado
+        } else {
+            tecnico = usuarioRepository.findById(request.getTecnicoCedula())
+                    .orElseThrow(() -> new RuntimeException("Técnico no encontrado"));
+        }
+
+        Usuario cliente = usuarioRepository.findById(request.getClienteCedula())
+                .orElseThrow(() -> new RuntimeException("Cliente no encontrado"));
 
         var equipo = equipoRepository.findById(request.getEquipoId())
                 .orElseThrow(() -> new RuntimeException("Equipo no encontrado"));
@@ -262,10 +276,23 @@ public class OrdenTrabajoService {
        ============================= */
 
     @Transactional(readOnly = true)
-    public OrdenTrabajoDetalleDto obtenerDetalle(Long ordenId) {
+    public OrdenTrabajoDetalleDto obtenerDetalle(Long ordenId, Authentication auth) {
+    
         var orden = ordenTrabajoRepository.findById(ordenId)
                 .orElseThrow(() -> new RuntimeException("Orden no encontrada"));
 
+        var usuarioAuth = usuarioRepository.findByCorreo(auth.getName())
+        .orElseThrow(() -> new RuntimeException("Usuario autenticado no encontrado"));
+
+        boolean esTecnico = usuarioAuth.getRol() != null
+                && "ROLE_TECNICO".equals(usuarioAuth.getRol().getNombre());
+
+        if (esTecnico) {
+            if (orden.getTecnicoAsignado() == null ||
+                !orden.getTecnicoAsignado().getCedula().equals(usuarioAuth.getCedula())) {
+                throw new RuntimeException("No tienes acceso a esta orden de trabajo");
+            }
+        }
         var cliente = orden.getCliente();
         var tecnico = orden.getTecnicoAsignado();
         var equipo  = orden.getEquipo();
@@ -437,4 +464,25 @@ public class OrdenTrabajoService {
                 imagenes
         );
     }
+
+    @Transactional(readOnly = true)
+    public List<OrdenTrabajoListaDto> listarOrdenesPorTecnico(String cedulaTecnico) {
+        return ordenTrabajoRepository
+                .findByTecnicoAsignado_CedulaOrderByFechaHoraIngresoDesc(cedulaTecnico)
+                .stream()
+                .map(this::mapToListaDto)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<OrdenTrabajoListaDto> listarMisOrdenes(Authentication auth) {
+
+        var usuarioAuth = usuarioRepository.findByCorreo(auth.getName())
+            .orElseThrow(() -> new RuntimeException("Usuario autenticado no encontrado"));
+
+        String cedulaTecnico = usuarioAuth.getCedula();
+
+        return listarOrdenesPorTecnico(cedulaTecnico);
+    }
+
 }

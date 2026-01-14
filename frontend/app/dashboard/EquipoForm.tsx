@@ -26,11 +26,9 @@ export default function EquipoForm({ onClose }: Props): JSX.Element {
     const [loading, setLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
 
-    /** 🧠 Obtener token JWT del localStorage */
     const token: string | null =
         typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
-    /** 🧱 Crear equipo con Bearer token */
     const crearEquipo = useCallback(async () => {
         if (!token) {
             setError("Token no encontrado. Inicie sesión nuevamente.");

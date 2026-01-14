@@ -8,6 +8,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.security.core.Authentication;
+
 
 import java.io.IOException;
 import java.util.List;
@@ -24,10 +26,11 @@ public class OrdenTrabajoController {
        CREAR ORDEN DE TRABAJO (INGRESO)
        ============================================================= */
     @PostMapping
-    public ResponseEntity<OrdenTrabajoIngresoDto> crear(
-            @RequestBody CrearOrdenTrabajoRequest request
+    public ResponseEntity<OrdenTrabajoIngresoDto> crear (
+            @RequestBody CrearOrdenTrabajoRequest request,
+            Authentication auth
     ) {
-        var dto = ordenTrabajoService.crearOrden(request);
+        var dto = ordenTrabajoService.crearOrden(request, auth);
         return ResponseEntity.ok(dto);
         // Si quieres CREATED (201):
         // return ResponseEntity.status(HttpStatus.CREATED).body(dto);
@@ -58,8 +61,8 @@ public class OrdenTrabajoController {
        OBTENER DETALLE COMPLETO (INGRESO + ENTREGA + EQUIPO + FICHA + META)
        ============================================================= */
     @GetMapping("/{id}/detalle")
-    public ResponseEntity<OrdenTrabajoDetalleDto> obtenerDetalle(@PathVariable Long id) {
-        var dto = ordenTrabajoService.obtenerDetalle(id);
+    public ResponseEntity<OrdenTrabajoDetalleDto> obtenerDetalle(@PathVariable Long id, Authentication auth) {
+        var dto = ordenTrabajoService.obtenerDetalle(id, auth);
         return ResponseEntity.ok(dto);
     }
 
@@ -105,4 +108,11 @@ public class OrdenTrabajoController {
 
         return ResponseEntity.ok(imagenes);
     }
+
+    @GetMapping("/mis-ordenes")
+    public ResponseEntity<List<OrdenTrabajoListaDto>> listarMisOrdenes(Authentication auth) {
+        var lista = ordenTrabajoService.listarMisOrdenes(auth);
+        return ResponseEntity.ok(lista);
+    }
+
 }

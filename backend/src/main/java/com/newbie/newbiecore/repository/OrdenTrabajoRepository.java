@@ -32,5 +32,6 @@ public interface OrdenTrabajoRepository extends JpaRepository<OrdenTrabajo, Long
     List<TecnicoDashboardDto> findResumenTecnicos();
     List<OrdenTrabajo> findByCliente_CedulaOrderByFechaHoraIngresoDesc(String cedula);
     Optional<OrdenTrabajo> findByNumeroOrdenAndCliente_Cedula(String numeroOrden, String cedula);
+    List<OrdenTrabajo> findByTecnicoAsignado_CedulaOrderByFechaHoraIngresoDesc(String cedula);
 
 }
