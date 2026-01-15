@@ -31,7 +31,7 @@ public class FirmaController {
     @PostMapping("/confirmacion")
     public ResponseEntity<byte[]> confirmarFirma(@RequestBody FirmaRequest request) {
         try {
-            // 1. Guardar la imagen de la firma en disco (Lógica existente...)
+            // 1. Guardar la imagen de la firma (Opcional)
             String firmaBase64Clean = null;
             if (request.firma != null && request.firma.contains(",")) {
                 firmaBase64Clean = request.firma.split(",")[1];
@@ -42,38 +42,43 @@ public class FirmaController {
             if (firmaBase64Clean != null && request.numeroOrden != null) {
                 try {
                     byte[] firmaBytes = Base64.getDecoder().decode(firmaBase64Clean);
-                    String carpetaOT = baseUploadDir + "/ot-" + request.numeroOrden;
+
+                    // CAMBIO AQUÍ: Se quitó el "ot-"
+                    String carpetaOT = baseUploadDir + "/" + request.numeroOrden;
+
                     Path carpetaDocumentos = Path.of(carpetaOT, "documentos");
                     Files.createDirectories(carpetaDocumentos);
-
-                    Path firmaPath = carpetaDocumentos.resolve("firma_cliente_" + request.ordenId + ".png");
-                    Files.write(firmaPath, firmaBytes, StandardOpenOption.CREATE);
                 } catch (Exception e) {
-                    System.err.println("Advertencia: No se pudo guardar respaldo de firma: " + e.getMessage());
+                    System.err.println("Advertencia: No se pudo guardar la imagen de la firma: " + e.getMessage());
                 }
             }
 
-            // 2. Generar el HTML (Ahora profesional)
+            // 2. Generar el HTML
             String html = generarHtmlConfirmacion(request);
 
             // 3. Convertir HTML a PDF
             byte[] pdfBytes = htmlToPdf(html);
 
-            // 4. Guardar copia del PDF (Lógica existente...)
+            // 4. Guardar el PDF en la carpeta del servidor
             if (request.numeroOrden != null) {
                 try {
-                    String carpetaOT = baseUploadDir + "/ot-" + request.numeroOrden;
+                    // CAMBIO AQUÍ: Se asegura que no tenga "ot-"
+                    String carpetaOT = baseUploadDir + "/" + request.numeroOrden;
+
                     Path carpetaDocumentos = Path.of(carpetaOT, "documentos");
                     Files.createDirectories(carpetaDocumentos);
+
                     Path pdfPath = carpetaDocumentos.resolve("FirmaConfirmación" + request.ordenId + ".pdf");
-                    Files.write(pdfPath, pdfBytes, StandardOpenOption.CREATE);
+                    Files.write(pdfPath, pdfBytes, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+
                 } catch (Exception e) {
-                    System.err.println("Advertencia: No se pudo guardar copia del PDF: " + e.getMessage());
+                    System.err.println("Advertencia: No se pudo guardar el PDF en disco: " + e.getMessage());
                 }
             }
 
+            // 5. Devolver para descarga en el navegador
             return ResponseEntity.ok()
-                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=Confirmacion_Firma.pdf")
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=Confirmacion_Firma_" + request.ordenId + ".pdf")
                     .contentType(MediaType.APPLICATION_PDF)
                     .body(pdfBytes);
 

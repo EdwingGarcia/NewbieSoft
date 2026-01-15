@@ -18,11 +18,10 @@ public class FichaTecnicaDTO {
     private Long id;
     private Instant fechaCreacion;
     private String observaciones;
-
     private Long equipoId;
     private Long ordenTrabajoId;
     private String tecnicoId;
-
+    private String numeroOrden;
     /* ============== CAMPOS AUTOCOMPLETADOS HW =============== */
 
     // Red / BIOS / Sistema
