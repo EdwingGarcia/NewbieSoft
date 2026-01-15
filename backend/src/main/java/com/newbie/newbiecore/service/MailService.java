@@ -1,8 +1,14 @@
 package com.newbie.newbiecore.service;
 
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.MimeMessage;
+import org.springframework.core.io.FileSystemResource;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
+
+import java.io.File;
 
 @Service
 public class MailService {
@@ -14,7 +20,7 @@ public class MailService {
     }
 
     // ===========================================
-    // MÉTODO GENERAL (usado en varios módulos)
+    // MÉTODO GENERAL
     // ===========================================
     public void sendEmail(String to, String subject, String body) {
         SimpleMailMessage mensaje = new SimpleMailMessage();
@@ -25,7 +31,7 @@ public class MailService {
     }
 
     // ===========================================
-    // OTP (método que usa OtpService)
+    // OTP
     // ===========================================
     public void enviarOtp(String correoDestino, String codigoOtp) {
         SimpleMailMessage msg = new SimpleMailMessage();
@@ -36,14 +42,35 @@ public class MailService {
     }
 
     // ===========================================
-    // PRUEBA DE CORREO (usado en TestEmailController)
+    // NUEVO MÉTODO: Enviar UN archivo adjunto (el ZIP)
     // ===========================================
-    public String enviarCorreoPrueba(String correoDestino) {
-        SimpleMailMessage msg = new SimpleMailMessage();
-        msg.setTo(correoDestino);
-        msg.setSubject("Correo de prueba");
-        msg.setText("Este es un mensaje de prueba desde el backend de NewbieSoft.");
-        mailSender.send(msg);
-        return "Correo de prueba enviado a " + correoDestino;
+    public void sendEmailWithAttachment(String to, String subject, String body, String filePath) {
+        try {
+            System.out.println("Intentando enviar correo con archivo: " + filePath);
+            File file = new File(filePath);
+
+            if (!file.exists()) {
+                System.out.println("ERROR: El archivo a adjuntar no existe: " + filePath);
+                return; // O lanzar excepción
+            }
+
+            MimeMessage message = mailSender.createMimeMessage();
+            // true = multipart (para adjuntos)
+            MimeMessageHelper helper = new MimeMessageHelper(message, true);
+
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(body);
+
+            FileSystemResource fileResource = new FileSystemResource(file);
+            helper.addAttachment(file.getName(), fileResource);
+
+            mailSender.send(message);
+            System.out.println("Correo enviado con adjunto ZIP a: " + to);
+
+        } catch (MessagingException e) {
+            e.printStackTrace();
+            throw new RuntimeException("Error al enviar correo con adjunto: " + e.getMessage());
+        }
     }
 }

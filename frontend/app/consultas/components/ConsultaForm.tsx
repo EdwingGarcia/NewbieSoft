@@ -210,11 +210,7 @@ export default function ConsultaForm() {
                             </div>
                         )}
 
-                        {consultaToken && (
-                            <div className="token-hint">
-                                Token activo (demo): <code>{consultaToken.slice(0, 10)}...</code>
-                            </div>
-                        )}
+
                     </div>
                 </div>
             </div>
