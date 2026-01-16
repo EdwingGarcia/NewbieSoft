@@ -13,10 +13,12 @@ import {
     Plus,
     User,
     History,
+    Search,
+    Filter, // Icono decorativo
+    Calendar, // Icono para fechas
 } from "lucide-react";
 
 import ModalNotificacion from "../components/ModalNotificacion";
-// 👇 IMPORTANTE: Importamos el componente de imagen segura
 import SecureImage from "../components/SecureImage";
 
 import { Button } from "@/components/ui/button";
@@ -124,7 +126,7 @@ interface CrearOrdenPayload {
     accesorios: string;
     problemaReportado: string;
     observacionesIngreso: string;
-    tipoServicio: string; // ✅ servicio real
+    tipoServicio: string;
     prioridad: string;
 }
 
@@ -154,7 +156,6 @@ interface FichaTecnicaResumenDTO {
     observaciones?: string | null;
 }
 
-/** Detalle (deja abierto para que no truene si tu backend trae más/menos campos) */
 interface FichaTecnicaDetalleDTO {
     id: number;
     fechaCreacion?: string;
@@ -201,7 +202,6 @@ const ListaFichasPorCliente: React.FC<{
                     signal: controller.signal,
                 });
 
-                // 204/404 = sin historial
                 if (res.status === 204 || res.status === 404) {
                     setFichas([]);
                     return;
@@ -231,7 +231,7 @@ const ListaFichasPorCliente: React.FC<{
 
                 setFichas(ordenada);
             } catch (err: any) {
-                if (err?.name === "AbortError") return; // petición cancelada (normal)
+                if (err?.name === "AbortError") return;
                 console.error(err);
                 setFichas([]);
             } finally {
@@ -342,7 +342,6 @@ const mapEstadoToPaso = (estado: string | null): Paso => {
     return 1;
 };
 
-// ✅ Fuente de verdad del flujo (paso -> estado)
 const pasoToEstado = (p: Paso): string => {
     if (p === 1) return "INGRESO";
     if (p === 2) return "EN_DIAGNOSTICO";
@@ -695,7 +694,7 @@ export default function OrdenesTrabajoPage() {
         accesorios: "",
         problemaReportado: "",
         observacionesIngreso: "",
-        tipoServicio: "DIAGNOSTICO", // ✅ servicio real
+        tipoServicio: "DIAGNOSTICO",
         prioridad: "MEDIA",
     });
 
@@ -705,14 +704,20 @@ export default function OrdenesTrabajoPage() {
     const [historialOtId, setHistorialOtId] = useState<number | null>(null);
     const [historialEquipoId, setHistorialEquipoId] = useState<number | null>(null);
 
-    // === MODAL DETALLE FICHA (✅ ahora en modal, NO pantalla aparte) ===
+    // === MODAL DETALLE FICHA ===
     const [showFichaDetalle, setShowFichaDetalle] = useState(false);
     const [fichaLoading, setFichaLoading] = useState(false);
     const [fichaError, setFichaError] = useState<string | null>(null);
     const [fichaDetalle, setFichaDetalle] = useState<FichaTecnicaDetalleDTO | null>(null);
 
-    // cuando vienes del listado por cliente, guardamos el id para abrir ese detalle
     const [fichaDetalleId, setFichaDetalleId] = useState<number | null>(null);
+
+    // === BUSCADOR Y FILTROS ===
+    const [searchTerm, setSearchTerm] = useState("");
+
+    // ✅ Rango de fechas
+    const [dateStart, setDateStart] = useState("");
+    const [dateEnd, setDateEnd] = useState("");
 
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
@@ -735,6 +740,52 @@ export default function OrdenesTrabajoPage() {
         [costoManoObra, costoRepuestos, costoOtros, descuento]
     );
     const totalCalculado = useMemo(() => subtotalCalculado + iva, [subtotalCalculado, iva]);
+
+    /* =========================
+       ✅ LOGICA DE FILTRADO (Texto + Rango Fechas)
+       ========================= */
+    const normalizeText = (text: string | null | undefined) => {
+        if (!text) return "";
+        return text
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "");
+    };
+
+    const ordenesFiltradas = useMemo(() => {
+        const term = normalizeText(searchTerm);
+
+        return ordenes.filter((ot) => {
+            // 1. Filtro Texto
+            const matchesText =
+                !term ||
+                normalizeText(ot.numeroOrden).includes(term) ||
+                normalizeText(ot.equipoModelo).includes(term) ||
+                normalizeText(ot.equipoHostname).includes(term) ||
+                normalizeText(ot.clienteNombre).includes(term) ||
+                normalizeText(ot.clienteCedula).includes(term) ||
+                normalizeText(ot.tecnicoNombre).includes(term) ||
+                normalizeText(ot.tecnicoCedula).includes(term) ||
+                normalizeText(ot.problemaReportado).includes(term);
+
+            // 2. Filtro Rango de Fechas
+            let matchDate = true;
+            if (dateStart || dateEnd) {
+                // Obtener fecha de la orden (sin hora para comparar días)
+                const d = new Date(ot.fechaHoraIngreso);
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, "0");
+                const day = String(d.getDate()).padStart(2, "0");
+                const otYMD = `${year}-${month}-${day}`; // Formato YYYY-MM-DD
+
+                // Comparar strings ISO (YYYY-MM-DD funciona alfabéticamente)
+                if (dateStart && otYMD < dateStart) matchDate = false;
+                if (dateEnd && otYMD > dateEnd) matchDate = false;
+            }
+
+            return matchesText && matchDate;
+        });
+    }, [ordenes, searchTerm, dateStart, dateEnd]);
 
     /* ===== GET lista ===== */
     const fetchOrdenes = useCallback(async () => {
@@ -802,11 +853,8 @@ export default function OrdenesTrabajoPage() {
         setTipoServicioEdit(data.tipoServicio ?? "DIAGNOSTICO");
         setPrioridadEdit(data.prioridad ?? "MEDIA");
 
-        // ✅ 1) Determinamos paso por estado
         const p = mapEstadoToPaso(data.estado ?? "INGRESO");
         setPasoActivo(p);
-
-        // ✅ 2) EstadoEdit siempre alineado al flujo
         setEstadoEdit(pasoToEstado(p));
 
         setDiagEdit(data.diagnosticoTrabajo ?? "");
@@ -868,7 +916,7 @@ export default function OrdenesTrabajoPage() {
         }
     };
 
-    /* ===== Navegación pasos (✅ ahora sincroniza estadoEdit) ===== */
+    /* ===== Navegación pasos ===== */
     const irSiguientePaso = () =>
         setPasoActivo((prev) => {
             const next = prev < 4 ? ((prev + 1) as Paso) : prev;
@@ -891,7 +939,6 @@ export default function OrdenesTrabajoPage() {
             return;
         }
 
-        // ✅ Estado siempre deriva del paso (evita desync)
         const estadoFlujo = pasoToEstado(pasoActivo);
 
         const payload = {
@@ -1086,9 +1133,8 @@ export default function OrdenesTrabajoPage() {
     };
 
     /* =========================================================
-       ✅ FICHAS TÉCNICAS EN MODAL (NO pantalla aparte)
-       - Mantiene la firma requerida:
-         /* ===== Navegar a Fichas Técnicas (sigue disponible si lo usas en otro lado) ===== */
+       ✅ FICHAS TÉCNICAS EN MODAL
+    */
 
     const closeFichaDetalle = () => {
         setShowFichaDetalle(false);
@@ -1114,7 +1160,6 @@ export default function OrdenesTrabajoPage() {
                 if (res.status === 404) continue;
 
                 if (!res.ok) {
-                    // intenta el siguiente endpoint por compatibilidad
                     lastErr = new Error(`HTTP ${res.status} (${url})`);
                     continue;
                 }
@@ -1133,8 +1178,6 @@ export default function OrdenesTrabajoPage() {
 
     const normalizeToFicha = (raw: any): FichaTecnicaDetalleDTO | null => {
         if (!raw) return null;
-
-        // si el backend devuelve lista, agarramos la más reciente por fechaCreacion
         if (Array.isArray(raw)) {
             if (raw.length === 0) return null;
             const sorted = raw
@@ -1146,14 +1189,10 @@ export default function OrdenesTrabajoPage() {
                 });
             return sorted[0] as FichaTecnicaDetalleDTO;
         }
-
-        // si viene envuelto
         if (raw?.data && (raw.data.id || Array.isArray(raw.data))) return normalizeToFicha(raw.data);
-
         return raw as FichaTecnicaDetalleDTO;
     };
 
-    /* ===== Navegar a Fichas Técnicas (sigue disponible si lo usas en otro lado) ===== */
     const irAFichaTecnica = async (ordenId: number, equipoId: number) => {
         if (!token) {
             alert("No hay token de autenticación");
@@ -1166,7 +1205,6 @@ export default function OrdenesTrabajoPage() {
         setFichaDetalle(null);
 
         try {
-            // Si seleccionaste una ficha específica desde el historial por cliente, se usa ese id:
             if (fichaDetalleId) {
                 const raw = await tryFetchJson([`${FICHAS_API_BASE}/${fichaDetalleId}`], token);
                 if ((raw as any)?.__notFound) {
@@ -1177,7 +1215,6 @@ export default function OrdenesTrabajoPage() {
                 return;
             }
 
-            // Si NO hay id específico, intentamos obtener la ficha por ordenId/equipoId (compatibilidad con varios endpoints)
             const candidates = [
                 `${FICHAS_API_BASE}/orden/${ordenId}/equipo/${equipoId}`,
                 `${FICHAS_API_BASE}/ordenTrabajo/${ordenId}/equipo/${equipoId}`,
@@ -1264,7 +1301,7 @@ export default function OrdenesTrabajoPage() {
             accesorios: formCrear.accesorios.trim(),
             problemaReportado: formCrear.problemaReportado.trim(),
             observacionesIngreso: formCrear.observacionesIngreso.trim(),
-            tipoServicio: formCrear.tipoServicio, // ✅ correcto
+            tipoServicio: formCrear.tipoServicio,
             prioridad: formCrear.prioridad,
         };
 
@@ -1307,33 +1344,80 @@ export default function OrdenesTrabajoPage() {
             alert("No se pudo determinar OT/equipo para crear ficha desde aquí.");
             return;
         }
-        // ✅ Ajusta a tu ruta real de página (evita /api en Next para UI)
         router.push(`/fichas/nueva?ordenTrabajoId=${historialOtId}&equipoId=${historialEquipoId}`);
     };
 
     /* =========================
-        RENDER
+       RENDER
     ========================= */
     return (
         <div className="min-h-screen bg-slate-50 px-4 py-6 lg:px-8">
             <div className="mx-auto max-w-7xl space-y-6">
-                {/* HEADER */}
-                <div className="flex flex-col gap-3 rounded-md border border-slate-200 bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+
+                {/* ✅ HEADER CON BUSCADOR Y RANGO DE FECHAS */}
+                <div className="flex flex-col gap-4 rounded-md border border-slate-200 bg-white px-4 py-3 shadow-sm md:flex-row md:items-center md:justify-between">
                     <div>
-                        <h1 className="text-xl font-semibold tracking-tight text-slate-900">Órdenes de Trabajo</h1>
+                        <h1 className="text-xl font-semibold tracking-tight text-slate-900">
+                            Órdenes de Trabajo
+                        </h1>
                         <p className="mt-1 text-sm text-slate-500">
-                            Gestiona los ingresos, diagnósticos, costos y cierres de cada equipo.
+                            Gestiona los ingresos, diagnósticos y entregas.
                         </p>
                     </div>
 
-                    <Button
-                        size="sm"
-                        className="flex items-center gap-2 bg-slate-900 text-slate-50 hover:bg-slate-800"
-                        onClick={() => setShowCrear((prev) => !prev)}
-                    >
-                        <Plus className="h-4 w-4" />
-                        {showCrear ? "Cerrar formulario" : "Nueva OT"}
-                    </Button>
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+
+                        {/* Buscador Texto */}
+                        <div className="relative min-w-[220px]">
+                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+                            <Input
+                                placeholder="Buscar OT, cliente, equipo..."
+                                className="h-9 w-full pl-9 text-sm bg-slate-50 border-slate-200 focus-visible:ring-slate-400"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                            {searchTerm && (
+                                <button
+                                    onClick={() => setSearchTerm("")}
+                                    className="absolute right-2 top-2.5 text-slate-400 hover:text-slate-600"
+                                >
+                                    <X className="h-4 w-4" />
+                                </button>
+                            )}
+                        </div>
+
+                        {/* ✅ Filtro Rango de Fechas */}
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                            <div className="relative flex items-center gap-1">
+                                <span className="text-xs text-slate-500 font-medium">Desde:</span>
+                                <Input
+                                    type="date"
+                                    className="h-9 w-36 text-sm bg-slate-50 border-slate-200"
+                                    value={dateStart}
+                                    onChange={(e) => setDateStart(e.target.value)}
+                                />
+                            </div>
+
+                            <div className="relative flex items-center gap-1">
+                                <span className="text-xs text-slate-500 font-medium">Hasta:</span>
+                                <Input
+                                    type="date"
+                                    className="h-9 w-36 text-sm bg-slate-50 border-slate-200"
+                                    value={dateEnd}
+                                    onChange={(e) => setDateEnd(e.target.value)}
+                                />
+                            </div>
+                        </div>
+
+                        <Button
+                            size="sm"
+                            className="flex items-center gap-2 bg-slate-900 text-slate-50 hover:bg-slate-800 whitespace-nowrap"
+                            onClick={() => setShowCrear((prev) => !prev)}
+                        >
+                            <Plus className="h-4 w-4" />
+                            {showCrear ? "Cerrar form" : "Nueva OT"}
+                        </Button>
+                    </div>
                 </div>
 
                 {/* FORM CREAR */}
@@ -1406,7 +1490,6 @@ export default function OrdenesTrabajoPage() {
                                     />
                                 </div>
 
-                                {/* ✅ CORREGIDO: tipoServicio real */}
                                 <div className="space-y-1.5">
                                     <label className="text-xs font-medium text-slate-700">Tipo de servicio *</label>
                                     <Select
@@ -1528,18 +1611,37 @@ export default function OrdenesTrabajoPage() {
                     </div>
                 )}
 
-                {/* LISTA */}
+                {/* ✅ LISTA FILTRADA */}
                 {loading ? (
                     <div className="flex justify-center py-10">
                         <Loader2 className="h-6 w-6 animate-spin text-slate-500" />
                     </div>
-                ) : ordenes.length === 0 ? (
-                    <div className="rounded-md border border-dashed border-slate-300 bg-slate-100 px-4 py-8 text-center text-sm text-slate-500">
-                        No hay órdenes de trabajo registradas.
+                ) : ordenesFiltradas.length === 0 ? (
+                    <div className="rounded-md border border-dashed border-slate-300 bg-slate-100 px-4 py-12 text-center">
+                        <Search className="mx-auto h-8 w-8 text-slate-400 mb-2" />
+                        <p className="text-sm font-medium text-slate-900">No se encontraron órdenes</p>
+                        <p className="text-xs text-slate-500">
+                            {(searchTerm || dateStart || dateEnd)
+                                ? `No hay resultados para tus filtros.`
+                                : "No hay órdenes registradas en el sistema."}
+                        </p>
+                        {(searchTerm || dateStart || dateEnd) && (
+                            <Button
+                                variant="link"
+                                className="mt-2 h-auto p-0 text-xs text-indigo-600"
+                                onClick={() => {
+                                    setSearchTerm("");
+                                    setDateStart("");
+                                    setDateEnd("");
+                                }}
+                            >
+                                Limpiar filtros
+                            </Button>
+                        )}
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                        {ordenes.map((ot) => (
+                        {ordenesFiltradas.map((ot) => (
                             <Card
                                 key={ot.id}
                                 onDoubleClick={() => abrirDetalle(ot.id)}
@@ -1693,7 +1795,6 @@ export default function OrdenesTrabajoPage() {
                                             </SelectContent>
                                         </Select>
 
-                                        {/* ✅ EstadoSelect también mantiene pasoActivo */}
                                         <Select
                                             value={estadoEdit}
                                             onValueChange={(value) => {
@@ -2143,7 +2244,6 @@ export default function OrdenesTrabajoPage() {
                                                                                             className="group relative h-24 w-28 overflow-hidden rounded-lg border border-slate-200 bg-slate-100 cursor-pointer"
                                                                                             onClick={() => setSelectedImg(img.ruta)}
                                                                                         >
-                                                                                            {/* 👇 USAMOS SecureImage AQUÍ */}
                                                                                             <SecureImage
                                                                                                 src={img.ruta}
                                                                                                 alt={img.descripcion || "Imagen OT"}
@@ -2211,14 +2311,12 @@ export default function OrdenesTrabajoPage() {
                                                     </div>
                                                 </div>
 
-                                                {/* ✅ Botón rápido: ver ficha técnica (por OT/equipo) en modal */}
                                                 <div className="flex justify-end">
                                                     <Button
                                                         variant="outline"
                                                         size="sm"
                                                         className="h-9 border-slate-300 text-[11px]"
                                                         onClick={() => {
-                                                            // abre ficha por orden/equipo sin seleccionar una ficha específica
                                                             setFichaDetalleId(null);
                                                             irAFichaTecnica(detalle.ordenId, detalle.equipoId);
                                                         }}
@@ -2279,7 +2377,6 @@ export default function OrdenesTrabajoPage() {
                                             <X className="h-4 w-4" />
                                         </button>
 
-                                        {/* 👇 USAMOS SecureImage TAMBIÉN EN EL MODAL DE VISTA PREVIA */}
                                         <SecureImage
                                             src={selectedImg}
                                             alt="Vista ampliada"
@@ -2317,7 +2414,7 @@ export default function OrdenesTrabajoPage() {
                     onCrearNuevaFicha={historialOtId && historialEquipoId ? onCrearNuevaFichaDesdeHistorial : undefined}
                 />
 
-                {/* ✅ Modal detalle ficha técnica */}
+                {/* Modal detalle ficha técnica */}
                 <FichaTecnicaDetalleModal
                     open={showFichaDetalle}
                     onClose={closeFichaDetalle}

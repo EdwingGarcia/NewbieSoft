@@ -279,7 +279,7 @@ export default function GestionUsuario(): JSX.Element {
                         <div>
                             <CardTitle className="text-lg">Usuarios registrados</CardTitle>
                             <CardDescription>
-                                Datos provenientes de <code>/api/usuarios</code>
+
                             </CardDescription>
                         </div>
                         <div className="relative w-64">
