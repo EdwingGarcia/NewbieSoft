@@ -139,7 +139,8 @@ jobs:
           echo "Iniciando despliegue de observabilidad..."
           # En un entorno real, esto se ejecutaría via SSH en el servidor de producción
           # Aquí validamos que la configuración sea correcta levantándolo en el runner
-          docker-compose up -d
+          # IMPORTANTE: Usamos 'docker compose' (v2) en lugar de 'docker-compose' (v1 deprecated)
+          docker compose up -d
           
           echo "Verificando estado de los contenedores..."
           docker ps
