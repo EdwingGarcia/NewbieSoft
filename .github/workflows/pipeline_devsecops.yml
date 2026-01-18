@@ -8,8 +8,8 @@ on:
 
 env:
   DOCKER_IMAGE_NAME: newbiesoft-backend
-  # Force UTF-8 encoding to avoid MalformedInputException in Maven resources plugin
-  MAVEN_OPTS: "-Dfile.encoding=UTF-8"
+  # Se cambia a ISO-8859-1 para evitar el error MalformedInputException si el archivo properties tiene tildes/caracteres especiales
+  MAVEN_OPTS: "-Dfile.encoding=ISO-8859-1"
   LANG: "C.UTF-8"
   
 jobs:
@@ -37,8 +37,8 @@ jobs:
       - name: Construir Backend con Maven
         run: |
           cd backend
-          # Added -Dfile.encoding=UTF-8 explicitly to the command as well
-          ./mvnw clean package -DskipTests -Dfile.encoding=UTF-8
+          # Se fuerza la codificación ISO-8859-1 para evitar errores de filtrado de recursos
+          ./mvnw clean package -DskipTests -Dproject.build.sourceEncoding=ISO-8859-1
 
       # --- FRONTEND (Next.js) ---
       - name: Configurar Node.js
@@ -100,7 +100,8 @@ jobs:
         run: |
           chmod +x backend/mvnw
           cd backend
-          ./mvnw clean package -DskipTests -Dfile.encoding=UTF-8
+          # Se fuerza la codificación ISO-8859-1 para evitar errores de filtrado de recursos
+          ./mvnw clean package -DskipTests -Dproject.build.sourceEncoding=ISO-8859-1
 
       - name: Construir imagen Docker (Backend)
         run: |
