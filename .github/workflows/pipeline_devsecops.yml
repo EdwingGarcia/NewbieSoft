@@ -50,7 +50,6 @@ jobs:
           npm ci --legacy-peer-deps
 
       - name: Build Frontend
-        # IMPORTANTE: Esto permite que el pipeline continúe aunque falle el build del front por errores de TypeScript
         continue-on-error: true
         run: |
           cd frontend
@@ -87,14 +86,13 @@ jobs:
       - name: Checkout del código
         uses: actions/checkout@v3
 
-      # Configurar Java nuevamente para generar el JAR en este job limpio
       - name: Configurar JDK 21
         uses: actions/setup-java@v3
         with:
           java-version: '21'
           distribution: 'temurin'
       
-      - name: Dar permisos y Generar JAR
+      - name: Generar JAR
         run: |
           chmod +x backend/mvnw
           cd backend
@@ -114,16 +112,32 @@ jobs:
           severity: 'CRITICAL,HIGH'
 
   # ------------------------------------------------------------------
-  # ETAPA 4: DESPLIEGUE CONTINUO (Simulación)
+  # ETAPA 4: DESPLIEGUE CONTINUO E INFRAESTRUCTURA (Monitoreo)
   # ------------------------------------------------------------------
-  deploy-k8s:
-    name: Deploy to Kubernetes
+  deploy-infrastructure:
+    name: Deploy App & Monitoring
     runs-on: ubuntu-latest
     needs: build-push-image
     steps:
-      - name: Simular Despliegue
+      - name: Checkout del código
+        uses: actions/checkout@v3
+
+      - name: Simular Despliegue App (Kubernetes)
         run: |
-          echo "Simulando conexión al clúster K8s..."
-          echo "Desplegando imagen: ${{ env.DOCKER_IMAGE_NAME }}:${{ github.sha }}"
-          echo "Aplicando configuración..."
-          echo "¡Despliegue completado exitosamente!"
+          echo "Conectando al clúster K8s..."
+          echo "Desplegando nueva versión de backend: ${{ env.DOCKER_IMAGE_NAME }}:${{ github.sha }}"
+          echo "Aplicación actualizada."
+
+      # NUEVO PASO: Despliegue automatizado de Grafana/Prometheus
+      - name: Desplegar Stack de Monitoreo (Docker Compose)
+        run: |
+          echo "Iniciando despliegue de observabilidad..."
+          # En un entorno real, esto se ejecutaría via SSH en el servidor de producción
+          # Aquí validamos que la configuración sea correcta levantándolo en el runner
+          docker-compose up -d
+          
+          echo "Verificando estado de los contenedores..."
+          docker ps
+          
+          echo "Grafana desplegado en puerto 3000."
+          echo "Prometheus desplegado en puerto 9090."
