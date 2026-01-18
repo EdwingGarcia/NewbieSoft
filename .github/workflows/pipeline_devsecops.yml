@@ -1,0 +1,137 @@
+name: CI/CD DevSecOps Pipeline - NewbieSoft
+
+# Este workflow se activará con cada push o pull request a estas ramas
+on:
+  push:
+    branches: [ "feature/devsecops-pipeline", "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  DOCKER_IMAGE_NAME: newbiesoft-backend
+  # Define aquí el nombre de tu imagen
+  
+jobs:
+  # ------------------------------------------------------------------
+  # ETAPA 1: BUILD & TEST (Backend Java + Frontend React)
+  # ------------------------------------------------------------------
+  build-and-test:
+    name: Build and Test (Java & Node)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v3
+
+      # --- BACKEND (Java Spring Boot) ---
+      - name: Configurar JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Dar permisos de ejecución a Maven Wrapper
+        run: chmod +x backend/mvnw
+
+      - name: Construir Backend con Maven
+        run: |
+          cd backend
+          ./mvnw clean package -DskipTests
+          # Se usa -DskipTests para acelerar la demostración. 
+          # En un entorno real, quita esa bandera para correr los tests.
+
+      # --- FRONTEND (Next.js) ---
+      - name: Configurar Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Instalar dependencias Frontend
+        run: |
+          cd frontend
+          npm ci --legacy-peer-deps
+          # --legacy-peer-deps ayuda a evitar conflictos de versiones comunes
+
+      - name: Build Frontend
+        run: |
+          cd frontend
+          npm run build --if-present
+          # --if-present evita errores si no hay script de build definido (aunque en Next.js sí hay)
+
+  # ------------------------------------------------------------------
+  # ETAPA 2: SEGURIDAD (DevSecOps - SAST/SCA)
+  # ------------------------------------------------------------------
+  security-scan-code:
+    name: Security Analysis (SAST/SCA)
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v3
+
+      # Escaneo de vulnerabilidades en el código fuente (Backend y Frontend)
+      - name: Escaneo de vulnerabilidades con Trivy (Filesystem)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          ignore-unfixed: true
+          format: 'table'
+          # Para la actividad, ponemos exit-code 0 para que NO falle el pipeline si encuentra algo
+          # En un entorno real, usarías exit-code 1 para bloquear el despliegue
+          exit-code: '0' 
+          severity: 'CRITICAL,HIGH'
+
+  # ------------------------------------------------------------------
+  # ETAPA 3: EMPAQUETADO Y ESCANEO DE IMAGEN (Backend)
+  # ------------------------------------------------------------------
+  build-push-image:
+    name: Build Docker Image & Scan
+    runs-on: ubuntu-latest
+    needs: security-scan-code
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v3
+
+      # Necesitamos volver a generar el JAR porque cada 'job' corre en una máquina limpia
+      # Alternativamente, podríamos usar 'actions/upload-artifact' y 'download-artifact'
+      - name: Configurar JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      
+      - name: Dar permisos y Generar JAR
+        run: |
+          chmod +x backend/mvnw
+          cd backend
+          ./mvnw clean package -DskipTests
+
+      - name: Construir imagen Docker (Backend)
+        run: |
+          cd backend
+          docker build -t ${{ env.DOCKER_IMAGE_NAME }}:${{ github.sha }} .
+
+      - name: Escaneo de imagen Docker con Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: '${{ env.DOCKER_IMAGE_NAME }}:${{ github.sha }}'
+          format: 'table'
+          exit-code: '0'
+          severity: 'CRITICAL,HIGH'
+
+  # ------------------------------------------------------------------
+  # ETAPA 4: DESPLIEGUE CONTINUO (Simulación)
+  # ------------------------------------------------------------------
+  deploy-k8s:
+    name: Deploy to Kubernetes
+    runs-on: ubuntu-latest
+    needs: build-push-image
+    steps:
+      - name: Simular Despliegue
+        run: |
+          echo "Simulando conexión al clúster K8s..."
+          echo "Desplegando imagen: ${{ env.DOCKER_IMAGE_NAME }}:${{ github.sha }}"
+          echo "Aplicando configuración..."
+          echo "¡Despliegue completado exitosamente!"
