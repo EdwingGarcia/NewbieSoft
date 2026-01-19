@@ -2299,7 +2299,37 @@ export default function OrdenesTrabajoPage() {
                                                             className="h-9 text-xs file:text-xs"
                                                         />
                                                     </div>
+                                                    {imagenesNuevas.length > 0 && (
+                                                        <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
+                                                            {imagenesNuevas.map((file, index) => (
+                                                                <div key={index} className="relative group aspect-square rounded-md border border-slate-200 overflow-hidden bg-slate-100">
+                                                                    {/* Previsualización usando createObjectURL */}
+                                                                    <img
+                                                                        src={URL.createObjectURL(file)}
+                                                                        alt="Previsualización"
+                                                                        className="h-full w-full object-cover"
+                                                                    />
 
+                                                                    {/* Botón para quitar la imagen antes de subirla */}
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setImagenesNuevas((prev) => prev.filter((_, i) => i !== index));
+                                                                        }}
+                                                                        className="absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white opacity-90 hover:bg-red-600 shadow-sm"
+                                                                        title="Quitar imagen"
+                                                                    >
+                                                                        <X className="h-3 w-3" />
+                                                                    </button>
+
+                                                                    <div className="absolute bottom-0 w-full bg-black/60 px-1 py-0.5">
+                                                                        <p className="truncate text-[9px] text-white text-center">
+                                                                            {(file.size / 1024).toFixed(0)} KB
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
                                                     <div className="mt-2 flex justify-end">
                                                         <Button
                                                             onClick={subirImagenes}
