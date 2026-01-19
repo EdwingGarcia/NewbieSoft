@@ -1,72 +1,88 @@
 "use client";
 
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "/components/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Send } from "lucide-react";
-import { API_BASE_URL } from "../../app/lib/api";
+import { API_BASE_URL } from "@/app/lib/api";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+
 interface ModalNotificacionProps {
     otId: number;
     onClose: () => void;
 }
 
-export default function ModalNotificacion({ otId, onClose }: ModalNotificacionProps) {
-    const [mensaje, setMensaje] = useState("");
-    const [loading, setLoading] = useState(false);
+export default function ModalNotificacion({
+    otId,
+    onClose,
+}: ModalNotificacionProps) {
+    const [mensaje, setMensaje] = useState<string>("");
+    const [loading, setLoading] = useState<boolean>(false);
 
-    const enviarNotificacion = async () => {
+    const enviarNotificacion = async (): Promise<void> => {
         if (!mensaje.trim()) return;
 
         try {
             setLoading(true);
 
-            const response = await fetch(`http://localhost:8080/api/notificaciones/ot/${otId}`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${localStorage.getItem("token")}`,
-                },
-                body: JSON.stringify({
-                    mensaje,
-                    tecnicoNombre: localStorage.getItem("nombreUsuario") || "Técnico",
-                }),
-            });
+            const token = localStorage.getItem("token");
+            const tecnicoNombre = localStorage.getItem("nombreUsuario") || "Técnico";
+
+            const response = await fetch(
+                `${API_BASE_URL}/api/notificaciones/ot/${otId}`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                    },
+                    body: JSON.stringify({ mensaje, tecnicoNombre }),
+                }
+            );
 
             if (!response.ok) {
                 alert("Error al enviar notificación");
-            } else {
-                alert("Correo enviado correctamente ✔️");
-                onClose();
+                return;
             }
 
-        } catch (error) {
+            alert("Correo enviado correctamente ✔️");
+            onClose();
+        } catch {
             alert("Fallo al conectar con el servidor");
         } finally {
             setLoading(false);
         }
     };
 
+    const handleOpenChange = (open: boolean): void => {
+        if (!open) onClose();
+    };
+
     return (
-        <Dialog open={true} onOpenChange={onClose}>
+        <Dialog open={true} onOpenChange={handleOpenChange}>
             <DialogContent className="max-w-md">
                 <DialogHeader>
                     <DialogTitle>Enviar notificación</DialogTitle>
                 </DialogHeader>
 
-                {/* TEXTAREA */}
                 <div className="mt-3">
                     <label className="text-sm font-medium">Mensaje al cliente:</label>
                     <Textarea
                         value={mensaje}
-                        onChange={(e) => setMensaje(e.target.value)}
+                        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                            setMensaje(e.target.value)
+                        }
                         placeholder="Escribe aquí el mensaje..."
                         className="mt-2"
                         rows={4}
                     />
                 </div>
 
-                {/* BOTON ENVIAR */}
                 <div className="flex justify-end mt-4">
                     <Button
                         disabled={loading}

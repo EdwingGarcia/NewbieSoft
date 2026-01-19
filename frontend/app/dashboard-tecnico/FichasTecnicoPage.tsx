@@ -9,7 +9,7 @@ import { Loader2, Plus, CalendarDays, FileUp } from "lucide-react";
 import FichaModal from "./FichaModal";
 import FichaTecnicaForm from "./FichaTecnicaForm";
 import XmlUploader from "./XmlUploader"; // si lo tienes en el mismo folder. Si no, comenta esta línea.
-import router from "next/dist/shared/lib/router/router";
+import { useRouter } from "next/navigation";
 import { API_BASE_URL } from "../lib/api";
 const API_BASE = `${API_BASE_URL}/api/fichas`;
 const buildUrl = (p: string = "") => `${API_BASE}${p}`;
@@ -270,6 +270,7 @@ export default function FichasTecnicoPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [showForm, setShowForm] = useState(false);
+    const router = useRouter();
 
     // Modal state
     const [modalMode, setModalMode] = useState<ModalMode>("none");
@@ -569,24 +570,9 @@ export default function FichasTecnicoPage() {
                                 </div>
 
                                 <div className="flex gap-2">
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => setShowXml(true)}
-                                        className="flex items-center gap-2"
-                                    >
-                                        <FileUp className="h-4 w-4" /> Cargar XML
-                                        del equipo
-                                    </Button>
 
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => router.push(`/firma?fichaId=${fichaId}`)}
-                                        className="flex items-center gap-2"
-                                    >
-                                        <FileUp className="h-4 w-4" /> Firmar Ficha Técnica
-                                    </Button>
+
+
                                 </div>
                                 <div className="flex gap-2">
                                     <Button

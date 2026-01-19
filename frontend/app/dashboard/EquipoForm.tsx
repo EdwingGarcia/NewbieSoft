@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, JSX } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -19,7 +19,7 @@ interface Props {
     onClose: () => void;
 }
 
-export default function EquipoForm({ onClose }: Props): JSX.Element {
+export default function EquipoForm({ onClose }: Props) {
     const [nombre, setNombre] = useState<string>("");
     const [descripcion, setDescripcion] = useState<string>("");
     const [clienteCedula, setClienteCedula] = useState<string>("");
