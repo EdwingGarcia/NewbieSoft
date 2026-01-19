@@ -32,14 +32,14 @@ type Section =
     | "roles"
     | "citas";
 
-const DASHBOARD_API = "http://localhost:8080/api/dashboard/resumen";
+import { API_BASE_URL } from "../lib/api"; // <-- Add this import
+// 2. Usar variables centralizadas
+const DASHBOARD_API = `${API_BASE_URL}/api/dashboard/resumen`;
 
-// ✅ Endpoint de citas por técnico (hardcode)
-const TECNICO_CEDULA = localStorage.getItem("cedula");
-const CITAS_API = `http://localhost:8080/api/citas/tecnico/${TECNICO_CEDULA}`;
+// NOTA: Eliminamos CITAS_API y TECNICO_CEDULA de aquí para evitar errores de build.
+// Se construirán dinámicamente dentro del useEffect.
 
-// ✅ Para actualizar estado
-const CITAS_API_BASE = "http://localhost:8080/api/citas";
+const CITAS_API_BASE = `${API_BASE_URL}/api/citas`; // Para actualizar estado
 
 /* =========================
    Helpers
@@ -131,7 +131,7 @@ export default function DashboardPage() {
     const [citas, setCitas] = useState<Cita[]>([]);
     const [citasLoading, setCitasLoading] = useState(false);
     const [citasError, setCitasError] = useState<string | null>(null);
-
+    const [userCedula, setUserCedula] = useState<string>("");
     // ✅ Estado botón "Completada"
     const [updatingCitaId, setUpdatingCitaId] = useState<number | null>(null);
     const [citasActionError, setCitasActionError] = useState<string | null>(
@@ -152,7 +152,8 @@ export default function DashboardPage() {
             router.push("/");
             return;
         }
-
+        const storedCedula = localStorage.getItem("cedula") || "";
+        setUserCedula(storedCedula);
         const cargarDashboard = async () => {
             try {
                 const res = await fetch(DASHBOARD_API, {
@@ -180,13 +181,33 @@ export default function DashboardPage() {
         };
 
         const cargarCitas = async () => {
+            // Se usa storedCedula que acabamos de leer del localStorage
+            if (!storedCedula) {
+                console.log("No se encontró cédula de técnico en localStorage");
+                setCitas([]);
+                return;
+            }
+
             setCitasLoading(true);
             setCitasError(null);
             try {
-                const res = await fetch(CITAS_API, {
+                const url = `${API_BASE_URL}/api/citas/tecnico/${storedCedula}`;
+
+                const res = await fetch(url, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
-                if (!res.ok) throw new Error(`Error ${res.status} al cargar citas`);
+
+                // ✅ CORRECCIÓN: Manejar error 401 en cargarCitas
+                if (!res.ok) {
+                    if (res.status === 401 || res.status === 403) {
+                        localStorage.removeItem("token");
+                        localStorage.removeItem("nb.auth");
+                        localStorage.removeItem("nb.auth.token");
+                        router.push("/");
+                        return;
+                    }
+                    throw new Error(`Error ${res.status} al cargar citas`);
+                }
 
                 const json = await res.json();
                 const arr: Cita[] = Array.isArray(json) ? json : json?.data ?? [];
@@ -212,21 +233,33 @@ export default function DashboardPage() {
         if (!token) return;
 
         const cargarCitas = async () => {
-            setCitasLoading(true);
+            const tecnicoCedula = localStorage.getItem("cedula");
+            if (!tecnicoCedula) return;
+
+            // setCitasLoading(true); // Opcional: no mostrar loading al refrescar
             setCitasError(null);
             try {
-                const res = await fetch(CITAS_API, {
+                const url = `${API_BASE_URL}/api/citas/tecnico/${tecnicoCedula}`;
+                const res = await fetch(url, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
-                if (!res.ok) throw new Error(`Error ${res.status} al cargar citas`);
+
+                if (!res.ok) {
+                    if (res.status === 401 || res.status === 403) {
+                        localStorage.removeItem("token");
+                        localStorage.removeItem("nb.auth");
+                        localStorage.removeItem("nb.auth.token");
+                        router.push("/");
+                        return;
+                    }
+                    throw new Error(`Error ${res.status} al cargar citas`);
+                }
 
                 const json = await res.json();
                 const arr: Cita[] = Array.isArray(json) ? json : json?.data ?? [];
                 setCitas(arr);
             } catch (err) {
                 console.error("Error recargando citas:", err);
-                setCitasError("No se pudieron cargar las citas del técnico.");
-                setCitas([]);
             } finally {
                 setCitasLoading(false);
             }
@@ -321,7 +354,7 @@ export default function DashboardPage() {
         const token = getAuthToken();
         try {
             if (token) {
-                await fetch("http://localhost:8080/api/auth/logout", {
+                await fetch(`${API_BASE_URL}/api/auth/logout`, {
                     method: "POST",
                     headers: { Authorization: `Bearer ${token}` },
                 });
@@ -960,8 +993,7 @@ export default function DashboardPage() {
                                                     Citas del técnico
                                                 </h2>
                                                 <div style={{ fontSize: "0.78rem", color: "#6b7280", marginTop: "0.15rem" }}>
-                                                    Técnico: <b>{TECNICO_CEDULA}</b>
-                                                </div>
+                                                    Técnico: <b>{userCedula}</b>                                                </div>
                                             </div>
 
                                             <div style={{ display: "flex", gap: "0.6rem", alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>

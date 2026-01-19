@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, ChangeEvent, useMemo } from "react";
+import { useEffect, useState, useCallback, ChangeEvent, useMemo, JSX } from "react";
 import { Button } from "@/components/ui/button";
 import {
     Card,
@@ -49,7 +49,9 @@ interface Equipo {
    CONSTANTES
 =============================== */
 
-const API_BASE = "http://localhost:8080/api/equipo";
+import { API_BASE_URL } from "../lib/api"; // <-- Importar
+
+const API_BASE = `${API_BASE_URL}/api/equipo`; // <-- Usar la variable centralizada
 
 /* ============================
    COMPONENTE PRINCIPAL
@@ -96,7 +98,7 @@ export default function EquipoPage(): JSX.Element {
         if (!token) return;
 
         try {
-            const res = await fetch("http://localhost:8080/api/usuarios", {
+            const res = await fetch(`${API_BASE_URL}/api/usuarios`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
 
@@ -173,7 +175,7 @@ export default function EquipoPage(): JSX.Element {
             if (!tecnicoId) {
                 setError("Debe seleccionar un técnico");
                 return;
-                }
+            }
 
             alert("✅ Equipo creado correctamente");
 
@@ -524,8 +526,8 @@ export default function EquipoPage(): JSX.Element {
                                                                 {typeof value === "string"
                                                                     ? value
                                                                     : JSON.stringify(
-                                                                          value
-                                                                      )}
+                                                                        value
+                                                                    )}
                                                             </td>
                                                         </tr>
                                                     )
@@ -565,7 +567,7 @@ export default function EquipoPage(): JSX.Element {
                                     </button>
                                     <XmlUploader
                                         equipoId={
-                                            detalle.id ?? detalle.equipoId
+                                            (detalle.id ?? detalle.equipoId) as number
                                         }
                                     />
                                 </div>

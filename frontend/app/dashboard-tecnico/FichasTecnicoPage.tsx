@@ -10,22 +10,22 @@ import FichaModal from "./FichaModal";
 import FichaTecnicaForm from "./FichaTecnicaForm";
 import XmlUploader from "./XmlUploader"; // si lo tienes en el mismo folder. Si no, comenta esta línea.
 import router from "next/dist/shared/lib/router/router";
-
-const API_BASE = "http://localhost:8080/api/fichas";
+import { API_BASE_URL } from "../lib/api";
+const API_BASE = `${API_BASE_URL}/api/fichas`;
 const buildUrl = (p: string = "") => `${API_BASE}${p}`;
 
 type ModalMode = "none" | "crear" | "editar";
 
 interface FichaTecnicaDTO {
-  id: number;
-  fechaCreacion: string;
-  observaciones: string | null;
+    id: number;
+    fechaCreacion: string;
+    observaciones: string | null;
 
-  equipoId: number | null;
-  ordenTrabajoId: number | null;
-  tecnicoId: string | null;
+    equipoId: number | null;
+    ordenTrabajoId: number | null;
+    tecnicoId: string | null;
 
-   adaptadorRed: string | null;
+    adaptadorRed: string | null;
     arranqueUefiPresente: boolean | null;
     biosEsUefiCapaz: boolean | null;
     biosFabricante: string | null;
@@ -194,450 +194,450 @@ interface FichaTecnicaDTO {
 }
 
 const AUTO_FROM_XML_FIELDS: (keyof FichaTecnicaDTO)[] = [
-  "cpuNombre",
-  "cpuNucleos",
-  "cpuLogicos",
-  "cpuPaquetesFisicos",
-  "cpuFrecuenciaOriginalMhz",
+    "cpuNombre",
+    "cpuNucleos",
+    "cpuLogicos",
+    "cpuPaquetesFisicos",
+    "cpuFrecuenciaOriginalMhz",
 
-  "ramCapacidadGb",
-  "ramFrecuenciaMhz",
-  "ramTecnologiaModulo",
-  "ramTipo",
-  "ramNumeroModulo",
-  "ramSerieModulo",
-  "ramFechaFabricacion",
-  "ramLugarFabricacion",
+    "ramCapacidadGb",
+    "ramFrecuenciaMhz",
+    "ramTecnologiaModulo",
+    "ramTipo",
+    "ramNumeroModulo",
+    "ramSerieModulo",
+    "ramFechaFabricacion",
+    "ramLugarFabricacion",
 
-  "discoModelo",
-  "discoNumeroSerie",
-  "discoTipo",
-  "discoCapacidadMb",
-  "discoCapacidadStr",
-  "discoRpm",
-  "discoLetras",
-  "discoWwn",
-  "discoTemperatura",
-  "discoHorasEncendido",
-  "discoSectoresReasignados",
-  "discoSectoresPendientes",
-  "discoErroresLectura",
-  "discoErrorCrc",
+    "discoModelo",
+    "discoNumeroSerie",
+    "discoTipo",
+    "discoCapacidadMb",
+    "discoCapacidadStr",
+    "discoRpm",
+    "discoLetras",
+    "discoWwn",
+    "discoTemperatura",
+    "discoHorasEncendido",
+    "discoSectoresReasignados",
+    "discoSectoresPendientes",
+    "discoErroresLectura",
+    "discoErrorCrc",
 
-  "mainboardModelo",
-  "chipset",
-  "gpuNombre",
+    "mainboardModelo",
+    "chipset",
+    "gpuNombre",
 
-  "adaptadorRed",
-  "macAddress",
-  "wifiLinkSpeedActual",
-  "wifiLinkSpeedMax",
+    "adaptadorRed",
+    "macAddress",
+    "wifiLinkSpeedActual",
+    "wifiLinkSpeedMax",
 
-  "biosFabricante",
-  "biosVersion",
-  "biosFechaStr",
-  "biosEsUefiCapaz",
-  "arranqueUefiPresente",
-  "secureBootActivo",
+    "biosFabricante",
+    "biosVersion",
+    "biosFechaStr",
+    "biosEsUefiCapaz",
+    "arranqueUefiPresente",
+    "secureBootActivo",
 
-  "tpmPresente",
-  "tpmVersion",
-  "hvciEstado",
+    "tpmPresente",
+    "tpmVersion",
+    "hvciEstado",
 
-  "monitorNombre",
-  "monitorModelo",
+    "monitorNombre",
+    "monitorModelo",
 
-  "audioAdaptador",
-  "audioCodec",
-  "audioHardwareId",
+    "audioAdaptador",
+    "audioCodec",
+    "audioHardwareId",
 ];
 
 function getCookie(name: string): string | null {
-  if (typeof document === "undefined") return null;
-  return (
-    document.cookie
-      .split("; ")
-      .find((row) => row.startsWith(name + "="))
-      ?.split("=")[1] || null
-  );
+    if (typeof document === "undefined") return null;
+    return (
+        document.cookie
+            .split("; ")
+            .find((row) => row.startsWith(name + "="))
+            ?.split("=")[1] || null
+    );
 }
 
 export default function FichasTecnicoPage() {
-  const token = useMemo(() => getCookie("token"), []);
-  const cedulaTecnico = useMemo(() => getCookie("cedula"), []);
+    const token = useMemo(() => getCookie("token"), []);
+    const cedulaTecnico = useMemo(() => getCookie("cedula"), []);
 
-  const [fichas, setFichas] = useState<FichaTecnicaDTO[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [showForm, setShowForm] = useState(false);
+    const [fichas, setFichas] = useState<FichaTecnicaDTO[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [showForm, setShowForm] = useState(false);
 
-  // Modal state
-  const [modalMode, setModalMode] = useState<ModalMode>("none");
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+    // Modal state
+    const [modalMode, setModalMode] = useState<ModalMode>("none");
+    const [selectedId, setSelectedId] = useState<number | null>(null);
 
-  // detalle (editar)
-  const [detalle, setDetalle] = useState<FichaTecnicaDTO | null>(null);
-  const [detalleForm, setDetalleForm] = useState<FichaTecnicaDTO | null>(null);
+    // detalle (editar)
+    const [detalle, setDetalle] = useState<FichaTecnicaDTO | null>(null);
+    const [detalleForm, setDetalleForm] = useState<FichaTecnicaDTO | null>(null);
 
-  // extras
-  const [showXml, setShowXml] = useState(false);
+    // extras
+    const [showXml, setShowXml] = useState(false);
 
-  // ===== helpers =====
-  const fmtBoolSelect = (v: boolean | null): string => (v === null ? "" : v ? "true" : "false");
-  const parseBoolInput = (value: string): boolean | null => {
-    if (value === "") return null;
-    if (value === "true") return true;
-    if (value === "false") return false;
-    return null;
-  };
-
-  const updateField = <K extends keyof FichaTecnicaDTO>(field: K, value: FichaTecnicaDTO[K]) => {
-    setDetalleForm((prev) => (prev ? { ...prev, [field]: value } : prev));
-  }
-
-  const isAutoFromXml = (field: keyof FichaTecnicaDTO) =>
-  AUTO_FROM_XML_FIELDS.includes(field) &&
-  !!detalle &&
-  detalle[field] !== null;
-
-  const Section: React.FC<{ title: string; subtitle?: string; children: React.ReactNode }> = ({
-    title,
-    subtitle,
-    children,
-  }) => (
-    <section className="rounded-xl border bg-white/80 shadow-sm px-4 py-3 space-y-3">
-      <div className="flex items-center justify-between gap-2 border-b pb-1.5">
-        <h3 className="text-xs font-semibold tracking-wide text-slate-700 uppercase">{title}</h3>
-        {subtitle && <span className="text-[10px] text-slate-400">{subtitle}</span>}
-      </div>
-      {children}
-    </section>
-  );
-
-  // ===== fetch lista SOLO DEL TÉCNICO =====
-  const fetchFichas = useCallback(async () => {
-    if (!token || !cedulaTecnico) {
-      setError("No autenticado (token/cedula faltante).");
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`${API_BASE}/tecnico/${cedulaTecnico}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error(`Error cargando fichas (HTTP ${res.status})`);
-      const data: FichaTecnicaDTO[] = await res.json();
-      setFichas(data);
-    } catch (e: any) {
-      setError(e.message || "Error cargando fichas");
-    } finally {
-      setLoading(false);
-    }
-  }, [token, cedulaTecnico]);
-
-  useEffect(() => {
-    fetchFichas();
-  }, [fetchFichas]);
-
-  // ===== abrir detalle (ver/editar) =====
-  const abrirDetalle = async (id: number) => {
-    if (!token) return;
-
-    setError(null);
-    try {
-      const res = await fetch(buildUrl(`/${id}`), {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error(`Error al cargar detalles (HTTP ${res.status})`);
-      const data: FichaTecnicaDTO = await res.json();
-
-      // Seguridad extra frontend: si por algo llega una ficha de otro técnico, no la muestres
-      if (cedulaTecnico && data.tecnicoId && data.tecnicoId !== cedulaTecnico) {
-        throw new Error("No tienes acceso a esta ficha.");
-      }
-
-      setDetalle(data);
-      setDetalleForm(data);
-      setSelectedId(id);
-      setModalMode("editar");
-      setShowXml(false);
-    } catch (e: any) {
-      setError(e.message || "Error al abrir la ficha");
-    }
-  };
-
-  // ===== guardar ficha completa (PUT) =====
-  const guardarFichaCompleta = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!detalleForm || !token) return;
-
-    // Forzamos que el técnico NO pueda reasignar: siempre queda su cédula
-    const payload: FichaTecnicaDTO = {
-      ...detalleForm,
-      tecnicoId: cedulaTecnico ?? detalleForm.tecnicoId,
+    // ===== helpers =====
+    const fmtBoolSelect = (v: boolean | null): string => (v === null ? "" : v ? "true" : "false");
+    const parseBoolInput = (value: string): boolean | null => {
+        if (value === "") return null;
+        if (value === "true") return true;
+        if (value === "false") return false;
+        return null;
     };
 
-    try {
-      const res = await fetch(buildUrl(`/${payload.id}`), {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) throw new Error(`Error al guardar (HTTP ${res.status})`);
-
-      const actualizada: FichaTecnicaDTO = await res.json();
-      setDetalle(actualizada);
-      setDetalleForm(actualizada);
-      await fetchFichas();
-      alert("✅ Ficha guardada correctamente");
-    } catch (e: any) {
-      alert("❌ " + (e.message || "Error guardando ficha"));
-    }
-  };
-
-  // ===== cerrar modal =====
-  const closeModal = () => {
-    setModalMode("none");
-    setSelectedId(null);
-    setDetalle(null);
-    setDetalleForm(null);
-    setShowXml(false);
-  };
-  const descargarPdf = async () => {
-  try {
-    if (!token || !detalleForm) return;
-
-    const res = await fetch("http://localhost:8080/api/pdf/ficha", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(detalleForm),
-    });
-
-    if (!res.ok) {
-      console.error("Error al generar PDF", await res.text());
-      return;
+    const updateField = <K extends keyof FichaTecnicaDTO>(field: K, value: FichaTecnicaDTO[K]) => {
+        setDetalleForm((prev) => (prev ? { ...prev, [field]: value } : prev));
     }
 
-    const blob = await res.blob();
-    const url = window.URL.createObjectURL(blob);
+    const isAutoFromXml = (field: keyof FichaTecnicaDTO) =>
+        AUTO_FROM_XML_FIELDS.includes(field) &&
+        !!detalle &&
+        detalle[field] !== null;
 
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `ficha_${detalleForm.id}.pdf`;
-    a.click();
-    window.URL.revokeObjectURL(url);
-  } catch (e) {
-    console.error(e);
-  }
-};
+    const Section: React.FC<{ title: string; subtitle?: string; children: React.ReactNode }> = ({
+        title,
+        subtitle,
+        children,
+    }) => (
+        <section className="rounded-xl border bg-white/80 shadow-sm px-4 py-3 space-y-3">
+            <div className="flex items-center justify-between gap-2 border-b pb-1.5">
+                <h3 className="text-xs font-semibold tracking-wide text-slate-700 uppercase">{title}</h3>
+                {subtitle && <span className="text-[10px] text-slate-400">{subtitle}</span>}
+            </div>
+            {children}
+        </section>
+    );
 
-return (
-  <div className="p-6 space-y-6">
-    <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Fichas Técnicas</h1>
-            <Button
-                onClick={() => setShowForm(true)}
-                className="flex items-center gap-2"
-        >
-            <Plus className="h-4 w-4" /> Nueva Ficha Técnica
-            </Button>
-    </div>
+    // ===== fetch lista SOLO DEL TÉCNICO =====
+    const fetchFichas = useCallback(async () => {
+        if (!token || !cedulaTecnico) {
+            setError("No autenticado (token/cedula faltante).");
+            setLoading(false);
+            return;
+        }
 
-    {/* ===== HEADER ===== */}
-    <div className="flex items-center justify-between">
-      <div>
-        <h1 className="text-2xl font-bold">Mis Fichas Técnicas</h1>
-        <p className="text-sm text-slate-500">
-          Gestión técnica de tus fichas asignadas
-        </p>
-      </div>
+        setLoading(true);
+        setError(null);
+        try {
+            const res = await fetch(`${API_BASE}/tecnico/${cedulaTecnico}`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!res.ok) throw new Error(`Error cargando fichas (HTTP ${res.status})`);
+            const data: FichaTecnicaDTO[] = await res.json();
+            setFichas(data);
+        } catch (e: any) {
+            setError(e.message || "Error cargando fichas");
+        } finally {
+            setLoading(false);
+        }
+    }, [token, cedulaTecnico]);
 
-      <Button onClick={() => setModalMode("crear")} className="flex items-center gap-2">
-        <Plus className="h-4 w-4" /> Nueva ficha
-      </Button>
-    </div>
+    useEffect(() => {
+        fetchFichas();
+    }, [fetchFichas]);
 
-    {/* ===== LISTADO ===== */}
-    {error && <div className="text-red-600 text-sm">{error}</div>}
-    {loading ? (
-      <div className="flex justify-center py-10">
-        <Loader2 className="h-6 w-6 animate-spin" />
-      </div>
-    ) : fichas.length === 0 ? (
-      <div className="text-center text-gray-500 py-10">
-        No tienes fichas técnicas registradas.
-      </div>
-    ) : (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {fichas.map((f) => (
-          <Card
-            key={f.id}
-            onClick={() => abrirDetalle(f.id)}
-            className="cursor-pointer hover:shadow-md transition"
-          >
-            <CardHeader>
-              <CardTitle>Ficha #{f.id}</CardTitle>
-              <CardDescription className="text-xs space-y-1 mt-2">
-                <div><b>Equipo:</b> {f.equipoId ?? "-"}</div>
-                <div><b>OT:</b> {f.ordenTrabajoId ?? "-"}</div>
-                <div className="flex items-center gap-1 text-gray-500">
-                  <CalendarDays className="h-4 w-4" />
-                  {new Date(f.fechaCreacion).toLocaleString()}
-                </div>
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="text-xs text-gray-600 line-clamp-3">
-              {f.observaciones || "Sin observaciones"}
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    )}
+    // ===== abrir detalle (ver/editar) =====
+    const abrirDetalle = async (id: number) => {
+        if (!token) return;
 
-    {/* ===== MODAL CREAR ===== */}
-    <FichaModal
-      open={modalMode === "crear"}
-      title="Nueva Ficha Técnica"
-      onClose={closeModal}
-      widthClassName="max-w-2xl"
-    >
-      <FichaTecnicaForm
-        tecnicoCedulaFixed={cedulaTecnico ?? ""}
-        onCreated={async () => {
-          await fetchFichas();
-          closeModal();
-        }}
-      />
-    </FichaModal>
+        setError(null);
+        try {
+            const res = await fetch(buildUrl(`/${id}`), {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!res.ok) throw new Error(`Error al cargar detalles (HTTP ${res.status})`);
+            const data: FichaTecnicaDTO = await res.json();
 
-    {/* ===== MODAL EDITAR ===== */}
-    <FichaModal
-      open={modalMode === "editar" && !!detalleForm}
-      title={`Ficha #${detalleForm?.id ?? ""}`}
-      onClose={closeModal}
-      widthClassName="max-w-6xl"
-    >
-      {detalleForm && (
-        <>
-          {/* ===== ACCIONES ===== */}
-          <div className="flex justify-between items-center mb-4">
-            <div className="text-xs text-gray-500">
-              Técnico: <b>{detalleForm.tecnicoId}</b> · OT:{" "}
-              <b>{detalleForm.ordenTrabajoId ?? "-"}</b>
+            // Seguridad extra frontend: si por algo llega una ficha de otro técnico, no la muestres
+            if (cedulaTecnico && data.tecnicoId && data.tecnicoId !== cedulaTecnico) {
+                throw new Error("No tienes acceso a esta ficha.");
+            }
+
+            setDetalle(data);
+            setDetalleForm(data);
+            setSelectedId(id);
+            setModalMode("editar");
+            setShowXml(false);
+        } catch (e: any) {
+            setError(e.message || "Error al abrir la ficha");
+        }
+    };
+
+    // ===== guardar ficha completa (PUT) =====
+    const guardarFichaCompleta = async (e: FormEvent) => {
+        e.preventDefault();
+        if (!detalleForm || !token) return;
+
+        // Forzamos que el técnico NO pueda reasignar: siempre queda su cédula
+        const payload: FichaTecnicaDTO = {
+            ...detalleForm,
+            tecnicoId: cedulaTecnico ?? detalleForm.tecnicoId,
+        };
+
+        try {
+            const res = await fetch(buildUrl(`/${payload.id}`), {
+                method: "PUT",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(payload),
+            });
+
+            if (!res.ok) throw new Error(`Error al guardar (HTTP ${res.status})`);
+
+            const actualizada: FichaTecnicaDTO = await res.json();
+            setDetalle(actualizada);
+            setDetalleForm(actualizada);
+            await fetchFichas();
+            alert("✅ Ficha guardada correctamente");
+        } catch (e: any) {
+            alert("❌ " + (e.message || "Error guardando ficha"));
+        }
+    };
+
+    // ===== cerrar modal =====
+    const closeModal = () => {
+        setModalMode("none");
+        setSelectedId(null);
+        setDetalle(null);
+        setDetalleForm(null);
+        setShowXml(false);
+    };
+    const descargarPdf = async () => {
+        try {
+            if (!token || !detalleForm) return;
+
+            const res = await fetch(`${API_BASE_URL}/api/pdf/ficha`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify(detalleForm),
+            });
+
+            if (!res.ok) {
+                console.error("Error al generar PDF", await res.text());
+                return;
+            }
+
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `ficha_${detalleForm.id}.pdf`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    return (
+        <div className="p-6 space-y-6">
+            <div className="flex items-center justify-between">
+                <h1 className="text-2xl font-bold">Fichas Técnicas</h1>
+                <Button
+                    onClick={() => setShowForm(true)}
+                    className="flex items-center gap-2"
+                >
+                    <Plus className="h-4 w-4" /> Nueva Ficha Técnica
+                </Button>
             </div>
 
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setShowXml(true)}
-              className="flex items-center gap-2"
-            >
-              <FileUp className="h-4 w-4" /> Cargar XML
-            </Button>
-          </div>
-
-          {/* ===== FORM ===== */}
-          <form onSubmit={guardarFichaCompleta} className="space-y-3 text-sm">
-            {/* ===== HEADER FICHA ===== */}
-            <div className="flex justify-between items-start mb-4 pr-10">
+            {/* ===== HEADER ===== */}
+            <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-xl font-bold">
-                        Ficha #{detalleForm.id} – Equipo{" "}
-                            {detalleForm.equipoId ?? "-"}
-                    </h2>
-                    <p className="text-xs text-gray-500 mt-1">
-                    Técnico: {detalleForm.cedulaTecnico} · OT: {detalleForm.ordenTrabajoId}
-                    </p>
-                    <p className="text-xs text-slate-400">
-                Creada el{" "}
-                    {detalleForm.fechaCreacion
-                    ? new Date(
-                        detalleForm.fechaCreacion
-                    ).toLocaleString()
-                    : "-"}
+                    <h1 className="text-2xl font-bold">Mis Fichas Técnicas</h1>
+                    <p className="text-sm text-slate-500">
+                        Gestión técnica de tus fichas asignadas
                     </p>
                 </div>
 
-                <div className="flex gap-2">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setShowXml(true)}
-                        className="flex items-center gap-2"
-                    >
-                        <FileUp className="h-4 w-4" /> Cargar XML
-                        del equipo
-                    </Button>
-                
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => router.push(`/firma?fichaId=${fichaId}`)}
-                        className="flex items-center gap-2"
+                <Button onClick={() => setModalMode("crear")} className="flex items-center gap-2">
+                    <Plus className="h-4 w-4" /> Nueva ficha
+                </Button>
+            </div>
+
+            {/* ===== LISTADO ===== */}
+            {error && <div className="text-red-600 text-sm">{error}</div>}
+            {loading ? (
+                <div className="flex justify-center py-10">
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                </div>
+            ) : fichas.length === 0 ? (
+                <div className="text-center text-gray-500 py-10">
+                    No tienes fichas técnicas registradas.
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {fichas.map((f) => (
+                        <Card
+                            key={f.id}
+                            onClick={() => abrirDetalle(f.id)}
+                            className="cursor-pointer hover:shadow-md transition"
                         >
-                        <FileUp className="h-4 w-4" /> Firmar Ficha Técnica
-                    </Button>
+                            <CardHeader>
+                                <CardTitle>Ficha #{f.id}</CardTitle>
+                                <CardDescription className="text-xs space-y-1 mt-2">
+                                    <div><b>Equipo:</b> {f.equipoId ?? "-"}</div>
+                                    <div><b>OT:</b> {f.ordenTrabajoId ?? "-"}</div>
+                                    <div className="flex items-center gap-1 text-gray-500">
+                                        <CalendarDays className="h-4 w-4" />
+                                        {new Date(f.fechaCreacion).toLocaleString()}
+                                    </div>
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="text-xs text-gray-600 line-clamp-3">
+                                {f.observaciones || "Sin observaciones"}
+                            </CardContent>
+                        </Card>
+                    ))}
                 </div>
-                <div className="flex gap-2">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex items-center gap-2"
-                        onClick={descargarPdf}
-                    >
-                    <FileUp className="h-4 w-4" /> Descargar PDF
-                    </Button>
-                </div>
-            </div>
+            )}
+
+            {/* ===== MODAL CREAR ===== */}
+            <FichaModal
+                open={modalMode === "crear"}
+                title="Nueva Ficha Técnica"
+                onClose={closeModal}
+                widthClassName="max-w-2xl"
+            >
+                <FichaTecnicaForm
+                    tecnicoCedulaFixed={cedulaTecnico ?? ""}
+                    onCreated={async () => {
+                        await fetchFichas();
+                        closeModal();
+                    }}
+                />
+            </FichaModal>
+
+            {/* ===== MODAL EDITAR ===== */}
+            <FichaModal
+                open={modalMode === "editar" && !!detalleForm}
+                title={`Ficha #${detalleForm?.id ?? ""}`}
+                onClose={closeModal}
+                widthClassName="max-w-6xl"
+            >
+                {detalleForm && (
+                    <>
+                        {/* ===== ACCIONES ===== */}
+                        <div className="flex justify-between items-center mb-4">
+                            <div className="text-xs text-gray-500">
+                                Técnico: <b>{detalleForm.tecnicoId}</b> · OT:{" "}
+                                <b>{detalleForm.ordenTrabajoId ?? "-"}</b>
+                            </div>
+
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setShowXml(true)}
+                                className="flex items-center gap-2"
+                            >
+                                <FileUp className="h-4 w-4" /> Cargar XML
+                            </Button>
+                        </div>
+
+                        {/* ===== FORM ===== */}
+                        <form onSubmit={guardarFichaCompleta} className="space-y-3 text-sm">
+                            {/* ===== HEADER FICHA ===== */}
+                            <div className="flex justify-between items-start mb-4 pr-10">
+                                <div>
+                                    <h2 className="text-xl font-bold">
+                                        Ficha #{detalleForm.id} – Equipo{" "}
+                                        {detalleForm.equipoId ?? "-"}
+                                    </h2>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Técnico: {detalleForm.tecnicoId} · OT: {detalleForm.ordenTrabajoId}
+                                    </p>
+                                    <p className="text-xs text-slate-400">
+                                        Creada el{" "}
+                                        {detalleForm.fechaCreacion
+                                            ? new Date(
+                                                detalleForm.fechaCreacion
+                                            ).toLocaleString()
+                                            : "-"}
+                                    </p>
+                                </div>
+
+                                <div className="flex gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setShowXml(true)}
+                                        className="flex items-center gap-2"
+                                    >
+                                        <FileUp className="h-4 w-4" /> Cargar XML
+                                        del equipo
+                                    </Button>
+
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => router.push(`/firma?fichaId=${fichaId}`)}
+                                        className="flex items-center gap-2"
+                                    >
+                                        <FileUp className="h-4 w-4" /> Firmar Ficha Técnica
+                                    </Button>
+                                </div>
+                                <div className="flex gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="flex items-center gap-2"
+                                        onClick={descargarPdf}
+                                    >
+                                        <FileUp className="h-4 w-4" /> Descargar PDF
+                                    </Button>
+                                </div>
+                            </div>
 
 
-            <div className="sticky top-0 z-10 mb-1 rounded-xl bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 px-4 py-3 shadow-md flex flex-wrap items-center justify-between gap-3 text-xs text-white">
-                <div className="flex items-center gap-2">
-                    <div className="h-8 w-8 rounded-full bg-white/10 flex items-center justify-center text-[11px] font-semibold">
-                        HW
-                    </div>
-                <div>
-                <div className="font-semibold text-sm">
-                    Ficha técnica de equipo
-                </div>
-                <div className="text-[11px] text-slate-200">
-                 Resumen técnico para diagnóstico y trazabilidad.
-                </div>
-                </div>
-                </div>
-                <div className="flex flex-wrap gap-2 justify-end">
-                    <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px]">
-                        ID ficha:{" "}
-                    <span className="font-semibold">
-                        {detalleForm.id ?? "-"}
-                    </span>
-                    </span>
-                    <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px]">
-                        Equipo:{" "}
-                    <span className="font-semibold">
-                        {detalleForm.equipoId ?? "-"}
-                    </span>
-                    </span>
-                    <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px]">
-                        Técnico:{" "}
-                    <span className="font-semibold">
-                        {detalleForm.tecnicoId ?? "-"}
-                    </span>
-                    </span>
-                </div>
-            </div>         
+                            <div className="sticky top-0 z-10 mb-1 rounded-xl bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 px-4 py-3 shadow-md flex flex-wrap items-center justify-between gap-3 text-xs text-white">
+                                <div className="flex items-center gap-2">
+                                    <div className="h-8 w-8 rounded-full bg-white/10 flex items-center justify-center text-[11px] font-semibold">
+                                        HW
+                                    </div>
+                                    <div>
+                                        <div className="font-semibold text-sm">
+                                            Ficha técnica de equipo
+                                        </div>
+                                        <div className="text-[11px] text-slate-200">
+                                            Resumen técnico para diagnóstico y trazabilidad.
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex flex-wrap gap-2 justify-end">
+                                    <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px]">
+                                        ID ficha:{" "}
+                                        <span className="font-semibold">
+                                            {detalleForm.id ?? "-"}
+                                        </span>
+                                    </span>
+                                    <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px]">
+                                        Equipo:{" "}
+                                        <span className="font-semibold">
+                                            {detalleForm.equipoId ?? "-"}
+                                        </span>
+                                    </span>
+                                    <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px]">
+                                        Técnico:{" "}
+                                        <span className="font-semibold">
+                                            {detalleForm.tecnicoId ?? "-"}
+                                        </span>
+                                    </span>
+                                </div>
+                            </div>
 
-            {/* METADATOS BÁSICOS */}
+                            {/* METADATOS BÁSICOS */}
                             <Section title="Metadatos de ficha">
                                 <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                                     <div>
@@ -715,9 +715,9 @@ return (
                                         />
                                     </div>
                                 </div>
-                            </Section>  
+                            </Section>
 
-                        {/* OBSERVACIONES GENERALES */}
+                            {/* OBSERVACIONES GENERALES */}
                             <Section title="Observaciones generales">
                                 <textarea
                                     className="w-full border rounded-md px-2 py-1 text-xs min-h-[70px] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-400"
@@ -729,95 +729,95 @@ return (
                                 />
                             </Section>
                             {/* CPU */}
-                                                        <Section title="CPU" subtitle="Información lógica del procesador">
-                                                            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                                                                <div>
-                                                                    <label className="text-[11px] font-semibold text-slate-600">
-                                                                        Nombre
-                                                                    </label>
-                                                                    <Input
-                                                                        className="h-8 text-xs"
-                                                                        value={detalleForm.cpuNombre ?? ""}
-                                                                        onChange={(e) =>
-                                                                            updateField("cpuNombre", e.target.value)
-                                                                        }
-                                                                    />
-                                                                </div>
-                                                                <div>
-                                                                    <label className="text-[11px] font-semibold text-slate-600">
-                                                                        Núcleos
-                                                                    </label>
-                                                                    <Input
-                                                                        type="number"
-                                                                        className="h-8 text-xs"
-                                                                        value={detalleForm.cpuNucleos ?? ""}
-                                                                        onChange={(e) =>
-                                                                            updateField(
-                                                                                "cpuNucleos",
-                                                                                e.target.value === ""
-                                                                                    ? null
-                                                                                    : Number(e.target.value)
-                                                                            )
-                                                                        }
-                                                                    />
-                                                                </div>
-                                                                <div>
-                                                                    <label className="text-[11px] font-semibold text-slate-600">
-                                                                        Hilos lógicos
-                                                                    </label>
-                                                                    <Input
-                                                                        type="number"
-                                                                        className="h-8 text-xs"
-                                                                        value={detalleForm.cpuLogicos ?? ""}
-                                                                        onChange={(e) =>
-                                                                            updateField(
-                                                                                "cpuLogicos",
-                                                                                e.target.value === ""
-                                                                                    ? null
-                                                                                    : Number(e.target.value)
-                                                                            )
-                                                                        }
-                                                                    />
-                                                                </div>
-                                                                <div>
-                                                                    <label className="text-[11px] font-semibold text-slate-600">
-                                                                        Paquetes físicos
-                                                                    </label>
-                                                                    <Input
-                                                                        type="number"
-                                                                        className="h-8 text-xs"
-                                                                        value={detalleForm.cpuPaquetesFisicos ?? ""}
-                                                                        onChange={(e) =>
-                                                                            updateField(
-                                                                                "cpuPaquetesFisicos",
-                                                                                e.target.value === ""
-                                                                                    ? null
-                                                                                    : Number(e.target.value)
-                                                                            )
-                                                                        }
-                                                                    />
-                                                                </div>
-                                                                <div>
-                                                                    <label className="text-[11px] font-semibold text-slate-600">
-                                                                        Frecuencia original (MHz)
-                                                                    </label>
-                                                                    <Input
-                                                                        type="number"
-                                                                        className="h-8 text-xs"
-                                                                        value={detalleForm.cpuFrecuenciaOriginalMhz ?? ""}
-                                                                        onChange={(e) =>
-                                                                            updateField(
-                                                                                "cpuFrecuenciaOriginalMhz",
-                                                                                e.target.value === ""
-                                                                                    ? null
-                                                                                    : Number(e.target.value)
-                                                                            )
-                                                                        }
-                                                                    />
-                                                                </div>
-                                                            </div>
-                                                        </Section>
-{/* RAM (hardware) */}
+                            <Section title="CPU" subtitle="Información lógica del procesador">
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                                    <div>
+                                        <label className="text-[11px] font-semibold text-slate-600">
+                                            Nombre
+                                        </label>
+                                        <Input
+                                            className="h-8 text-xs"
+                                            value={detalleForm.cpuNombre ?? ""}
+                                            onChange={(e) =>
+                                                updateField("cpuNombre", e.target.value)
+                                            }
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[11px] font-semibold text-slate-600">
+                                            Núcleos
+                                        </label>
+                                        <Input
+                                            type="number"
+                                            className="h-8 text-xs"
+                                            value={detalleForm.cpuNucleos ?? ""}
+                                            onChange={(e) =>
+                                                updateField(
+                                                    "cpuNucleos",
+                                                    e.target.value === ""
+                                                        ? null
+                                                        : Number(e.target.value)
+                                                )
+                                            }
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[11px] font-semibold text-slate-600">
+                                            Hilos lógicos
+                                        </label>
+                                        <Input
+                                            type="number"
+                                            className="h-8 text-xs"
+                                            value={detalleForm.cpuLogicos ?? ""}
+                                            onChange={(e) =>
+                                                updateField(
+                                                    "cpuLogicos",
+                                                    e.target.value === ""
+                                                        ? null
+                                                        : Number(e.target.value)
+                                                )
+                                            }
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[11px] font-semibold text-slate-600">
+                                            Paquetes físicos
+                                        </label>
+                                        <Input
+                                            type="number"
+                                            className="h-8 text-xs"
+                                            value={detalleForm.cpuPaquetesFisicos ?? ""}
+                                            onChange={(e) =>
+                                                updateField(
+                                                    "cpuPaquetesFisicos",
+                                                    e.target.value === ""
+                                                        ? null
+                                                        : Number(e.target.value)
+                                                )
+                                            }
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[11px] font-semibold text-slate-600">
+                                            Frecuencia original (MHz)
+                                        </label>
+                                        <Input
+                                            type="number"
+                                            className="h-8 text-xs"
+                                            value={detalleForm.cpuFrecuenciaOriginalMhz ?? ""}
+                                            onChange={(e) =>
+                                                updateField(
+                                                    "cpuFrecuenciaOriginalMhz",
+                                                    e.target.value === ""
+                                                        ? null
+                                                        : Number(e.target.value)
+                                                )
+                                            }
+                                        />
+                                    </div>
+                                </div>
+                            </Section>
+                            {/* RAM (hardware) */}
                             <Section title="RAM (hardware)">
                                 <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                                     <div>
@@ -948,7 +948,7 @@ return (
                                     </div>
                                 </div>
                             </Section>
-{/* DISCO (hardware) */}
+                            {/* DISCO (hardware) */}
                             <Section title="Disco (hardware)">
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                     <div>
@@ -1154,7 +1154,7 @@ return (
                                     </div>
                                 </div>
                             </Section>
-{/* PLACA / GPU / BUS / TPM */}
+                            {/* PLACA / GPU / BUS / TPM */}
                             <Section title="Placa base / GPU / Buses / TPM">
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                     <div>
@@ -1486,7 +1486,7 @@ return (
                                     </div>
                                 </div>
                             </Section>
-{/* EQUIPO FÍSICO */}
+                            {/* EQUIPO FÍSICO */}
                             <Section title="Equipo (identificación física)">
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                     <div>
@@ -2613,7 +2613,7 @@ return (
                                     </div>
                                 </div>
                             </Section>
-{/* BIOS / SEGURIDAD (FICHA) / SO / SOFTWARE */}
+                            {/* BIOS / SEGURIDAD (FICHA) / SO / SOFTWARE */}
                             <Section title="BIOS (ficha) / SO / Software">
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                     <div>
@@ -2957,10 +2957,10 @@ return (
                                 </div>
                             </div>
                         )}
-        </>
-      )}
-    </FichaModal>
-  </div>
-);
+                    </>
+                )}
+            </FichaModal>
+        </div>
+    );
 
 }

@@ -32,10 +32,10 @@ import {
     SelectItem,
     SelectValue,
 } from "@/components/ui/select";
-
-const FICHAS_API_BASE = "http://localhost:8080/api/fichas";
-const API_BASE = "http://localhost:8080/api/ordenes";
-const OTP_API_BASE = "http://localhost:8080/api/otp";
+import { API_BASE_URL } from "../lib/api";
+const FICHAS_API_BASE = `${API_BASE_URL}/api/fichas`;
+const API_BASE = `${API_BASE_URL}/api/ordenes`;
+const OTP_API_BASE = `${API_BASE_URL}/api/otp`;
 const buildUrl = (p: string = "") => `${API_BASE}${p}`;
 
 /* ===== DTOs ===== */
@@ -112,6 +112,15 @@ interface OrdenTrabajoDetalleDTO extends OrdenTrabajoListaDTO {
     otpCodigo?: string | null;
     otpValidado?: boolean | null;
     otpFechaValidacion?: string | null;
+}
+
+/** DTO para Usuario/Cliente */
+interface Usuario {
+    cedula: string;
+    nombre: string;
+    rol?: {
+        nombre: string;
+    };
 }
 
 /** Payload para crear OT */
@@ -349,7 +358,7 @@ export default function OrdenesTrabajoTecnicoPage() {
 
         try {
             // === Usuarios (clientes y técnicos) ===
-            const resUsers = await fetch("http://localhost:8080/api/usuarios", {
+            const resUsers = await fetch(`${API_BASE_URL}/api/usuarios`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
@@ -891,14 +900,14 @@ export default function OrdenesTrabajoTecnicoPage() {
                                     </select>
                                 </div>
                                 <div className="space-y-1.5">
-                                <label className="text-xs font-medium text-slate-700">
-                                    Técnico asignado
-                                </label>
-                                <Input
-                                    value="Usted (usuario autenticado)"
-                                    disabled
-                                    className="h-9 text-sm bg-slate-100 cursor-not-allowed"
-                                />
+                                    <label className="text-xs font-medium text-slate-700">
+                                        Técnico asignado
+                                    </label>
+                                    <Input
+                                        value="Usted (usuario autenticado)"
+                                        disabled
+                                        className="h-9 text-sm bg-slate-100 cursor-not-allowed"
+                                    />
                                 </div>
                                 <div className="space-y-1.5">
                                     <label className="text-xs font-medium text-slate-700">
@@ -1219,7 +1228,7 @@ export default function OrdenesTrabajoTecnicoPage() {
                                                 : ""}{" "}
                                             · Técnico:{" "}
                                             <span className="font-medium text-white">
-                                                {fmt(detalle.tecnicoNombre) }
+                                                {fmt(detalle.tecnicoNombre)}
                                             </span>
                                         </p>
                                     </div>
@@ -1966,12 +1975,12 @@ export default function OrdenesTrabajoTecnicoPage() {
                                                                                         className="group relative h-24 w-28 overflow-hidden border border-slate-200 bg-slate-100"
                                                                                         onClick={() =>
                                                                                             setSelectedImg(
-                                                                                                `http://localhost:8080${img.ruta}`
+                                                                                                `${API_BASE_URL}${img.ruta}`
                                                                                             )
                                                                                         }
                                                                                     >
                                                                                         <img
-                                                                                            src={`http://localhost:8080${img.ruta}`}
+                                                                                            src={`${API_BASE_URL}${img.ruta}`}
                                                                                             alt={img.descripcion ||
                                                                                                 "Imagen OT"}
                                                                                             className="h-full w-full object-cover transition-transform group-hover:scale-110"

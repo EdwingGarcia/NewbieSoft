@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, ChangeEvent, useMemo } from "react";
+import { useEffect, useState, useCallback, ChangeEvent, useMemo, JSX } from "react";
 import { Button } from "@/components/ui/button";
 import {
     Card,
@@ -36,21 +36,21 @@ interface Equipo {
     cliente?: { cedula?: string; nombre?: string };
 }
 
-    interface Rol {
+interface Rol {
     nombre: string;
-    }
+}
 
-    interface Usuario {
+interface Usuario {
     cedula: string;
     nombre: string;
     rol?: Rol;
-    }
+}
 
 /* ============================
    CONSTANTES
 =============================== */
-
-const API_BASE = "http://localhost:8080/api/equipo";
+import { API_BASE_URL } from "../lib/api";
+const API_BASE = `${API_BASE_URL}/api/equipo`;
 
 /* ============================
    COMPONENTE PRINCIPAL
@@ -82,9 +82,9 @@ export default function EquipoPage(): JSX.Element {
     const [hardwareSearch, setHardwareSearch] = useState("");
 
     const tecnicoCedula =
-    typeof window !== "undefined"
-        ? localStorage.getItem("cedula")
-        : null;
+        typeof window !== "undefined"
+            ? localStorage.getItem("cedula")
+            : null;
 
 
     /* ============================
@@ -99,19 +99,19 @@ export default function EquipoPage(): JSX.Element {
     =============================== */
 
     const fetchClientes = useCallback(async () => {
-    const token = getToken();
-    if (!token) return;
+        const token = getToken();
+        if (!token) return;
 
-    try {
-        const res = await fetch("http://localhost:8080/api/usuarios", {
-        headers: { Authorization: `Bearer ${token}` },
-        });
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/usuarios`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
 
-        const data: Usuario[] = await res.json();
-        setClientes(data.filter(u => u.rol?.nombre === "ROLE_CLIENTE"));
-    } catch (e) {
-        console.error("Error cargando clientes", e);
-    }
+            const data: Usuario[] = await res.json();
+            setClientes(data.filter(u => u.rol?.nombre === "ROLE_CLIENTE"));
+        } catch (e) {
+            console.error("Error cargando clientes", e);
+        }
     }, []);
 
 
@@ -139,8 +139,8 @@ export default function EquipoPage(): JSX.Element {
     }, []);
 
     useEffect(() => {
-    fetchEquipos();
-    fetchClientes();
+        fetchEquipos();
+        fetchClientes();
     }, [fetchEquipos, fetchClientes]);
 
 
@@ -408,8 +408,8 @@ export default function EquipoPage(): JSX.Element {
                                 ))}
                             </select>
                             <p className="text-sm text-gray-600">
-                            <span className="font-semibold">Técnico asignado:</span>{" "}
-                            {tecnicoCedula ?? "—"}
+                                <span className="font-semibold">Técnico asignado:</span>{" "}
+                                {tecnicoCedula ?? "—"}
                             </p>
 
                             <Button
@@ -520,8 +520,8 @@ export default function EquipoPage(): JSX.Element {
                                                                 {typeof value === "string"
                                                                     ? value
                                                                     : JSON.stringify(
-                                                                          value
-                                                                      )}
+                                                                        value
+                                                                    )}
                                                             </td>
                                                         </tr>
                                                     )
@@ -561,7 +561,7 @@ export default function EquipoPage(): JSX.Element {
                                     </button>
                                     <XmlUploader
                                         equipoId={
-                                            detalle.id ?? detalle.equipoId
+                                            (detalle.id ?? detalle.equipoId) as number
                                         }
                                     />
                                 </div>

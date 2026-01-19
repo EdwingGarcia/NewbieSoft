@@ -1,5 +1,5 @@
 import { useState } from "react";
-
+import { API_BASE_URL } from "../../lib/api";
 type Orden = {
   estado: string;
   fechaHoraIngreso: string;
@@ -20,7 +20,7 @@ export function useDashboard() {
 
 
     const res = await fetch(
-      "http://localhost:8080/api/ordenes/mis-ordenes",
+      `${API_BASE_URL}/api/ordenes/mis-ordenes`,
       {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -39,11 +39,11 @@ export function useDashboard() {
     const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
 
     const ordenesHoy = ordenes.filter(o =>
-    new Date(o.fechaHoraIngreso) >= inicioDia
+      new Date(o.fechaHoraIngreso) >= inicioDia
     );
 
     const ordenesMes = ordenes.filter(o =>
-    new Date(o.fechaHoraIngreso) >= inicioMes
+      new Date(o.fechaHoraIngreso) >= inicioMes
     );
 
     setOrdenesHoy(ordenesHoy.length);
@@ -70,7 +70,7 @@ export function useDashboard() {
     }
   };
 
-    return {
+  return {
     totalAsignadas,
     abiertas,
     cerradas,
@@ -78,6 +78,6 @@ export function useDashboard() {
     ordenesHoy,
     ordenesMes,
     cargarDatos,
-    };
+  };
 
 }

@@ -25,8 +25,9 @@ import {
 // Asegúrate de que estos imports existan en tu proyecto, si no, coméntalos o ajústalos
 import FichaTecnicaForm from "./FichaTecnicaForm";
 import XmlUploader from "./XmlUploader";
+import { API_BASE_URL } from "../lib/api"; // <-- Import
 
-const API_BASE = "http://localhost:8080/api/fichas";
+const API_BASE = `${API_BASE_URL}/api/fichas`; // <-- Use variable
 const buildUrl = (p: string = "") => `${API_BASE}${p}`;
 
 interface FichaTecnicaDTO {
@@ -302,7 +303,7 @@ export default function FichasTecnicasPage() {
                 return;
             }
 
-            const res = await fetch("http://localhost:8080/api/pdf/ficha", {
+            const res = await fetch(`${API_BASE_URL}/api/pdf/ficha`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

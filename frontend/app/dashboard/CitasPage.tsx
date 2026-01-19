@@ -20,9 +20,9 @@ import {
 /* =========================
    API + Tipos
 ========================= */
-
-const CITAS_API_BASE = "http://localhost:8080/api/citas";
-const USUARIOS_API = "http://localhost:8080/api/usuarios";
+import { API_BASE_URL } from "../lib/api"; // <--- AGREGAR ESTA LÍNEA
+const CITAS_API_BASE = `${API_BASE_URL}/api/citas`;
+const USUARIOS_API = `${API_BASE_URL}/api/usuarios`;
 
 type CitasScope = "TODAS" | "CLIENTE" | "TECNICO";
 
@@ -728,7 +728,7 @@ function CrearCitaModal({
             const fechaHoraInicio = `${fecha}T${hora}:00`;
 
             const response = await fetch(
-                `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"}/api/citas/agendar`,
+                `${CITAS_API_BASE}/agendar`, // <--- Usamos la constante que ya definimos arriba
                 {
                     method: "POST",
                     headers: {

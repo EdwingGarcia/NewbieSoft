@@ -1,10 +1,13 @@
-// components/consultas/api.ts
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+// Importamos la URL centralizada desde tu archivo principal de configuración
+import { API_BASE_URL } from "@/app/lib/api";
+
+// Eliminamos la definición local de BASE_URL para evitar duplicidad
+// const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
 export type OtpSendReq = {
     cedula: string;
     correo: string;
-    recaptchaToken?: string; // Agregado para soportar el Captcha
+    recaptchaToken?: string;
 };
 export type OtpSendRes = { ok: boolean; message?: string };
 
@@ -30,7 +33,8 @@ export type OrdenPublicaDto = {
 };
 
 async function postJSON<T>(path: string, body: unknown): Promise<T> {
-    const res = await fetch(`${BASE_URL}${path}`, {
+    // Usamos API_BASE_URL importada
+    const res = await fetch(`${API_BASE_URL}${path}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -54,9 +58,9 @@ export const ConsultasAPI = {
     verifyOtp: (req: OtpVerifyReq) =>
         postJSON<OtpVerifyRes>("/api/public/consultas/otp/validar", req),
 
-    historial: (req: HistorialReq) =>
+    getHistorial: (req: HistorialReq) =>
         postJSON<OrdenPublicaDto[]>("/api/public/consultas/historial", req),
 
-    procedimiento: (req: ProcedimientoReq) =>
+    getProcedimiento: (req: ProcedimientoReq) =>
         postJSON<OrdenPublicaDto>("/api/public/consultas/procedimiento", req),
 };

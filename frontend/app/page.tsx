@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { saveSession } from "@/app/utils/auth";
 import "./styles/login.css";
-
+import { API_BASE_URL } from "../app/lib/api";
 export default function Home() {
     const [correo, setCorreo] = useState("");
     const [password, setPassword] = useState("");
@@ -17,7 +17,7 @@ export default function Home() {
         setMensaje("Verificando credenciales...");
 
         try {
-            const response = await fetch("http://localhost:8080/api/auth/login", {
+            const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

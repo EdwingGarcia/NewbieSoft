@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "/components/di
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Send } from "lucide-react";
-
+import { API_BASE_URL } from "../../app/lib/api";
 interface ModalNotificacionProps {
     otId: number;
     onClose: () => void;

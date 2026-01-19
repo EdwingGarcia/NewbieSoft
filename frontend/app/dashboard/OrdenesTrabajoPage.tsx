@@ -25,12 +25,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
+import { API_BASE_URL } from "../lib/api"; // 1. Importar
 
-const FICHAS_API_BASE = "http://localhost:8080/api/fichas";
-const API_BASE = "http://localhost:8080/api/ordenes";
-const OTP_API_BASE = "http://localhost:8080/api/otp";
+// 2. Usar la variable centralizada
+const FICHAS_API_BASE = `${API_BASE_URL}/api/fichas`;
+const API_BASE = `${API_BASE_URL}/api/ordenes`;
+const OTP_API_BASE = `${API_BASE_URL}/api/otp`;
 const buildUrl = (p: string = "") => `${API_BASE}${p}`;
-
 /* =========================
    DTOs / Interfaces base
 ========================= */
@@ -808,7 +809,7 @@ export default function OrdenesTrabajoPage() {
     const fetchCombos = useCallback(async () => {
         if (!token) return;
         try {
-            const resUsers = await fetch("http://localhost:8080/api/usuarios", {
+            const resUsers = await fetch(`${API_BASE_URL}/api/usuarios`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             const usuarios: Usuario[] = await resUsers.json();

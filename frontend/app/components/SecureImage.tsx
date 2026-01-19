@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { Loader2, ImageOff } from "lucide-react";
+import { API_BASE_URL } from "../lib/api"; // Importamos la URL base centralizada
 
 interface SecureImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
     src: string; // La URL original del backend (ej: /uploads/...)
@@ -24,9 +25,10 @@ export default function SecureImage({ src, alt, className, ...props }: SecureIma
                 if (!token) throw new Error("No token");
 
                 // 2. Construimos la URL completa (sin ?token=...)
-                // Si src ya viene completa, usala, si no, pegale el localhost
-                const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-                const fullUrl = src.startsWith("http") ? src : `${baseUrl}${src}`;
+                // Si src ya viene completa (http...), la usamos tal cual.
+                // Si es una ruta relativa (/uploads...), le concatenamos la API_BASE_URL.
+                // Usamos API_BASE_URL que ya maneja process.env o localhost por defecto.
+                const fullUrl = src.startsWith("http") ? src : `${API_BASE_URL}${src}`;
 
                 // 3. Hacemos el FETCH con el Header
                 const res = await fetch(fullUrl, {

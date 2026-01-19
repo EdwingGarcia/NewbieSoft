@@ -2,6 +2,7 @@
 
 import { useRef, useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from "next/navigation"; // ✅ Importamos useRouter
+import { API_BASE_URL } from '../lib/api';
 
 export default function FirmaPage() {
   const searchParams = useSearchParams();
@@ -29,7 +30,7 @@ export default function FirmaPage() {
       }
 
       try {
-        const res = await fetch(`http://localhost:8080/api/ordenes/${ordenId}/detalle`, {
+        const res = await fetch(`${API_BASE_URL}/api/ordenes/${ordenId}/detalle`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
@@ -132,7 +133,7 @@ export default function FirmaPage() {
     };
 
     try {
-      const response = await fetch("http://localhost:8080/api/firmas/confirmacion", {
+      const response = await fetch(`${API_BASE_URL}/api/firmas/confirmacion`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -14,15 +14,17 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
     Loader2,
     Upload,
-    Image,
+    Image as ImageIcon, // <--- Renombrado para evitar conflicto
     Plus,
     Trash2,
     X,
 } from "lucide-react";
 import { MessageCircle } from "lucide-react";
 
+import { API_BASE_URL } from "@/app/lib/api"; // <--- Importar configuración centralizada
 
-const API_BASE = "http://localhost:8080/api/fichas";
+// Usar la variable centralizada
+const API_BASE = `${API_BASE_URL}/api/fichas`;
 const buildUrl = (p: string) => `${API_BASE}${p}`;
 
 
@@ -56,10 +58,10 @@ export default function FichaTecnicaForm() {
 
         try {
             const [resUsuarios, resOrdenes] = await Promise.all([
-                fetch("http://localhost:8080/api/usuarios", {
+                fetch(`${API_BASE_URL}/api/usuarios`, { // <--- Usar variable centralizada
                     headers: { Authorization: `Bearer ${token}` }
                 }),
-                fetch("http://localhost:8080/api/ordenes", {
+                fetch(`${API_BASE_URL}/api/ordenes`, { // <--- Usar variable centralizada
                     headers: { Authorization: `Bearer ${token}` }
                 }),
             ]);
@@ -284,7 +286,7 @@ export default function FichaTecnicaForm() {
 
             {fichaId && (
                 <Card>
-                  
+
 
                 </Card>
             )}

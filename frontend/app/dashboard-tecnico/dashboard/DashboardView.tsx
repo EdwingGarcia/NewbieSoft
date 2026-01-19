@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import styles from "../../styles/Dashboard.module.css";
 import KpiCard from "./KpiCard";
 import { useDashboard } from "./useDashboard";
-
+import { API_BASE_URL } from "../../lib/api";
 import {
   Wrench,
   CheckCircle,
@@ -59,7 +59,7 @@ export default function DashboardView({
         if (!token || !cedula) return;
 
         const res = await fetch(
-          `http://localhost:8080/api/citas/tecnico/${cedula}`,
+          `${API_BASE_URL}/api/citas/tecnico/${cedula}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -160,7 +160,7 @@ export default function DashboardView({
           </div>
 
           <span
-           onClick={onGoCitas}
+            onClick={onGoCitas}
             style={{
               fontSize: "0.8rem",
               fontWeight: 600,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, JSX } from "react";
 import { Button } from "@/components/ui/button";
 import {
     Card,
@@ -20,8 +20,13 @@ import {
     ShieldCheck,
 } from "lucide-react";
 
-const API_BASE = "http://localhost:8080/api/usuarios";
-const ROLES_API = "http://localhost:8080/roles";
+// --- IMPORTANTE: Traer la URL centralizada
+import { API_BASE_URL } from "@/app/lib/api";
+
+// --- Usar la variable en lugar de localhost
+const API_BASE = `${API_BASE_URL}/api/usuarios`;
+const ROLES_API = `${API_BASE_URL}/api/roles`; // Asegúrate de que la ruta en el backend sea /api/roles o /roles y ajústala aquí.
+// Si tu backend tiene los roles en /roles (sin /api), usa: `${API_BASE_URL}/roles`
 
 interface Rol {
     idRol: number;
@@ -65,9 +70,10 @@ export default function GestionUsuario(): JSX.Element {
     const getToken = (): string | null =>
         typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
-    const getAuthHeaders = () => {
+    const getAuthHeaders = (): Record<string, string> => {
         const token = getToken();
-        return token ? { Authorization: `Bearer ${token}` } : {};
+        if (!token) return {};
+        return { Authorization: `Bearer ${token}` };
     };
 
     // ===== fetch usuarios =====

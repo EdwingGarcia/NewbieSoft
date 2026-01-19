@@ -77,10 +77,10 @@ export default function ConsultaForm() {
         setError(null);
         try {
             if (tipoConsulta === "historial") {
-                const data = await ConsultasAPI.historial({ consultaToken: token });
+                const data = await ConsultasAPI.getHistorial({ consultaToken: token });
                 setResultadoHistorial(data);
             } else {
-                const data = await ConsultasAPI.procedimiento({
+                const data = await ConsultasAPI.getProcedimiento({
                     consultaToken: token,
                     numeroOrden: procedimiento.trim(),
                 });
@@ -153,7 +153,7 @@ export default function ConsultaForm() {
                             <ReCAPTCHA
                                 ref={recaptchaRef}
                                 // Usa una variable de entorno o tu clave pública de pruebas
-                                sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || "6LeSskosAAAAAO8GxgSqZIeFblYsCPFbBkZBN9vs"}
+                                sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || ""}
                                 onChange={(token) => setCaptchaToken(token)}
                             />
                         </div>
