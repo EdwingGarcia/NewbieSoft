@@ -20,7 +20,7 @@ import java.nio.file.Paths;
 @RequiredArgsConstructor
 public class SecureFileController {
 
-    @Value("${app.upload-dir:uploads}")
+    @Value("${app.upload-dir}")
     private String uploadDir;
 
     // Ya no necesitamos JwtUtils ni Services aquí, Spring Security filtra antes.
