@@ -62,30 +62,27 @@ public class SecurityConfig {
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS) // Sin estado (JWT)
                 )
                 .authorizeHttpRequests(auth -> auth
-                        // 1. 🟢 RUTAS DE AUTENTICACIÓN Y DOCUMENTACIÓN
+                        // ✅ Preflight siempre permitido
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                        // 1) Auth + docs
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
 
-                        // 2. 🟢 RUTAS DE ARCHIVOS (IMÁGENES)
-                        // Se permite acceso público aquí porque el SecureFileController valida el token manualmente.
-                       // .requestMatchers("/uploads/**").permitAll()
-
-                       // 3. 🟢 RUTAS PÚBLICAS PARA CONSULTA DE CLIENTES
-                        // Permite flujo de OTP, Captcha y ver estado de orden sin login de empleado.
+                        // 2) Público cliente
                         .requestMatchers("/api/public/consultas/**").permitAll()
                         .requestMatchers("/api/public/otp/**").permitAll()
 
-                        // 👇 servir archivos subidos (IMPORTANTE)
+                        // 3) Archivos públicos
                         .requestMatchers("/uploads/**").permitAll()
 
-                        // tus endpoints de prueba
+                        // 4) Endpoints de prueba (si de verdad los quieres públicos)
                         .requestMatchers("/api/ordenes/**").permitAll()
                         .requestMatchers("/api/firmas/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/equipo/*/hardware/upload-xml").permitAll()
 
-                        // lo demás de /api necesita token
+                        // ✅ Todo lo demás bajo /api requiere token
                         .requestMatchers("/api/**").authenticated()
-                        .requestMatchers("/api/**").permitAll()
 
                         .anyRequest().authenticated()
                 );
