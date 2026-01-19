@@ -196,7 +196,7 @@ const FichaTecnicaWrapper: React.FC<{
         equipoId: String(equipoId),
     };
 
-    // @ts-ignore – FichasTecnicasPage está tipada como página de Next con searchParams
+    // @ts-expect-error -- (explica por qué, por ejemplo: librería sin tipos / mismatch de DTO)
     return <FichasTecnicasPage searchParams={searchParams} />;
 };
 
