@@ -14,24 +14,25 @@ import {
     User,
     History,
     Search,
-    Filter, // Icono decorativo
-    Calendar, // Icono para fechas
+    Filter,
+    Calendar,
 } from "lucide-react";
 
 import ModalNotificacion from "../components/ModalNotificacion";
 import SecureImage from "../components/SecureImage";
+import FichaTecnicaEditorModal from "@/app/dashboard/components/FichaTecnicaEditorModal";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
-import { API_BASE_URL } from "../lib/api"; // 1. Importar
+import { API_BASE_URL } from "../lib/api";
 
-// 2. Usar la variable centralizada
 const FICHAS_API_BASE = `${API_BASE_URL}/api/fichas`;
 const API_BASE = `${API_BASE_URL}/api/ordenes`;
 const OTP_API_BASE = `${API_BASE_URL}/api/otp`;
 const buildUrl = (p: string = "") => `${API_BASE}${p}`;
+
 /* =========================
    DTOs / Interfaces base
 ========================= */
@@ -55,7 +56,6 @@ interface ImagenDTO {
     fechaSubida: string;
 }
 
-/** DTO lista */
 interface OrdenTrabajoListaDTO {
     id: number;
     numeroOrden: string;
@@ -84,7 +84,6 @@ interface OrdenTrabajoListaDTO {
     observacionesIngreso?: string | null;
 }
 
-/** DTO detalle */
 interface OrdenTrabajoDetalleDTO extends OrdenTrabajoListaDTO {
     ordenId: number;
 
@@ -117,7 +116,6 @@ interface OrdenTrabajoDetalleDTO extends OrdenTrabajoListaDTO {
     otpFechaValidacion?: string | null;
 }
 
-/** Payload crear OT */
 interface CrearOrdenPayload {
     clienteCedula: string;
     tecnicoCedula: string;
@@ -131,7 +129,6 @@ interface CrearOrdenPayload {
     prioridad: string;
 }
 
-/** Form crear (equipoId string para input) */
 interface CrearOrdenFormState {
     clienteCedula: string;
     tecnicoCedula: string;
@@ -168,6 +165,13 @@ interface FichaTecnicaDetalleDTO {
     observaciones?: string | null;
     hardwareJson?: any;
     [key: string]: any;
+}
+
+interface FichaTecnicaAnexaDTO {
+    id: number;
+    fechaCreacion: string;
+    tecnicoNombre?: string | null;
+    observaciones?: string | null;
 }
 
 /* ===== COMPONENTE: LISTA DE FICHAS POR CLIENTE ===== */
@@ -628,7 +632,7 @@ function FichaTecnicaDetalleModal({
 }
 
 /* =========================
-   Página
+   Página Principal
 ========================= */
 
 export default function OrdenesTrabajoPage() {
@@ -713,10 +717,20 @@ export default function OrdenesTrabajoPage() {
 
     const [fichaDetalleId, setFichaDetalleId] = useState<number | null>(null);
 
+    // ✅ FICHAS TÉCNICAS ANEXAS (por OT)
+    const [fichasAnexas, setFichasAnexas] = useState<FichaTecnicaAnexaDTO[]>([]);
+    const [fichasAnexasLoading, setFichasAnexasLoading] = useState(false);
+    const [fichasAnexasError, setFichasAnexasError] = useState<string | null>(null);
+
+    // ✅ Editor modal (formulario grande)
+    const [showFichaEditor, setShowFichaEditor] = useState(false);
+    const [editorFichaId, setEditorFichaId] = useState<number | null>(null);
+
+    // ✅ NUEVO: Estado para crear ficha
+    const [creandoFicha, setCreandoFicha] = useState(false);
+
     // === BUSCADOR Y FILTROS ===
     const [searchTerm, setSearchTerm] = useState("");
-
-    // ✅ Rango de fechas
     const [dateStart, setDateStart] = useState("");
     const [dateEnd, setDateEnd] = useState("");
 
@@ -743,8 +757,8 @@ export default function OrdenesTrabajoPage() {
     const totalCalculado = useMemo(() => subtotalCalculado + iva, [subtotalCalculado, iva]);
 
     /* =========================
-       ✅ LOGICA DE FILTRADO (Texto + Rango Fechas)
-       ========================= */
+       LOGICA DE FILTRADO
+    ========================= */
     const normalizeText = (text: string | null | undefined) => {
         if (!text) return "";
         return text
@@ -757,7 +771,6 @@ export default function OrdenesTrabajoPage() {
         const term = normalizeText(searchTerm);
 
         return ordenes.filter((ot) => {
-            // 1. Filtro Texto
             const matchesText =
                 !term ||
                 normalizeText(ot.numeroOrden).includes(term) ||
@@ -769,17 +782,14 @@ export default function OrdenesTrabajoPage() {
                 normalizeText(ot.tecnicoCedula).includes(term) ||
                 normalizeText(ot.problemaReportado).includes(term);
 
-            // 2. Filtro Rango de Fechas
             let matchDate = true;
             if (dateStart || dateEnd) {
-                // Obtener fecha de la orden (sin hora para comparar días)
                 const d = new Date(ot.fechaHoraIngreso);
                 const year = d.getFullYear();
                 const month = String(d.getMonth() + 1).padStart(2, "0");
                 const day = String(d.getDate()).padStart(2, "0");
-                const otYMD = `${year}-${month}-${day}`; // Formato YYYY-MM-DD
+                const otYMD = `${year}-${month}-${day}`;
 
-                // Comparar strings ISO (YYYY-MM-DD funciona alfabéticamente)
                 if (dateStart && otYMD < dateStart) matchDate = false;
                 if (dateEnd && otYMD > dateEnd) matchDate = false;
             }
@@ -912,6 +922,7 @@ export default function OrdenesTrabajoPage() {
 
             sincronizarDetalleEditable(data);
             await fetchImagenes(id);
+            await fetchFichasAnexasPorOT(id, data.equipoId);
         } catch (e: any) {
             setError(e.message ?? "Error al cargar detalles de la orden");
         }
@@ -1134,8 +1145,8 @@ export default function OrdenesTrabajoPage() {
     };
 
     /* =========================================================
-       ✅ FICHAS TÉCNICAS EN MODAL
-    */
+       FICHAS TÉCNICAS EN MODAL
+    ========================================================= */
 
     const closeFichaDetalle = () => {
         setShowFichaDetalle(false);
@@ -1242,6 +1253,224 @@ export default function OrdenesTrabajoPage() {
             setFichaError(e?.message ?? "Error cargando detalle de la ficha técnica.");
         } finally {
             setFichaLoading(false);
+        }
+    };
+
+    /* =========================================================
+       FICHAS TÉCNICAS ANEXAS (POR OT) + EDITOR MODAL
+    ========================================================= */
+
+    const normalizeToAnexas = (raw: any): FichaTecnicaAnexaDTO[] => {
+        if (!raw) return [];
+        const arr: any[] = Array.isArray(raw) ? raw : raw?.data && Array.isArray(raw.data) ? raw.data : [raw];
+        return arr
+            .filter(Boolean)
+            .map((x: any) => ({
+                id: Number(x.id),
+                fechaCreacion: x.fechaCreacion ?? x.createdAt ?? new Date().toISOString(),
+                tecnicoNombre: x.tecnicoNombre ?? x.tecnicoId ?? null,
+                observaciones: x.observaciones ?? null,
+            }))
+            .filter((x) => Number.isFinite(x.id));
+    };
+
+    const fetchFichasAnexasPorOT = useCallback(
+        async (ordenId: number, equipoId: number) => {
+            if (!token) return;
+
+            setFichasAnexasLoading(true);
+            setFichasAnexasError(null);
+
+            try {
+                const candidates = [
+                    `${FICHAS_API_BASE}/orden/${ordenId}/equipo/${equipoId}`,
+                    `${FICHAS_API_BASE}/ordenTrabajo/${ordenId}/equipo/${equipoId}`,
+                    `${FICHAS_API_BASE}/orden/${ordenId}`,
+                    `${FICHAS_API_BASE}/ordenTrabajo/${ordenId}`,
+                    `${FICHAS_API_BASE}?ordenTrabajoId=${ordenId}&equipoId=${equipoId}`,
+                    `${FICHAS_API_BASE}?ordenTrabajoId=${ordenId}`,
+                ];
+
+                const raw = await tryFetchJson(candidates, token);
+                if ((raw as any)?.__notFound) {
+                    setFichasAnexas([]);
+                    return;
+                }
+
+                const lista = normalizeToAnexas(raw)
+                    .slice()
+                    .sort((a, b) => new Date(b.fechaCreacion).getTime() - new Date(a.fechaCreacion).getTime());
+
+                setFichasAnexas(lista);
+            } catch (e: any) {
+                console.error(e);
+                setFichasAnexas([]);
+                setFichasAnexasError(e?.message ?? "Error cargando fichas anexas");
+            } finally {
+                setFichasAnexasLoading(false);
+            }
+        },
+        [token]
+    );
+
+    const abrirEditorFicha = (id: number) => {
+        setEditorFichaId(id);
+        setShowFichaEditor(true);
+    };
+
+    // ✅ FUNCIÓN CORREGIDA: Crear ficha anexa y abrir editor
+    const crearFichaAnexaYAbrirEditor = async () => {
+        if (!detalle) {
+            alert("No hay detalle de orden cargado");
+            return;
+        }
+        if (!token) {
+            alert("No hay token de autenticación");
+            return;
+        }
+
+        const tecnico = detalle.tecnicoCedula;
+        if (!tecnico) {
+            alert("No se encontró la cédula del técnico en la OT.");
+            return;
+        }
+
+        setCreandoFicha(true);
+
+        try {
+            // 1. Crear ficha asociada a OT+equipo
+            const params = new URLSearchParams({
+                cedulaTecnico: tecnico,
+                equipoId: String(detalle.equipoId),
+                ordenTrabajoId: String(detalle.ordenId),
+                observaciones: "",
+            });
+
+            console.log("Creando ficha con params:", {
+                cedulaTecnico: tecnico,
+                equipoId: detalle.equipoId,
+                ordenTrabajoId: detalle.ordenId,
+            });
+
+            const res = await fetch(`${FICHAS_API_BASE}`, {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/x-www-form-urlencoded",
+                },
+                body: params,
+            });
+
+            if (!res.ok) {
+                const text = await res.text().catch(() => null);
+                throw new Error(text || `Error creando ficha (HTTP ${res.status})`);
+            }
+
+            console.log("Ficha creada exitosamente, status:", res.status);
+
+            // 2. Intentar leer ID de la respuesta directamente
+            let newId: number | null = null;
+
+            try {
+                const responseText = await res.clone().text();
+                console.log("Respuesta del servidor (text):", responseText);
+
+                if (responseText && responseText.trim()) {
+                    try {
+                        const maybeJson = JSON.parse(responseText);
+                        newId = maybeJson?.id ?? maybeJson?.data?.id ?? null;
+                        console.log("ID obtenido de respuesta JSON:", newId);
+                    } catch {
+                        const parsed = parseInt(responseText.trim(), 10);
+                        if (!isNaN(parsed)) {
+                            newId = parsed;
+                            console.log("ID parseado de texto:", newId);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.log("No se pudo leer respuesta como texto:", e);
+            }
+
+            // 3. Si no obtuvimos el ID, buscar en la lista completa de fichas
+            if (!newId) {
+                console.log("Buscando ID en lista completa de fichas...");
+
+                // Pequeña pausa para asegurar que el backend haya guardado
+                await new Promise(resolve => setTimeout(resolve, 500));
+
+                try {
+                    const listRes = await fetch(`${FICHAS_API_BASE}`, {
+                        headers: { Authorization: `Bearer ${token}` },
+                    });
+
+                    if (listRes.ok) {
+                        const allFichas = await listRes.json();
+                        console.log("Total fichas encontradas:", Array.isArray(allFichas) ? allFichas.length : 'no es array');
+
+                        if (Array.isArray(allFichas) && allFichas.length > 0) {
+                            // Filtrar por ordenTrabajoId
+                            const fichasDeEstaOT = allFichas.filter(
+                                (f: any) => Number(f.ordenTrabajoId) === Number(detalle.ordenId)
+                            );
+
+                            console.log("Fichas con esta ordenTrabajoId:", fichasDeEstaOT.length);
+
+                            if (fichasDeEstaOT.length > 0) {
+                                // Ordenar por ID descendente (el más reciente tiene ID más alto)
+                                const sorted = [...fichasDeEstaOT].sort((a: any, b: any) => {
+                                    return (Number(b.id) || 0) - (Number(a.id) || 0);
+                                });
+                                newId = sorted[0].id;
+                                console.log("ID encontrado (más reciente de esta OT):", newId);
+                            } else {
+                                // Si no hay fichas con esta OT, buscar por equipoId
+                                const fichasDelEquipo = allFichas.filter(
+                                    (f: any) => Number(f.equipoId) === Number(detalle.equipoId)
+                                );
+
+                                if (fichasDelEquipo.length > 0) {
+                                    const sorted = [...fichasDelEquipo].sort((a: any, b: any) => {
+                                        return (Number(b.id) || 0) - (Number(a.id) || 0);
+                                    });
+                                    newId = sorted[0].id;
+                                    console.log("ID encontrado (más reciente del equipo):", newId);
+                                } else {
+                                    // Tomar simplemente la última ficha creada
+                                    const sorted = [...allFichas].sort((a: any, b: any) => {
+                                        return (Number(b.id) || 0) - (Number(a.id) || 0);
+                                    });
+                                    newId = sorted[0].id;
+                                    console.log("ID de la última ficha general:", newId);
+                                }
+                            }
+                        }
+                    } else {
+                        console.error("Error al obtener lista de fichas:", listRes.status);
+                    }
+                } catch (e) {
+                    console.error("Error buscando en lista de fichas:", e);
+                }
+            }
+
+            // 4. Refrescar la lista de fichas anexas en el UI
+            await fetchFichasAnexasPorOT(detalle.ordenId, detalle.equipoId);
+
+            // 5. Abrir el editor
+            if (!newId) {
+                alert("✅ Ficha creada exitosamente.\n\nNo se pudo obtener el ID automáticamente. Por favor, haz clic en la ficha de la lista para editarla.");
+                return;
+            }
+
+            console.log("Abriendo editor con ID:", newId);
+            setEditorFichaId(newId);
+            setShowFichaEditor(true);
+
+        } catch (e: any) {
+            console.error("Error en crearFichaAnexaYAbrirEditor:", e);
+            alert("❌ " + (e?.message ?? "Error creando ficha anexa"));
+        } finally {
+            setCreandoFicha(false);
         }
     };
 
@@ -1355,7 +1584,7 @@ export default function OrdenesTrabajoPage() {
         <div className="min-h-screen bg-slate-50 px-4 py-6 lg:px-8">
             <div className="mx-auto max-w-7xl space-y-6">
 
-                {/* ✅ HEADER CON BUSCADOR Y RANGO DE FECHAS */}
+                {/* HEADER CON BUSCADOR Y RANGO DE FECHAS */}
                 <div className="flex flex-col gap-4 rounded-md border border-slate-200 bg-white px-4 py-3 shadow-sm md:flex-row md:items-center md:justify-between">
                     <div>
                         <h1 className="text-xl font-semibold tracking-tight text-slate-900">
@@ -1367,8 +1596,6 @@ export default function OrdenesTrabajoPage() {
                     </div>
 
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-
-                        {/* Buscador Texto */}
                         <div className="relative min-w-[220px]">
                             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
                             <Input
@@ -1387,7 +1614,6 @@ export default function OrdenesTrabajoPage() {
                             )}
                         </div>
 
-                        {/* ✅ Filtro Rango de Fechas */}
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                             <div className="relative flex items-center gap-1">
                                 <span className="text-xs text-slate-500 font-medium">Desde:</span>
@@ -1612,7 +1838,7 @@ export default function OrdenesTrabajoPage() {
                     </div>
                 )}
 
-                {/* ✅ LISTA FILTRADA */}
+                {/* LISTA FILTRADA */}
                 {loading ? (
                     <div className="flex justify-center py-10">
                         <Loader2 className="h-6 w-6 animate-spin text-slate-500" />
@@ -1942,6 +2168,87 @@ export default function OrdenesTrabajoPage() {
                                                         <p className="mt-2 text-[11px] text-slate-600">
                                                             Registra tus pruebas, hallazgos y acciones realizadas.
                                                         </p>
+
+                                                        {/* ✅ FICHAS TÉCNICAS ANEXAS */}
+                                                        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                                                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                                                <div>
+                                                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-700">
+                                                                        Fichas Técnicas Anexas
+                                                                    </p>
+                                                                    <p className="text-[11px] text-slate-500">
+                                                                        Crea y completa fichas técnicas asociadas a esta OT.
+                                                                    </p>
+                                                                </div>
+
+                                                                {/* ✅ BOTÓN CORREGIDO */}
+                                                                <Button
+                                                                    type="button"
+                                                                    size="sm"
+                                                                    className="h-8 bg-slate-900 text-[11px] text-white hover:bg-slate-800"
+                                                                    onClick={crearFichaAnexaYAbrirEditor}
+                                                                    disabled={creandoFicha}
+                                                                >
+                                                                    {creandoFicha ? (
+                                                                        <>
+                                                                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                                                            Creando...
+                                                                        </>
+                                                                    ) : (
+                                                                        <>
+                                                                            <Plus className="h-4 w-4 mr-1" />
+                                                                            Nueva ficha
+                                                                        </>
+                                                                    )}
+                                                                </Button>
+                                                            </div>
+
+                                                            <div className="mt-3">
+                                                                {fichasAnexasLoading ? (
+                                                                    <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                                        Cargando fichas anexas...
+                                                                    </div>
+                                                                ) : fichasAnexasError ? (
+                                                                    <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] text-rose-700">
+                                                                        {fichasAnexasError}
+                                                                    </div>
+                                                                ) : fichasAnexas.length === 0 ? (
+                                                                    <div className="rounded-lg border border-dashed border-slate-300 bg-white px-3 py-3 text-[11px] text-slate-600">
+                                                                        No hay fichas anexas creadas para esta OT.
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="grid gap-2">
+                                                                        {fichasAnexas.map((f) => (
+                                                                            <button
+                                                                                key={f.id}
+                                                                                type="button"
+                                                                                onClick={() => abrirEditorFicha(f.id)}
+                                                                                className="flex w-full items-start justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left hover:border-indigo-300 hover:bg-indigo-50/40 transition"
+                                                                            >
+                                                                                <div className="min-w-0">
+                                                                                    <p className="text-[11px] font-semibold text-slate-900">
+                                                                                        Ficha #{f.id}
+                                                                                    </p>
+                                                                                    <p className="text-[10px] text-slate-500">
+                                                                                        {new Date(f.fechaCreacion).toLocaleString("es-EC")}
+                                                                                        {f.tecnicoNombre ? ` · ${f.tecnicoNombre}` : ""}
+                                                                                    </p>
+                                                                                    {f.observaciones && (
+                                                                                        <p className="mt-1 line-clamp-2 text-[11px] text-slate-600">
+                                                                                            {f.observaciones}
+                                                                                        </p>
+                                                                                    )}
+                                                                                </div>
+                                                                                <span className="shrink-0 text-[11px] font-medium text-indigo-600">
+                                                                                    Abrir →
+                                                                                </span>
+                                                                            </button>
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
 
                                                         <div className="mt-3 space-y-2">
                                                             <label className="text-[11px] font-medium text-slate-700">Diagnóstico / trabajo realizado *</label>
@@ -2303,14 +2610,12 @@ export default function OrdenesTrabajoPage() {
                                                         <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
                                                             {imagenesNuevas.map((file, index) => (
                                                                 <div key={index} className="relative group aspect-square rounded-md border border-slate-200 overflow-hidden bg-slate-100">
-                                                                    {/* Previsualización usando createObjectURL */}
                                                                     <img
                                                                         src={URL.createObjectURL(file)}
                                                                         alt="Previsualización"
                                                                         className="h-full w-full object-cover"
                                                                     />
 
-                                                                    {/* Botón para quitar la imagen antes de subirla */}
                                                                     <button
                                                                         onClick={() => {
                                                                             setImagenesNuevas((prev) => prev.filter((_, i) => i !== index));
@@ -2452,6 +2757,19 @@ export default function OrdenesTrabajoPage() {
                     loading={fichaLoading}
                     error={fichaError}
                     data={fichaDetalle}
+                />
+
+                {/* Editor de fichas técnicas anexas */}
+                <FichaTecnicaEditorModal
+                    open={showFichaEditor}
+                    fichaId={editorFichaId}
+                    onClose={() => {
+                        setShowFichaEditor(false);
+                        setEditorFichaId(null);
+                    }}
+                    onSaved={() => {
+                        if (detalle) fetchFichasAnexasPorOT(detalle.ordenId, detalle.equipoId);
+                    }}
                 />
             </div>
         </div>
