@@ -1,13 +1,15 @@
-# Etapa de ejecución: Usamos una imagen ligera de Java 17
-FROM eclipse-temurin:17-jdk-alpine
+# Use an official Java 21 runtime as a parent image
+FROM eclipse-temurin:21-jre-alpine
 
-# Creamos un volumen temporal (opcional, pero buena práctica en Spring Boot)
-VOLUME /tmp
+# Set the working directory inside the container
+WORKDIR /app
 
-# Copiamos el archivo JAR generado por Maven al contenedor.
-# El pipeline primero ejecutará 'mvn package', generando el jar en 'target/'.
-# Usamos un comodín (*.jar) para que funcione sin importar la versión exacta.
+# Copy the built JAR file into the container
+# Ensure the name matches what Maven generates (usually target/*.jar)
 COPY target/*.jar app.jar
 
-# Comando para ejecutar la aplicación
-ENTRYPOINT ["java","-jar","/app.jar"]
+# Expose the port the app runs on
+EXPOSE 8080
+
+# Run the jar file
+ENTRYPOINT ["java", "-jar", "app.jar"]
