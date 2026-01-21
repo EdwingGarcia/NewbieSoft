@@ -12,6 +12,7 @@ const FichaTecnicaModule = dynamic(() => import("./FichasTecnicasPage"), {
     ssr: false,
 });
 const EquipoModule = dynamic(() => import("./EquipoPage"), { ssr: false });
+const CatalogoModule = dynamic(() => import("./CatalogoPage"), { ssr: false });
 const UsuarioModule = dynamic(() => import("./GestionUsuario"), {
     ssr: false,
 });
@@ -28,6 +29,7 @@ type Section =
     | "ordenes"
     | "fichas"
     | "equipo"
+    | "catalogo"
     | "usuarios"
     | "roles"
     | "citas";
@@ -515,16 +517,17 @@ export default function DashboardPage() {
                         />
 
                         <SidebarItem
+                            label="Catálogo"
+                            isActive={activeSection === "catalogo"}
+                            onClick={() => setActiveSection("catalogo")}
+                        />
+
+                        <SidebarItem
                             label="Usuarios"
                             isActive={activeSection === "usuarios"}
                             onClick={() => setActiveSection("usuarios")}
                         />
 
-                        <SidebarItem
-                            label="Crear Rol"
-                            isActive={activeSection === "roles"}
-                            onClick={() => setActiveSection("roles")}
-                        />
                     </ul>
                 </nav>
             </aside>
@@ -1331,6 +1334,7 @@ export default function DashboardPage() {
                     {activeSection === "equipo" && <EquipoModule />}
                     {activeSection === "usuarios" && <UsuarioModule />}
                     {activeSection === "citas" && <CitasModule />}
+                    {activeSection === "catalogo" && <CatalogoModule />}
                     {/* {activeSection === "roles" && <RolModule />} */}
                 </section>
             </main>

@@ -20,6 +20,8 @@ import {
 
 import ModalNotificacion from "../components/ModalNotificacion";
 import SecureImage from "../components/SecureImage";
+import CostosPanel from "./components/costos/CostosPanel";
+
 
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -1964,92 +1966,11 @@ export default function OrdenesTrabajoPage() {
                                                 )}
 
                                                 {/* PASO 3 */}
-                                                {pasoActivo === 3 && (
-                                                    <div className="rounded-xl border border-slate-200 bg-white p-4">
-                                                        <div className="flex items-center justify-between">
-                                                            <h3 className="text-[11px] font-semibold uppercase tracking-wide text-slate-700">
-                                                                Costos de la orden
-                                                            </h3>
-                                                            <span className="text-[10px] text-slate-400">Paso 3 de 4</span>
-                                                        </div>
-
-                                                        <p className="mt-2 text-[11px] text-slate-600">
-                                                            Ingresa los valores de mano de obra, repuestos y otros conceptos.
-                                                        </p>
-
-                                                        <div className="mt-3 grid grid-cols-2 gap-3">
-                                                            <div className="space-y-1.5">
-                                                                <label className="text-[11px] font-medium text-slate-700">Mano de obra</label>
-                                                                <Input
-                                                                    type="number"
-                                                                    step="0.01"
-                                                                    value={costoManoObra}
-                                                                    onChange={(e) => setCostoManoObra(toNumber(e.target.value))}
-                                                                    className="h-9 text-xs"
-                                                                />
-                                                            </div>
-
-                                                            <div className="space-y-1.5">
-                                                                <label className="text-[11px] font-medium text-slate-700">Repuestos</label>
-                                                                <Input
-                                                                    type="number"
-                                                                    step="0.01"
-                                                                    value={costoRepuestos}
-                                                                    onChange={(e) => setCostoRepuestos(toNumber(e.target.value))}
-                                                                    className="h-9 text-xs"
-                                                                />
-                                                            </div>
-
-                                                            <div className="space-y-1.5">
-                                                                <label className="text-[11px] font-medium text-slate-700">Otros costos</label>
-                                                                <Input
-                                                                    type="number"
-                                                                    step="0.01"
-                                                                    value={costoOtros}
-                                                                    onChange={(e) => setCostoOtros(toNumber(e.target.value))}
-                                                                    className="h-9 text-xs"
-                                                                />
-                                                            </div>
-
-                                                            <div className="space-y-1.5">
-                                                                <label className="text-[11px] font-medium text-slate-700">Descuento</label>
-                                                                <Input
-                                                                    type="number"
-                                                                    step="0.01"
-                                                                    value={descuento}
-                                                                    onChange={(e) => setDescuento(toNumber(e.target.value))}
-                                                                    className="h-9 text-xs"
-                                                                />
-                                                            </div>
-
-                                                            <div className="space-y-1.5">
-                                                                <label className="text-[11px] font-medium text-slate-700">IVA</label>
-                                                                <Input
-                                                                    type="number"
-                                                                    step="0.01"
-                                                                    value={iva}
-                                                                    onChange={(e) => setIva(toNumber(e.target.value))}
-                                                                    className="h-9 text-xs"
-                                                                />
-                                                                <p className="text-[10px] text-slate-400">Puedes calcularlo según la tasa vigente.</p>
-                                                            </div>
-                                                        </div>
-
-                                                        <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs">
-                                                            <div className="flex justify-between">
-                                                                <span className="text-slate-600">Subtotal:</span>
-                                                                <span className="font-semibold text-slate-900">{fmtMoney(subtotalCalculado)}</span>
-                                                            </div>
-                                                            <div className="mt-1 flex justify-between">
-                                                                <span className="text-slate-600">IVA:</span>
-                                                                <span className="font-semibold text-slate-900">{fmtMoney(iva)}</span>
-                                                            </div>
-                                                            <div className="mt-2 flex justify-between text-sm">
-                                                                <span className="text-slate-700">Total:</span>
-                                                                <span className="font-bold text-slate-900">{fmtMoney(totalCalculado)}</span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
+                                                {pasoActivo === 3 && detalle && (
+                                                    <CostosPanel
+                                                        ordenId={detalle.ordenId}
+                                                        estado={detalle.estado}
+                                                    />
                                                 )}
 
                                                 {/* PASO 4 */}

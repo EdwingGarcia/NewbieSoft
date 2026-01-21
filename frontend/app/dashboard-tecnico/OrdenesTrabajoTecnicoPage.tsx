@@ -12,7 +12,7 @@ import {
     FileText,
     Plus,
 } from "lucide-react";
-
+import CostosPanel from "@/app/dashboard/components/costos/CostosPanel";
 import FichasTecnicasPage from "./FichasTecnicoPage"; // 👈 IMPORTAMOS TU PÁGINA
 import ModalNotificacion from "../components/ModalNotificacion";
 
@@ -1523,135 +1523,21 @@ export default function OrdenesTrabajoTecnicoPage() {
                                             </div>
                                         )}
 
-                                        {/* PASO 3: COSTOS */}
-                                        {pasoActivo === 3 && (
-                                            <div className="border border-slate-400 bg-white p-3 text-xs transition">
-                                                <h3 className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-slate-700">
-                                                    <span>Costos de la orden</span>
-                                                    <span className="text-[10px] text-slate-400">
-                                                        Paso 3 de 4
-                                                    </span>
-                                                </h3>
-                                                <p className="mt-2 text-[11px] text-slate-600">
-                                                    Ingresa los valores de mano de obra,
-                                                    repuestos y otros conceptos.
-                                                </p>
+                                       {/* PASO 3: COSTOS */}
+                                        {pasoActivo === 3 && detalle && (
+                                        <div className="border border-slate-400 bg-white p-3 transition">
+                                            <h3 className="mb-2 flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-slate-700">
+                                            <span>Costos de la orden</span>
+                                            <span className="text-[10px] text-slate-400">Paso 3 de 4</span>
+                                            </h3>
 
-                                                <div className="mt-3 grid grid-cols-2 gap-3">
-                                                    <div className="space-y-1.5">
-                                                        <label className="text-[11px] font-medium text-slate-700">
-                                                            Mano de obra
-                                                        </label>
-                                                        <Input
-                                                            type="number"
-                                                            step="0.01"
-                                                            value={costoManoObra}
-                                                            onChange={(e) =>
-                                                                setCostoManoObra(
-                                                                    toNumber(e.target.value)
-                                                                )
-                                                            }
-                                                            className="h-8 text-xs"
-                                                        />
-                                                    </div>
-                                                    <div className="space-y-1.5">
-                                                        <label className="text-[11px] font-medium text-slate-700">
-                                                            Repuestos
-                                                        </label>
-                                                        <Input
-                                                            type="number"
-                                                            step="0.01"
-                                                            value={costoRepuestos}
-                                                            onChange={(e) =>
-                                                                setCostoRepuestos(
-                                                                    toNumber(e.target.value)
-                                                                )
-                                                            }
-                                                            className="h-8 text-xs"
-                                                        />
-                                                    </div>
-                                                    <div className="space-y-1.5">
-                                                        <label className="text-[11px] font-medium text-slate-700">
-                                                            Otros costos
-                                                        </label>
-                                                        <Input
-                                                            type="number"
-                                                            step="0.01"
-                                                            value={costoOtros}
-                                                            onChange={(e) =>
-                                                                setCostoOtros(
-                                                                    toNumber(e.target.value)
-                                                                )
-                                                            }
-                                                            className="h-8 text-xs"
-                                                        />
-                                                    </div>
-                                                    <div className="space-y-1.5">
-                                                        <label className="text-[11px] font-medium text-slate-700">
-                                                            Descuento
-                                                        </label>
-                                                        <Input
-                                                            type="number"
-                                                            step="0.01"
-                                                            value={descuento}
-                                                            onChange={(e) =>
-                                                                setDescuento(
-                                                                    toNumber(e.target.value)
-                                                                )
-                                                            }
-                                                            className="h-8 text-xs"
-                                                        />
-                                                    </div>
-                                                    <div className="space-y-1.5">
-                                                        <label className="text-[11px] font-medium text-slate-700">
-                                                            IVA
-                                                        </label>
-                                                        <Input
-                                                            type="number"
-                                                            step="0.01"
-                                                            value={iva}
-                                                            onChange={(e) =>
-                                                                setIva(
-                                                                    toNumber(e.target.value)
-                                                                )
-                                                            }
-                                                            className="h-8 text-xs"
-                                                        />
-                                                        <p className="text-[10px] text-slate-400">
-                                                            Puedes calcularlo según la tasa
-                                                            vigente.
-                                                        </p>
-                                                    </div>
-                                                </div>
-
-                                                <div className="mt-3 space-y-1 border-t border-slate-200 pt-2 text-xs">
-                                                    <div className="flex justify-between">
-                                                        <span className="text-slate-600">
-                                                            Subtotal:
-                                                        </span>
-                                                        <span className="font-semibold text-slate-900">
-                                                            {fmtMoney(subtotalCalculado)}
-                                                        </span>
-                                                    </div>
-                                                    <div className="flex justify-between">
-                                                        <span className="text-slate-600">
-                                                            IVA:
-                                                        </span>
-                                                        <span className="font-semibold text-slate-900">
-                                                            {fmtMoney(iva)}
-                                                        </span>
-                                                    </div>
-                                                    <div className="flex justify-between text-sm">
-                                                        <span className="text-slate-700">
-                                                            Total:
-                                                        </span>
-                                                        <span className="font-bold text-slate-900">
-                                                            {fmtMoney(totalCalculado)}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </div>
+                                            <CostosPanel
+                                            ordenId={detalle.ordenId}
+                                            estado={detalle.estado}
+                                            />
+                                        </div>
                                         )}
+
 
                                         {/* PASO 4: CIERRE / GARANTÍA / OTP */}
                                         {pasoActivo === 4 && (

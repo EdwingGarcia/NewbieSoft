@@ -12,6 +12,8 @@ import com.newbie.newbiecore.entity.Equipo;
 import com.newbie.newbiecore.entity.FichaTecnica;
 import com.newbie.newbiecore.entity.Imagen;
 import com.newbie.newbiecore.entity.Usuario;
+import com.newbie.newbiecore.entity.OrdenTrabajoCosto;
+
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -60,6 +62,10 @@ public class OrdenTrabajo {
     @JsonIgnoreProperties({ "ordenTrabajo" })
     @Builder.Default
     private List<Imagen> imagenes = new ArrayList<>();
+
+    @OneToMany(mappedBy = "ordenTrabajo", cascade = CascadeType.ALL, orphanRemoval = true)
+      @Builder.Default
+      private List<OrdenTrabajoCosto> costos = new ArrayList<>();
 
 
     // TÉCNICO ASIGNADO
