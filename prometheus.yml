@@ -1,0 +1,12 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'spring-backend'
+    metrics_path: '/actuator/prometheus' # Standard Spring Boot Actuator path
+    static_configs:
+      - targets: ['backend:8080'] # Refers to the service name in docker-compose
