@@ -91,12 +91,13 @@ public class FichaTecnicaController {
 
     /** 🔍 Buscar ficha por orden de trabajo (si existe) */
     @GetMapping("/orden-trabajo/{ordenTrabajoId}")
-    public ResponseEntity<FichaTecnicaDTO> buscarPorOrdenTrabajo(@PathVariable Long ordenTrabajoId) {
-        return fichaTecnicaService.buscarPorOrdenTrabajo(ordenTrabajoId)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<List<FichaTecnicaDTO>> buscarPorOrdenTrabajo(@PathVariable Long ordenTrabajoId) {
+        List<FichaTecnicaDTO> fichas = fichaTecnicaService.buscarPorOrdenTrabajo(ordenTrabajoId);
+        if (fichas.isEmpty()) {
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.ok(fichas);
     }
-
     /**
      * 📝 Actualizar SOLO observaciones.
      *

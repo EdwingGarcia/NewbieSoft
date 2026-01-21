@@ -19,6 +19,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import com.newbie.newbiecore.dto.EquipoListDto;
 
 @Service
 public class EquipoService {
@@ -37,6 +38,13 @@ public class EquipoService {
         this.mapper = mapper;
         this.parser = parser;
     }
+    public List<EquipoListDto> listarTodosParaCombobox() {
+        return equipoRepository.findAll()
+                .stream()
+                .map(this::mapToListDto)
+                .toList();
+    }
+
 
     public Equipo registrarEquipo(EquipoDto equipoDto, Authentication auth) {
         Usuario cliente = usuarioRepository.findById(equipoDto.getCedulaCliente())
@@ -159,5 +167,15 @@ public class EquipoService {
             .stream().map(this::mapToDto)
             .collect(Collectors.toList());  
     }
-
+    private EquipoListDto mapToListDto(Equipo equipo) {
+        return EquipoListDto.builder()
+                .idEquipo(equipo.getIdEquipo())
+                .tipo(equipo.getTipo())                 // ⚠️ si no existe, mira nota abajo
+                .marca(equipo.getMarca())
+                .modelo(equipo.getModelo())
+                .numeroSerie(equipo.getNumeroSerie())
+                .hostname(equipo.getHostname())
+                .sistemaOperativo(equipo.getSistemaOperativo())
+                .build();
+    }
 }

@@ -14,12 +14,11 @@ import {
     User,
     History,
     Search,
-    Filter, // Icono decorativo
-    Calendar, // Icono para fechas
 } from "lucide-react";
 
 import ModalNotificacion from "../components/ModalNotificacion";
 import SecureImage from "../components/SecureImage";
+import FichaTecnicaEditorModal from "@/app/dashboard/components/FichaTecnicaEditorModal";
 import CostosPanel from "./components/costos/CostosPanel";
 
 
@@ -27,13 +26,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
-import { API_BASE_URL } from "../lib/api"; // 1. Importar
+import { API_BASE_URL } from "../lib/api";
 
-// 2. Usar la variable centralizada
 const FICHAS_API_BASE = `${API_BASE_URL}/api/fichas`;
 const API_BASE = `${API_BASE_URL}/api/ordenes`;
 const OTP_API_BASE = `${API_BASE_URL}/api/otp`;
 const buildUrl = (p: string = "") => `${API_BASE}${p}`;
+
 /* =========================
    DTOs / Interfaces base
 ========================= */
@@ -57,7 +56,6 @@ interface ImagenDTO {
     fechaSubida: string;
 }
 
-/** DTO lista */
 interface OrdenTrabajoListaDTO {
     id: number;
     numeroOrden: string;
@@ -86,7 +84,6 @@ interface OrdenTrabajoListaDTO {
     observacionesIngreso?: string | null;
 }
 
-/** DTO detalle */
 interface OrdenTrabajoDetalleDTO extends OrdenTrabajoListaDTO {
     ordenId: number;
 
@@ -119,7 +116,6 @@ interface OrdenTrabajoDetalleDTO extends OrdenTrabajoListaDTO {
     otpFechaValidacion?: string | null;
 }
 
-/** Payload crear OT */
 interface CrearOrdenPayload {
     clienteCedula: string;
     tecnicoCedula: string;
@@ -133,7 +129,6 @@ interface CrearOrdenPayload {
     prioridad: string;
 }
 
-/** Form crear (equipoId string para input) */
 interface CrearOrdenFormState {
     clienteCedula: string;
     tecnicoCedula: string;
@@ -170,6 +165,13 @@ interface FichaTecnicaDetalleDTO {
     observaciones?: string | null;
     hardwareJson?: any;
     [key: string]: any;
+}
+
+interface FichaTecnicaAnexaDTO {
+    id: number;
+    fechaCreacion: string;
+    tecnicoNombre?: string | null;
+    observaciones?: string | null;
 }
 
 /* ===== COMPONENTE: LISTA DE FICHAS POR CLIENTE ===== */
@@ -331,7 +333,7 @@ const ListaFichasPorCliente: React.FC<{
 };
 
 /* =========================
-   Modales
+   Modales + Helpers
 ========================= */
 
 type Paso = 1 | 2 | 3 | 4;
@@ -371,7 +373,9 @@ const StepPill: React.FC<{ active: boolean; label: string; desc: string }> = ({
     <div
         className={[
             "flex items-center gap-2 rounded-full border px-3 py-1 transition select-none",
-            active ? "border-white bg-white/20 text-white" : "border-white/30 bg-slate-800/40 text-slate-200",
+            active
+                ? "border-white bg-white/20 text-white"
+                : "border-white/30 bg-slate-800/40 text-slate-200",
         ].join(" ")}
     >
         <span className="text-[10px] font-semibold">{label}</span>
@@ -493,7 +497,7 @@ function FichaTecnicaDetalleModal({
         data
             ? Object.entries(data)
                 .filter(([k]) => !["hardwareJson"].includes(k))
-                .filter(([k, v]) => typeof v !== "object" || v === null)
+                .filter(([_, v]) => typeof v !== "object" || v === null)
                 .slice(0, 20)
             : [];
 
@@ -511,7 +515,8 @@ function FichaTecnicaDetalleModal({
                         <div>
                             <p className="text-sm font-semibold text-slate-900">Detalle de Ficha Técnica</p>
                             <p className="text-[11px] text-slate-500">
-                                {data ? `ID #${data.id}` : "—"} • {data?.fechaCreacion ? safeDate(data.fechaCreacion) : "-"}
+                                {data ? `ID #${data.id}` : "—"} •{" "}
+                                {data?.fechaCreacion ? safeDate(data.fechaCreacion) : "-"}
                             </p>
                         </div>
                     </div>
@@ -553,15 +558,20 @@ function FichaTecnicaDetalleModal({
                                         <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                                             <p className="text-[11px] font-semibold text-slate-700">Equipo</p>
                                             <p className="mt-1 text-slate-900">
-                                                {fmt(data.equipoModelo)} {data.equipoHostname ? `(${data.equipoHostname})` : ""}
+                                                {fmt(data.equipoModelo)}{" "}
+                                                {data.equipoHostname ? `(${data.equipoHostname})` : ""}
                                             </p>
-                                            <p className="mt-1 text-[11px] text-slate-500">EquipoId: {fmt(data.equipoId)}</p>
+                                            <p className="mt-1 text-[11px] text-slate-500">
+                                                EquipoId: {fmt(data.equipoId)}
+                                            </p>
                                         </div>
 
                                         <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                                             <p className="text-[11px] font-semibold text-slate-700">Técnico</p>
                                             <p className="mt-1 text-slate-900">{fmt(data.tecnicoNombre)}</p>
-                                            <p className="mt-1 text-[11px] text-slate-500">Cédula: {fmt(data.tecnicoCedula)}</p>
+                                            <p className="mt-1 text-[11px] text-slate-500">
+                                                Cédula: {fmt(data.tecnicoCedula)}
+                                            </p>
                                         </div>
 
                                         <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
@@ -630,7 +640,7 @@ function FichaTecnicaDetalleModal({
 }
 
 /* =========================
-   Página
+   Página Principal
 ========================= */
 
 export default function OrdenesTrabajoPage() {
@@ -715,10 +725,20 @@ export default function OrdenesTrabajoPage() {
 
     const [fichaDetalleId, setFichaDetalleId] = useState<number | null>(null);
 
+    // ✅ FICHAS TÉCNICAS ANEXAS (por OT)
+    const [fichasAnexas, setFichasAnexas] = useState<FichaTecnicaAnexaDTO[]>([]);
+    const [fichasAnexasLoading, setFichasAnexasLoading] = useState(false);
+    const [fichasAnexasError, setFichasAnexasError] = useState<string | null>(null);
+
+    // ✅ Editor modal (formulario grande)
+    const [showFichaEditor, setShowFichaEditor] = useState(false);
+    const [editorFichaId, setEditorFichaId] = useState<number | null>(null);
+
+    // ✅ NUEVO: Estado para crear ficha
+    const [creandoFicha, setCreandoFicha] = useState(false);
+
     // === BUSCADOR Y FILTROS ===
     const [searchTerm, setSearchTerm] = useState("");
-
-    // ✅ Rango de fechas
     const [dateStart, setDateStart] = useState("");
     const [dateEnd, setDateEnd] = useState("");
 
@@ -736,7 +756,8 @@ export default function OrdenesTrabajoPage() {
         return Number(n).toFixed(2);
     };
 
-    const toNumber = (value: string): number => (value.trim() === "" || isNaN(Number(value)) ? 0 : Number(value));
+    const toNumber = (value: string): number =>
+        value.trim() === "" || isNaN(Number(value)) ? 0 : Number(value);
 
     const subtotalCalculado = useMemo(
         () => costoManoObra + costoRepuestos + costoOtros - descuento,
@@ -745,8 +766,8 @@ export default function OrdenesTrabajoPage() {
     const totalCalculado = useMemo(() => subtotalCalculado + iva, [subtotalCalculado, iva]);
 
     /* =========================
-       ✅ LOGICA DE FILTRADO (Texto + Rango Fechas)
-       ========================= */
+       LOGICA DE FILTRADO
+    ========================= */
     const normalizeText = (text: string | null | undefined) => {
         if (!text) return "";
         return text
@@ -759,7 +780,6 @@ export default function OrdenesTrabajoPage() {
         const term = normalizeText(searchTerm);
 
         return ordenes.filter((ot) => {
-            // 1. Filtro Texto
             const matchesText =
                 !term ||
                 normalizeText(ot.numeroOrden).includes(term) ||
@@ -771,17 +791,14 @@ export default function OrdenesTrabajoPage() {
                 normalizeText(ot.tecnicoCedula).includes(term) ||
                 normalizeText(ot.problemaReportado).includes(term);
 
-            // 2. Filtro Rango de Fechas
             let matchDate = true;
             if (dateStart || dateEnd) {
-                // Obtener fecha de la orden (sin hora para comparar días)
                 const d = new Date(ot.fechaHoraIngreso);
                 const year = d.getFullYear();
                 const month = String(d.getMonth() + 1).padStart(2, "0");
                 const day = String(d.getDate()).padStart(2, "0");
-                const otYMD = `${year}-${month}-${day}`; // Formato YYYY-MM-DD
+                const otYMD = `${year}-${month}-${day}`;
 
-                // Comparar strings ISO (YYYY-MM-DD funciona alfabéticamente)
                 if (dateStart && otYMD < dateStart) matchDate = false;
                 if (dateEnd && otYMD > dateEnd) matchDate = false;
             }
@@ -870,7 +887,9 @@ export default function OrdenesTrabajoPage() {
         setIva(data.iva ?? 0);
 
         setEsEnGarantia(!!data.esEnGarantia);
-        setReferenciaGarantia(data.referenciaOrdenGarantia != null ? String(data.referenciaOrdenGarantia) : "");
+        setReferenciaGarantia(
+            data.referenciaOrdenGarantia != null ? String(data.referenciaOrdenGarantia) : ""
+        );
         setMotivoCierre(data.motivoCierre ?? "");
         setCerradaPor(data.cerradaPor ?? "");
 
@@ -914,6 +933,7 @@ export default function OrdenesTrabajoPage() {
 
             sincronizarDetalleEditable(data);
             await fetchImagenes(id);
+            await fetchFichasAnexasPorOT(id, data.equipoId);
         } catch (e: any) {
             setError(e.message ?? "Error al cargar detalles de la orden");
         }
@@ -1011,7 +1031,9 @@ export default function OrdenesTrabajoPage() {
         }
 
         if (totalCalculado <= 0 && !esEnGarantia) {
-            const seguir = window.confirm("El total es 0 y la orden no está marcada como garantía. ¿Cerrar igualmente?");
+            const seguir = window.confirm(
+                "El total es 0 y la orden no está marcada como garantía. ¿Cerrar igualmente?"
+            );
             if (!seguir) return;
         }
 
@@ -1136,8 +1158,8 @@ export default function OrdenesTrabajoPage() {
     };
 
     /* =========================================================
-       ✅ FICHAS TÉCNICAS EN MODAL
-    */
+       FICHAS TÉCNICAS EN MODAL
+    ========================================================= */
 
     const closeFichaDetalle = () => {
         setShowFichaDetalle(false);
@@ -1183,13 +1205,11 @@ export default function OrdenesTrabajoPage() {
         if (!raw) return null;
         if (Array.isArray(raw)) {
             if (raw.length === 0) return null;
-            const sorted = raw
-                .slice()
-                .sort((a, b) => {
-                    const da = new Date(a?.fechaCreacion ?? 0).getTime();
-                    const db = new Date(b?.fechaCreacion ?? 0).getTime();
-                    return db - da;
-                });
+            const sorted = raw.slice().sort((a, b) => {
+                const da = new Date(a?.fechaCreacion ?? 0).getTime();
+                const db = new Date(b?.fechaCreacion ?? 0).getTime();
+                return db - da;
+            });
             return sorted[0] as FichaTecnicaDetalleDTO;
         }
         if (raw?.data && (raw.data.id || Array.isArray(raw.data))) return normalizeToFicha(raw.data);
@@ -1247,6 +1267,194 @@ export default function OrdenesTrabajoPage() {
         }
     };
 
+    /* =========================================================
+       FICHAS TÉCNICAS ANEXAS (POR OT) + EDITOR MODAL
+    ========================================================= */
+
+    const normalizeToAnexas = (raw: any): FichaTecnicaAnexaDTO[] => {
+        if (!raw) return [];
+        const arr: any[] = Array.isArray(raw) ? raw : raw?.data && Array.isArray(raw.data) ? raw.data : [raw];
+        return arr
+            .filter(Boolean)
+            .map((x: any) => ({
+                id: Number(x.id),
+                fechaCreacion: x.fechaCreacion ?? x.createdAt ?? new Date().toISOString(),
+                tecnicoNombre: x.tecnicoNombre ?? x.tecnicoId ?? null,
+                observaciones: x.observaciones ?? null,
+            }))
+            .filter((x) => Number.isFinite(x.id));
+    };
+
+    const fetchFichasAnexasPorOT = useCallback(
+        async (ordenId: number, _equipoId: number) => {
+            if (!token) return;
+
+            setFichasAnexasLoading(true);
+            setFichasAnexasError(null);
+
+            try {
+                const res = await fetch(`${FICHAS_API_BASE}/orden-trabajo/${ordenId}`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+
+                if (res.status === 204 || res.status === 404) {
+                    setFichasAnexas([]);
+                    return;
+                }
+
+                if (!res.ok) {
+                    throw new Error(`Error al cargar fichas (HTTP ${res.status})`);
+                }
+
+                const fichasOT = await res.json();
+
+                if (!Array.isArray(fichasOT) || fichasOT.length === 0) {
+                    setFichasAnexas([]);
+                    return;
+                }
+
+                const lista = normalizeToAnexas(fichasOT)
+                    .slice()
+                    .sort((a, b) => new Date(b.fechaCreacion).getTime() - new Date(a.fechaCreacion).getTime());
+
+                setFichasAnexas(lista);
+            } catch (e: any) {
+                console.error("Error en fetchFichasAnexasPorOT:", e);
+                setFichasAnexas([]);
+                setFichasAnexasError(e?.message ?? "Error cargando fichas anexas");
+            } finally {
+                setFichasAnexasLoading(false);
+            }
+        },
+        [token]
+    );
+
+    const abrirEditorFicha = (id: number) => {
+        setEditorFichaId(id);
+        setShowFichaEditor(true);
+    };
+
+    // ✅ Crear ficha anexa y abrir editor
+    const crearFichaAnexaYAbrirEditor = async () => {
+        if (!detalle) {
+            alert("No hay detalle de orden cargado");
+            return;
+        }
+        if (!token) {
+            alert("No hay token de autenticación");
+            return;
+        }
+
+        const tecnico = detalle.tecnicoCedula;
+        if (!tecnico) {
+            alert("No se encontró la cédula del técnico en la OT.");
+            return;
+        }
+
+        setCreandoFicha(true);
+
+        try {
+            const params = new URLSearchParams({
+                cedulaTecnico: tecnico,
+                equipoId: String(detalle.equipoId),
+                ordenTrabajoId: String(detalle.ordenId),
+                observaciones: "",
+            });
+
+            const res = await fetch(`${FICHAS_API_BASE}`, {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/x-www-form-urlencoded",
+                },
+                body: params,
+            });
+
+            if (!res.ok) {
+                const text = await res.text().catch(() => null);
+                throw new Error(text || `Error creando ficha (HTTP ${res.status})`);
+            }
+
+            let newId: number | null = null;
+
+            try {
+                const responseText = await res.clone().text();
+                if (responseText && responseText.trim()) {
+                    try {
+                        const maybeJson = JSON.parse(responseText);
+                        newId = maybeJson?.id ?? maybeJson?.data?.id ?? null;
+                    } catch {
+                        const parsed = parseInt(responseText.trim(), 10);
+                        if (!isNaN(parsed)) newId = parsed;
+                    }
+                }
+            } catch {
+                // ignore
+            }
+
+            if (!newId) {
+                await new Promise((resolve) => setTimeout(resolve, 500));
+                try {
+                    const listRes = await fetch(`${FICHAS_API_BASE}`, {
+                        headers: { Authorization: `Bearer ${token}` },
+                    });
+
+                    if (listRes.ok) {
+                        const allFichas = await listRes.json();
+
+                        if (Array.isArray(allFichas) && allFichas.length > 0) {
+                            const fichasDeEstaOT = allFichas.filter(
+                                (f: any) => Number(f.ordenTrabajoId) === Number(detalle.ordenId)
+                            );
+
+                            if (fichasDeEstaOT.length > 0) {
+                                const sorted = [...fichasDeEstaOT].sort(
+                                    (a: any, b: any) => (Number(b.id) || 0) - (Number(a.id) || 0)
+                                );
+                                newId = sorted[0].id;
+                            } else {
+                                const fichasDelEquipo = allFichas.filter(
+                                    (f: any) => Number(f.equipoId) === Number(detalle.equipoId)
+                                );
+
+                                if (fichasDelEquipo.length > 0) {
+                                    const sorted = [...fichasDelEquipo].sort(
+                                        (a: any, b: any) => (Number(b.id) || 0) - (Number(a.id) || 0)
+                                    );
+                                    newId = sorted[0].id;
+                                } else {
+                                    const sorted = [...allFichas].sort(
+                                        (a: any, b: any) => (Number(b.id) || 0) - (Number(a.id) || 0)
+                                    );
+                                    newId = sorted[0].id;
+                                }
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error("Error buscando en lista de fichas:", e);
+                }
+            }
+
+            await fetchFichasAnexasPorOT(detalle.ordenId, detalle.equipoId);
+
+            if (!newId) {
+                alert(
+                    "✅ Ficha creada exitosamente.\n\nNo se pudo obtener el ID automáticamente. Por favor, haz clic en la ficha de la lista para editarla."
+                );
+                return;
+            }
+
+            setEditorFichaId(newId);
+            setShowFichaEditor(true);
+        } catch (e: any) {
+            console.error("Error en crearFichaAnexaYAbrirEditor:", e);
+            alert("❌ " + (e?.message ?? "Error creando ficha anexa"));
+        } finally {
+            setCreandoFicha(false);
+        }
+    };
+
     /* ===== Crear OT ===== */
     const handleCrearChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
@@ -1267,7 +1475,44 @@ export default function OrdenesTrabajoPage() {
             prioridad: "MEDIA",
         });
     };
+    const eliminarFichaTecnica = async (fichaId: number) => {
+        const confirmDelete = window.confirm(
+            "¿Estás seguro de que deseas eliminar esta ficha técnica? Esta acción no se puede deshacer."
+        );
 
+        if (!confirmDelete) return;
+
+        if (!token) {
+            alert("No hay token de autenticación");
+            return;
+        }
+
+        try {
+            const res = await fetch(`${FICHAS_API_BASE}/${fichaId}`, {
+                method: "DELETE",
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            if (!res.ok) {
+                throw new Error(`Error eliminando ficha (HTTP ${res.status})`);
+            }
+
+            alert("✅ Ficha técnica eliminada correctamente");
+
+            // Refrescar la lista de fichas anexas
+            if (detalle) {
+                await fetchFichasAnexasPorOT(detalle.ordenId, detalle.equipoId);
+            }
+
+            // Si el modal de detalle estaba abierto, cerrarlo
+            if (showFichaDetalle) {
+                closeFichaDetalle();
+            }
+        } catch (e: any) {
+            console.error("Error al eliminar ficha:", e);
+            alert("❌ " + (e?.message ?? "Error eliminando la ficha técnica"));
+        }
+    };
     const crearOrden = async () => {
         if (!token) {
             alert("No hay token de autenticación");
@@ -1356,21 +1601,14 @@ export default function OrdenesTrabajoPage() {
     return (
         <div className="min-h-screen bg-slate-50 px-4 py-6 lg:px-8">
             <div className="mx-auto max-w-7xl space-y-6">
-
-                {/* ✅ HEADER CON BUSCADOR Y RANGO DE FECHAS */}
+                {/* HEADER CON BUSCADOR Y RANGO DE FECHAS */}
                 <div className="flex flex-col gap-4 rounded-md border border-slate-200 bg-white px-4 py-3 shadow-sm md:flex-row md:items-center md:justify-between">
                     <div>
-                        <h1 className="text-xl font-semibold tracking-tight text-slate-900">
-                            Órdenes de Trabajo
-                        </h1>
-                        <p className="mt-1 text-sm text-slate-500">
-                            Gestiona los ingresos, diagnósticos y entregas.
-                        </p>
+                        <h1 className="text-xl font-semibold tracking-tight text-slate-900">Órdenes de Trabajo</h1>
+                        <p className="mt-1 text-sm text-slate-500">Gestiona los ingresos, diagnósticos y entregas.</p>
                     </div>
 
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-
-                        {/* Buscador Texto */}
                         <div className="relative min-w-[220px]">
                             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
                             <Input
@@ -1389,7 +1627,6 @@ export default function OrdenesTrabajoPage() {
                             )}
                         </div>
 
-                        {/* ✅ Filtro Rango de Fechas */}
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                             <div className="relative flex items-center gap-1">
                                 <span className="text-xs text-slate-500 font-medium">Desde:</span>
@@ -1614,7 +1851,7 @@ export default function OrdenesTrabajoPage() {
                     </div>
                 )}
 
-                {/* ✅ LISTA FILTRADA */}
+                {/* LISTA FILTRADA */}
                 {loading ? (
                     <div className="flex justify-center py-10">
                         <Loader2 className="h-6 w-6 animate-spin text-slate-500" />
@@ -1749,7 +1986,9 @@ export default function OrdenesTrabajoPage() {
                                         <p className="text-[11px] text-slate-200">
                                             Cliente: <span className="font-medium text-white">{fmt(detalle.clienteNombre)}</span>{" "}
                                             {detalle.clienteCedula ? `(${detalle.clienteCedula})` : ""} · Técnico:{" "}
-                                            <span className="font-medium text-white">{fmt(detalle.tecnicoNombre) || fmt(detalle.tecnicoCedula)}</span>
+                                            <span className="font-medium text-white">
+                                                {fmt(detalle.tecnicoNombre) || fmt(detalle.tecnicoCedula)}
+                                            </span>
                                         </p>
 
                                         <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-slate-200">
@@ -1913,18 +2152,23 @@ export default function OrdenesTrabajoPage() {
                                                         <div className="mt-3 grid grid-cols-1 gap-3 text-[11px] md:grid-cols-2">
                                                             <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
                                                                 <span className="font-semibold text-slate-700">Problema:</span>
-                                                                <p className="mt-1 whitespace-pre-wrap text-slate-800">{fmt(detalle.problemaReportado)}</p>
+                                                                <p className="mt-1 whitespace-pre-wrap text-slate-800">
+                                                                    {fmt(detalle.problemaReportado)}
+                                                                </p>
                                                             </div>
 
                                                             <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
                                                                 <span className="font-semibold text-slate-700">Observaciones:</span>
-                                                                <p className="mt-1 whitespace-pre-wrap text-slate-800">{fmt(detalle.observacionesIngreso)}</p>
+                                                                <p className="mt-1 whitespace-pre-wrap text-slate-800">
+                                                                    {fmt(detalle.observacionesIngreso)}
+                                                                </p>
                                                             </div>
 
                                                             <div className="rounded-lg border border-slate-100 bg-slate-50 p-3 md:col-span-2">
                                                                 <span className="font-semibold text-slate-700">Equipo:</span>
                                                                 <p className="mt-1 text-slate-800">
-                                                                    {fmt(detalle.equipoModelo)} {detalle.equipoHostname ? `(${detalle.equipoHostname})` : ""}
+                                                                    {fmt(detalle.equipoModelo)}{" "}
+                                                                    {detalle.equipoHostname ? `(${detalle.equipoHostname})` : ""}
                                                                 </p>
                                                             </div>
                                                         </div>
@@ -1945,8 +2189,129 @@ export default function OrdenesTrabajoPage() {
                                                             Registra tus pruebas, hallazgos y acciones realizadas.
                                                         </p>
 
+                                                        {/* ✅ FICHAS TÉCNICAS ANEXAS */}
+                                                        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                                                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                                                <div>
+                                                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-700">
+                                                                        Fichas Técnicas Anexas
+                                                                    </p>
+                                                                    <p className="text-[11px] text-slate-500">
+                                                                        Crea y completa fichas técnicas asociadas a esta OT.
+                                                                    </p>
+                                                                </div>
+
+                                                                <Button
+                                                                    type="button"
+                                                                    size="sm"
+                                                                    className="h-8 bg-slate-900 text-[11px] text-white hover:bg-slate-800"
+                                                                    onClick={crearFichaAnexaYAbrirEditor}
+                                                                    disabled={creandoFicha}
+                                                                >
+                                                                    {creandoFicha ? (
+                                                                        <>
+                                                                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                                                            Creando...
+                                                                        </>
+                                                                    ) : (
+                                                                        <>
+                                                                            <Plus className="h-4 w-4 mr-1" />
+                                                                            Nueva ficha
+                                                                        </>
+                                                                    )}
+                                                                </Button>
+                                                            </div>
+
+                                                            <div className="mt-3">
+                                                                {fichasAnexasLoading ? (
+                                                                    <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                                        Cargando fichas anexas...
+                                                                    </div>
+                                                                ) : fichasAnexasError ? (
+                                                                    <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] text-rose-700">
+                                                                        {fichasAnexasError}
+                                                                    </div>
+                                                                ) : fichasAnexas.length === 0 ? (
+                                                                    <div className="rounded-lg border border-dashed border-slate-300 bg-white px-3 py-3 text-[11px] text-slate-600">
+                                                                        No hay fichas anexas creadas para esta OT.
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="grid gap-2">
+                                                                        {fichasAnexas.map((f) => (
+                                                                            <div
+                                                                                key={f.id}
+                                                                                role="button"
+                                                                                tabIndex={0}
+                                                                                onClick={() => abrirEditorFicha(f.id)}
+                                                                                onKeyDown={(e) => {
+                                                                                    if (e.key === "Enter" || e.key === " ") abrirEditorFicha(f.id);
+                                                                                }}
+                                                                                className="group relative flex w-full cursor-pointer items-start justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm transition hover:border-indigo-300 hover:bg-indigo-50/30 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                                                            >
+                                                                                {/* Contenido */}
+                                                                                <div className="min-w-0">
+                                                                                    <div className="flex flex-wrap items-center gap-2">
+                                                                                        <span className="text-[12px] font-semibold text-slate-900">
+                                                                                            Ficha #{f.id}
+                                                                                        </span>
+
+                                                                                        <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-medium text-slate-600">
+                                                                                            {new Date(f.fechaCreacion).toLocaleString("es-EC")}
+                                                                                        </span>
+
+                                                                                        {f.tecnicoNombre && (
+                                                                                            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
+                                                                                                {f.tecnicoNombre}
+                                                                                            </span>
+                                                                                        )}
+                                                                                    </div>
+
+                                                                                    {f.observaciones ? (
+                                                                                        <p className="mt-1 line-clamp-2 text-[11px] text-slate-600">
+                                                                                            {f.observaciones}
+                                                                                        </p>
+                                                                                    ) : (
+                                                                                        <p className="mt-1 text-[11px] text-slate-400 italic">
+                                                                                            Sin observaciones
+                                                                                        </p>
+                                                                                    )}
+                                                                                </div>
+
+                                                                                {/* Indicador "Abrir" */}
+                                                                                <div className="flex shrink-0 items-center gap-2">
+                                                                                    <span className="text-[11px] font-medium text-indigo-600 opacity-90 group-hover:opacity-100">
+
+                                                                                    </span>
+
+                                                                                    {/* Eliminar (no abre) */}
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={(e) => {
+                                                                                            e.stopPropagation();
+                                                                                            const ok = window.confirm(`¿Eliminar la ficha #${f.id}?`);
+                                                                                            if (!ok) return;
+                                                                                            eliminarFichaTecnica(f.id);
+                                                                                        }}
+                                                                                        className="ml-1 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-700 opacity-0 transition hover:bg-rose-100 group-hover:opacity-100"
+                                                                                        title="Eliminar ficha"
+                                                                                        aria-label={`Eliminar ficha ${f.id}`}
+                                                                                    >
+                                                                                        <X className="h-4 w-4" />
+                                                                                    </button>
+                                                                                </div>
+                                                                            </div>
+                                                                        ))}
+
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+
                                                         <div className="mt-3 space-y-2">
-                                                            <label className="text-[11px] font-medium text-slate-700">Diagnóstico / trabajo realizado *</label>
+                                                            <label className="text-[11px] font-medium text-slate-700">
+                                                                Diagnóstico / trabajo realizado *
+                                                            </label>
                                                             <textarea
                                                                 value={diagEdit}
                                                                 onChange={(e) => setDiagEdit(e.target.value)}
@@ -1954,7 +2319,9 @@ export default function OrdenesTrabajoPage() {
                                                                 className="min-h-[110px] w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
                                                             />
 
-                                                            <label className="text-[11px] font-medium text-slate-700">Observaciones / recomendaciones</label>
+                                                            <label className="text-[11px] font-medium text-slate-700">
+                                                                Observaciones / recomendaciones
+                                                            </label>
                                                             <textarea
                                                                 value={obsRecEdit}
                                                                 onChange={(e) => setObsRecEdit(e.target.value)}
@@ -2025,7 +2392,8 @@ export default function OrdenesTrabajoPage() {
                                                                         Enviar OTP
                                                                     </Button>
                                                                     <p className="text-[10px] text-slate-500">
-                                                                        Se enviará al correo: <span className="font-medium">{detalle.clienteCorreo ?? "—"}</span>
+                                                                        Se enviará al correo:{" "}
+                                                                        <span className="font-medium">{detalle.clienteCorreo ?? "—"}</span>
                                                                     </p>
                                                                 </div>
 
@@ -2051,7 +2419,9 @@ export default function OrdenesTrabajoPage() {
                                                                     </div>
 
                                                                     {detalle.otpFechaValidacion && otpValidado && (
-                                                                        <p className="text-[10px] text-emerald-700">Validado el {fmtFecha(detalle.otpFechaValidacion)}</p>
+                                                                        <p className="text-[10px] text-emerald-700">
+                                                                            Validado el {fmtFecha(detalle.otpFechaValidacion)}
+                                                                        </p>
                                                                     )}
                                                                 </div>
                                                             </div>
@@ -2114,7 +2484,9 @@ export default function OrdenesTrabajoPage() {
                                                 <div className="flex items-center justify-between gap-2">
                                                     <div>
                                                         <CardTitle className="text-sm">Imágenes</CardTitle>
-                                                        <CardDescription className="text-xs">Clic para ampliar. Filtra por categoría.</CardDescription>
+                                                        <CardDescription className="text-xs">
+                                                            Clic para ampliar. Filtra por categoría.
+                                                        </CardDescription>
                                                     </div>
                                                     <Input
                                                         placeholder="Filtro..."
@@ -2220,18 +2592,20 @@ export default function OrdenesTrabajoPage() {
                                                             className="h-9 text-xs file:text-xs"
                                                         />
                                                     </div>
+
                                                     {imagenesNuevas.length > 0 && (
                                                         <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
                                                             {imagenesNuevas.map((file, index) => (
-                                                                <div key={index} className="relative group aspect-square rounded-md border border-slate-200 overflow-hidden bg-slate-100">
-                                                                    {/* Previsualización usando createObjectURL */}
+                                                                <div
+                                                                    key={index}
+                                                                    className="relative group aspect-square rounded-md border border-slate-200 overflow-hidden bg-slate-100"
+                                                                >
                                                                     <img
                                                                         src={URL.createObjectURL(file)}
                                                                         alt="Previsualización"
                                                                         className="h-full w-full object-cover"
                                                                     />
 
-                                                                    {/* Botón para quitar la imagen antes de subirla */}
                                                                     <button
                                                                         onClick={() => {
                                                                             setImagenesNuevas((prev) => prev.filter((_, i) => i !== index));
@@ -2251,6 +2625,7 @@ export default function OrdenesTrabajoPage() {
                                                             ))}
                                                         </div>
                                                     )}
+
                                                     <div className="mt-2 flex justify-end">
                                                         <Button
                                                             onClick={subirImagenes}
@@ -2287,8 +2662,8 @@ export default function OrdenesTrabajoPage() {
                             <footer className="sticky bottom-0 z-20 border-t border-slate-200 bg-white px-5 py-3">
                                 <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-600">
                                     <div>
-                                        Usa <span className="font-semibold">Guardar</span> o <span className="font-semibold">Cerrar OT</span>{" "}
-                                        cuando esté lista.
+                                        Usa <span className="font-semibold">Guardar</span> o{" "}
+                                        <span className="font-semibold">Cerrar OT</span> cuando esté lista.
                                     </div>
 
                                     <div className="flex gap-2">
@@ -2320,8 +2695,14 @@ export default function OrdenesTrabajoPage() {
 
                             {/* Overlay imagen */}
                             {selectedImg && (
-                                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80" onClick={() => setSelectedImg(null)}>
-                                    <div className="relative mx-4 max-h-[90vh] max-w-5xl" onClick={(e) => e.stopPropagation()}>
+                                <div
+                                    className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80"
+                                    onClick={() => setSelectedImg(null)}
+                                >
+                                    <div
+                                        className="relative mx-4 max-h-[90vh] max-w-5xl"
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
                                         <button
                                             onClick={() => setSelectedImg(null)}
                                             className="absolute right-2 top-2 rounded-full bg-black/70 p-2 text-white hover:bg-black/90 z-50"
@@ -2340,7 +2721,11 @@ export default function OrdenesTrabajoPage() {
 
                             {/* Modal notificación */}
                             {showNotifModal && notifOtId !== null && (
-                                <ModalNotificacion otId={notifOtId} open={showNotifModal} onClose={() => setShowNotifModal(false)} />
+                                <ModalNotificacion
+                                    otId={notifOtId}
+                                    open={showNotifModal}
+                                    onClose={() => setShowNotifModal(false)}
+                                />
                             )}
                         </div>
                     </div>
@@ -2373,6 +2758,19 @@ export default function OrdenesTrabajoPage() {
                     loading={fichaLoading}
                     error={fichaError}
                     data={fichaDetalle}
+                />
+
+                {/* Editor de fichas técnicas anexas */}
+                <FichaTecnicaEditorModal
+                    open={showFichaEditor}
+                    fichaId={editorFichaId}
+                    onClose={() => {
+                        setShowFichaEditor(false);
+                        setEditorFichaId(null);
+                    }}
+                    onSaved={() => {
+                        if (detalle) fetchFichasAnexasPorOT(detalle.ordenId, detalle.equipoId);
+                    }}
                 />
             </div>
         </div>

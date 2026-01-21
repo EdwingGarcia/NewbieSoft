@@ -1,6 +1,7 @@
 package com.newbie.newbiecore.controller;
 
 import com.newbie.newbiecore.dto.EquipoDto;
+import com.newbie.newbiecore.dto.EquipoListDto;
 import com.newbie.newbiecore.entity.Equipo;
 import com.newbie.newbiecore.service.EquipoService;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -10,11 +11,10 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.security.core.Authentication;
 
-
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/equipo") // <- prefijo singular, como en tus logs
+@RequestMapping("/api/equipos") // ✅ plural para que coincida con el front
 @Tag(name = "Equipo", description = "Endpoints MVC equipo")
 public class EquipoController {
 
@@ -26,23 +26,23 @@ public class EquipoController {
 
     // Crear/registrar un equipo
     @PostMapping
-    public ResponseEntity<Equipo> register(@RequestBody EquipoDto dto,  Authentication auth) {
+    public ResponseEntity<Equipo> register(@RequestBody EquipoDto dto, Authentication auth) {
         Equipo e = equipoService.registrarEquipo(dto, auth);
         return ResponseEntity.ok(e);
+    }
+
+    // ✅ Listar todos los equipos (lo que consume el combobox)
+    @GetMapping
+    public ResponseEntity<List<EquipoListDto>> listarTodosEquipos() {
+        List<EquipoListDto> equipos = equipoService.listarTodosParaCombobox();
+        if (equipos.isEmpty()) return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(equipos);
     }
 
     // Listar equipos por cédula de cliente
     @GetMapping("/cliente/{cedula}")
     public ResponseEntity<List<EquipoDto>> listarPorCliente(@PathVariable String cedula) {
         List<EquipoDto> equipos = equipoService.listarPorCliente(cedula);
-        if (equipos.isEmpty()) return ResponseEntity.noContent().build();
-        return ResponseEntity.ok(equipos);
-    }
-
-    // Listar todos los equipos
-    @GetMapping("/")
-    public ResponseEntity<List<EquipoDto>> listarTodosEquipos() {
-        List<EquipoDto> equipos = equipoService.listarTodosLosEquipos();
         if (equipos.isEmpty()) return ResponseEntity.noContent().build();
         return ResponseEntity.ok(equipos);
     }
@@ -59,6 +59,7 @@ public class EquipoController {
         Equipo actualizado = equipoService.procesarXmlYActualizar(equipoId, file);
         return ResponseEntity.ok(actualizado);
     }
+
     // Obtener detalles de un equipo por ID
     @GetMapping("/{id}")
     public ResponseEntity<EquipoDto> obtenerPorId(@PathVariable Long id) {
@@ -69,11 +70,12 @@ public class EquipoController {
             return ResponseEntity.notFound().build();
         }
     }
+
+    // (Opcional) mantener esto si lo usas
     @GetMapping("/mis-equipos")
     public ResponseEntity<List<EquipoDto>> listarMisEquipos(Authentication auth) {
         List<EquipoDto> equipos = equipoService.listarMisEquipos(auth);
         if (equipos.isEmpty()) return ResponseEntity.noContent().build();
         return ResponseEntity.ok(equipos);
     }
-
 }
