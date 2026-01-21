@@ -21,6 +21,11 @@ const OrdenTrabajoModule = dynamic(() => import("./OrdenesTrabajoPage"), {
 });
 const CitasModule = dynamic(() => import("./CitasPage"), { ssr: false });
 
+// ✅ NUEVO: Módulo de Configuraciones
+const ConfiguracionesModule = dynamic(() => import("./ConfiguracionesPage"), {
+    ssr: false,
+});
+
 /* =========================
    Types / Constants
 ========================= */
@@ -32,16 +37,13 @@ type Section =
     | "catalogo"
     | "usuarios"
     | "roles"
-    | "citas";
+    | "citas"
+    | "configuraciones"; // ✅ NUEVO
 
-import { API_BASE_URL } from "../lib/api"; // <-- Add this import
-// 2. Usar variables centralizadas
+import { API_BASE_URL } from "../lib/api";
+
 const DASHBOARD_API = `${API_BASE_URL}/api/dashboard/resumen`;
-
-// NOTA: Eliminamos CITAS_API y TECNICO_CEDULA de aquí para evitar errores de build.
-// Se construirán dinámicamente dentro del useEffect.
-
-const CITAS_API_BASE = `${API_BASE_URL}/api/citas`; // Para actualizar estado
+const CITAS_API_BASE = `${API_BASE_URL}/api/citas`;
 
 /* =========================
    Helpers
@@ -97,7 +99,6 @@ interface DashboardResumen {
 
 interface Cita {
     id: number;
-
     usuario?: {
         cedula?: string;
         nombre?: string;
@@ -105,17 +106,14 @@ interface Cita {
         telefono?: string;
         direccion?: string;
     };
-
     tecnico?: {
         cedula?: string;
         nombre?: string;
     };
-
     fechaProgramada?: string;
     fechaCreacion?: string;
     motivo?: string;
     estado?: string;
-
     [key: string]: any;
 }
 
@@ -124,26 +122,17 @@ export default function DashboardPage() {
 
     const [activeSection, setActiveSection] = useState<Section>("dashboard");
 
-    const [dashboardData, setDashboardData] = useState<DashboardResumen | null>(
-        null
-    );
+    const [dashboardData, setDashboardData] = useState<DashboardResumen | null>(null);
     const [dashboardError, setDashboardError] = useState<string | null>(null);
 
-    // ✅ Citas (bloque inferior en Dashboard)
     const [citas, setCitas] = useState<Cita[]>([]);
     const [citasLoading, setCitasLoading] = useState(false);
     const [citasError, setCitasError] = useState<string | null>(null);
     const [userCedula, setUserCedula] = useState<string>("");
-    // ✅ Estado botón "Completada"
     const [updatingCitaId, setUpdatingCitaId] = useState<number | null>(null);
-    const [citasActionError, setCitasActionError] = useState<string | null>(
-        null
-    );
+    const [citasActionError, setCitasActionError] = useState<string | null>(null);
 
-    // ✅ Vista de citas: pendientes vs completadas
-    const [citasView, setCitasView] = useState<
-        "PENDIENTES" | "COMPLETADAS"
-    >("PENDIENTES");
+    const [citasView, setCitasView] = useState<"PENDIENTES" | "COMPLETADAS">("PENDIENTES");
 
     /* =========================
        Fetch: Dashboard + Citas
@@ -156,6 +145,7 @@ export default function DashboardPage() {
         }
         const storedCedula = localStorage.getItem("cedula") || "";
         setUserCedula(storedCedula);
+
         const cargarDashboard = async () => {
             try {
                 const res = await fetch(DASHBOARD_API, {
@@ -183,7 +173,6 @@ export default function DashboardPage() {
         };
 
         const cargarCitas = async () => {
-            // Se usa storedCedula que acabamos de leer del localStorage
             if (!storedCedula) {
                 console.log("No se encontró cédula de técnico en localStorage");
                 setCitas([]);
@@ -194,12 +183,10 @@ export default function DashboardPage() {
             setCitasError(null);
             try {
                 const url = `${API_BASE_URL}/api/citas/tecnico/${storedCedula}`;
-
                 const res = await fetch(url, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
 
-                // ✅ CORRECCIÓN: Manejar error 401 en cargarCitas
                 if (!res.ok) {
                     if (res.status === 401 || res.status === 403) {
                         localStorage.removeItem("token");
@@ -227,7 +214,6 @@ export default function DashboardPage() {
         cargarCitas();
     }, [router]);
 
-    // ✅ refrescar citas cuando vuelves a la sección "dashboard"
     useEffect(() => {
         if (activeSection !== "dashboard") return;
 
@@ -238,7 +224,6 @@ export default function DashboardPage() {
             const tecnicoCedula = localStorage.getItem("cedula");
             if (!tecnicoCedula) return;
 
-            // setCitasLoading(true); // Opcional: no mostrar loading al refrescar
             setCitasError(null);
             try {
                 const url = `${API_BASE_URL}/api/citas/tecnico/${tecnicoCedula}`;
@@ -270,10 +255,6 @@ export default function DashboardPage() {
         cargarCitas();
     }, [activeSection]);
 
-    /* =========================
-       Acción: marcar completada
-       (ajusta endpoint si tu backend usa otro)
-    ========================= */
     async function marcarCitaComoCompletada(citaId: number) {
         const token = getAuthToken();
         if (!token) return;
@@ -297,9 +278,7 @@ export default function DashboardPage() {
             }
 
             setCitas((prev) =>
-                prev.map((c) =>
-                    c.id === citaId ? { ...c, estado: "COMPLETADA" } : c
-                )
+                prev.map((c) => (c.id === citaId ? { ...c, estado: "COMPLETADA" } : c))
             );
         } catch (e) {
             console.error(e);
@@ -377,10 +356,8 @@ export default function DashboardPage() {
     const formatCitaDate = (c: Cita) => {
         const raw = c.fechaProgramada ?? c.fechaCreacion;
         if (!raw) return "Sin fecha";
-
         const d = new Date(raw);
         if (Number.isNaN(d.getTime())) return String(raw);
-
         return d.toLocaleString();
     };
 
@@ -389,7 +366,6 @@ export default function DashboardPage() {
     const getCitaSubtitle = (c: Cita) => {
         const nombre = c.usuario?.nombre;
         const cedula = c.usuario?.cedula;
-
         const clienteLabel = nombre
             ? cedula
                 ? `Cliente: ${nombre} (${cedula})`
@@ -397,13 +373,10 @@ export default function DashboardPage() {
             : cedula
                 ? `Cliente: ${cedula}`
                 : null;
-
         const parts = [clienteLabel].filter(Boolean).join(" • ");
-
         return parts || "—";
     };
 
-    // ===== Helpers fechas (HOY / MAÑANA) =====
     const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
     const getCitaDateObj = (c: Cita) => {
@@ -425,7 +398,6 @@ export default function DashboardPage() {
     };
     const isPendiente = (c: Cita) => normalizeEstado(c.estado) === "PENDIENTE";
 
-    // ===== Agrupar HOY / MAÑANA según la vista =====
     const { hoy, manana } = useMemo(() => {
         const today = startOfDay(new Date());
         const tomorrow = startOfDay(new Date(today.getTime() + 24 * 60 * 60 * 1000));
@@ -476,7 +448,7 @@ export default function DashboardPage() {
                     Newbie Data Control
                 </h2>
 
-                <nav>
+                <nav style={{ flex: 1, display: "flex", flexDirection: "column" }}>
                     <ul
                         style={{
                             listStyle: "none",
@@ -484,50 +456,68 @@ export default function DashboardPage() {
                             display: "flex",
                             flexDirection: "column",
                             gap: "0.4rem",
+                            flex: 1,
                         }}
                     >
                         <SidebarItem
                             label="Dashboard"
+                            icon="📊"
                             isActive={activeSection === "dashboard"}
                             onClick={() => setActiveSection("dashboard")}
                         />
 
                         <SidebarItem
                             label="Citas"
+                            icon="📅"
                             isActive={activeSection === "citas"}
                             onClick={() => setActiveSection("citas")}
                         />
 
                         <SidebarItem
                             label="Órdenes de Trabajo"
+                            icon="📋"
                             isActive={activeSection === "ordenes"}
                             onClick={() => setActiveSection("ordenes")}
                         />
 
                         <SidebarItem
                             label="Equipos"
+                            icon="🖥️"
                             isActive={activeSection === "equipo"}
                             onClick={() => setActiveSection("equipo")}
                         />
 
                         <SidebarItem
                             label="Fichas Técnicas"
+                            icon="📄"
                             isActive={activeSection === "fichas"}
                             onClick={() => setActiveSection("fichas")}
                         />
 
                         <SidebarItem
                             label="Catálogo"
+                            icon="📦"
                             isActive={activeSection === "catalogo"}
                             onClick={() => setActiveSection("catalogo")}
                         />
 
                         <SidebarItem
                             label="Usuarios"
+                            icon="👥"
                             isActive={activeSection === "usuarios"}
                             onClick={() => setActiveSection("usuarios")}
                         />
 
+                        {/* ✅ NUEVO: Separador visual */}
+                        <li style={{ flex: 1 }} />
+
+                        {/* ✅ NUEVO: Configuraciones al final del sidebar */}
+                        <SidebarItem
+                            label="Configuraciones"
+                            icon="⚙️"
+                            isActive={activeSection === "configuraciones"}
+                            onClick={() => setActiveSection("configuraciones")}
+                        />
                     </ul>
                 </nav>
             </aside>
@@ -659,7 +649,7 @@ export default function DashboardPage() {
                                         <DashboardCard title="Órdenes este mes" value={dashboardData.ordenesMes} />
                                     </div>
 
-                                    {/* BLOQUE PRINCIPAL DE “GRÁFICAS” */}
+                                    {/* BLOQUE PRINCIPAL DE "GRÁFICAS" */}
                                     <div
                                         style={{
                                             marginTop: "0.25rem",
@@ -968,9 +958,7 @@ export default function DashboardPage() {
                                         </div>
                                     </div>
 
-                                    {/* ===========================
-                                       ✅ BLOQUE INFERIOR: CITAS DEL TÉCNICO
-                                    =========================== */}
+                                    {/* BLOQUE INFERIOR: CITAS DEL TÉCNICO */}
                                     <div
                                         style={{
                                             marginTop: "1.25rem",
@@ -996,11 +984,11 @@ export default function DashboardPage() {
                                                     Citas del técnico
                                                 </h2>
                                                 <div style={{ fontSize: "0.78rem", color: "#6b7280", marginTop: "0.15rem" }}>
-                                                    Técnico: <b>{userCedula}</b>                                                </div>
+                                                    Técnico: <b>{userCedula}</b>
+                                                </div>
                                             </div>
 
                                             <div style={{ display: "flex", gap: "0.6rem", alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
-                                                {/* Toggle Pendientes / Completadas */}
                                                 <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
                                                     <button
                                                         onClick={() => setCitasView("PENDIENTES")}
@@ -1111,7 +1099,7 @@ export default function DashboardPage() {
                                                     </div>
                                                 ) : (
                                                     <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                                                        {/* ===== HOY ===== */}
+                                                        {/* HOY */}
                                                         <div>
                                                             <div
                                                                 style={{
@@ -1178,7 +1166,6 @@ export default function DashboardPage() {
                                                                                 {getCitaSubtitle(c)}
                                                                             </div>
 
-                                                                            {/* Botón solo en pendientes */}
                                                                             {citasView === "PENDIENTES" && (
                                                                                 <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "0.35rem" }}>
                                                                                     <button
@@ -1215,7 +1202,7 @@ export default function DashboardPage() {
                                                             )}
                                                         </div>
 
-                                                        {/* ===== MAÑANA ===== */}
+                                                        {/* MAÑANA */}
                                                         <div>
                                                             <div
                                                                 style={{
@@ -1282,7 +1269,6 @@ export default function DashboardPage() {
                                                                                 {getCitaSubtitle(c)}
                                                                             </div>
 
-                                                                            {/* Botón solo en pendientes */}
                                                                             {citasView === "PENDIENTES" && (
                                                                                 <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "0.35rem" }}>
                                                                                     <button
@@ -1335,7 +1321,9 @@ export default function DashboardPage() {
                     {activeSection === "usuarios" && <UsuarioModule />}
                     {activeSection === "citas" && <CitasModule />}
                     {activeSection === "catalogo" && <CatalogoModule />}
-                    {/* {activeSection === "roles" && <RolModule />} */}
+
+                    {/* ✅ NUEVO: Sección Configuraciones */}
+                    {activeSection === "configuraciones" && <ConfiguracionesModule />}
                 </section>
             </main>
         </div>
@@ -1347,10 +1335,12 @@ export default function DashboardPage() {
 ===================== */
 function SidebarItem({
     label,
+    icon,
     isActive,
     onClick,
 }: {
     label: string;
+    icon?: string;
     isActive: boolean;
     onClick: () => void;
 }) {
@@ -1371,8 +1361,12 @@ function SidebarItem({
                     fontSize: "0.9rem",
                     cursor: "pointer",
                     transition: "all 0.15s ease",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
                 }}
             >
+                {icon && <span>{icon}</span>}
                 {label}
             </button>
         </li>
