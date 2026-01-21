@@ -1,44 +1,246 @@
-version: '3.8'
+name: CI/CD DevSecOps Pipeline - NewbieSoft
 
-services:
-  # --- Your Backend App ---
-  backend:
-    image: ${DOCKER_IMAGE_NAME}:${TAG}
-    container_name: newbiesoft-backend
-    restart: always
-    ports:
-      - "8080:8080" # Maps VM port 8080 to Container port 8080
-    environment:
-      - SPRING_PROFILES_ACTIVE=prod
-    networks:
-      - app-network
+on:
+  push:
+    branches: [ "feature/devsecops-pipeline", "main" ]
+  pull_request:
+    branches: [ "main" ]
 
-  # --- Prometheus (Metrics Collection) ---
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: prometheus
-    restart: unless-stopped
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
-    ports:
-      - "9090:9090"
-    networks:
-      - app-network
+env:
+  # IMPORTANT: Includes your Docker Hub username so it can be pushed
+  DOCKER_IMAGE_NAME: ${{ secrets.DOCKER_USERNAME }}/newbiesoft-backend
+  MAVEN_OPTS: "-Dfile.encoding=ISO-8859-1"
+  LANG: "C.UTF-8"
 
-  # --- Grafana (Visualization) ---
-  grafana:
-    image: grafana/grafana:latest
-    container_name: grafana
-    restart: unless-stopped
-    ports:
-      - "3000:3000"
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin # Change this in production!
-    depends_on:
-      - prometheus
-    networks:
-      - app-network
+jobs:
+  # ------------------------------------------------------------------
+  # STAGE 1: BUILD & TEST
+  # ------------------------------------------------------------------
+  build-and-test:
+    name: Build and Test (Java & Node)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
 
-networks:
-  app-network:
-    driver: bridge
+      # --- BACKEND ---
+      - name: Setup JDK 21
+        uses: actions/setup-java@v3
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build Backend (Maven)
+        run: |
+          chmod +x backend/mvnw
+          cd backend
+          ./mvnw clean package -DskipTests -Dproject.build.sourceEncoding=ISO-8859-1
+
+      # --- FRONTEND ---
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Frontend Deps
+        run: |
+          cd frontend
+          npm ci --legacy-peer-deps
+
+      - name: Build Frontend
+        continue-on-error: true
+        run: |
+          cd frontend
+          npm run build --if-present
+
+  # ------------------------------------------------------------------
+  # STAGE 2: SECURITY (DevSecOps)
+  # ------------------------------------------------------------------
+  security-scan-code:
+    name: Security Analysis (SAST/SCA)
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Trivy FS Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          ignore-unfixed: true
+          format: 'table'
+          severity: 'CRITICAL,HIGH'
+
+  # ------------------------------------------------------------------
+  # STAGE 3: BUILD, SCAN & PUSH IMAGE
+  # ------------------------------------------------------------------
+  build-push-image:
+    name: Build, Scan & Push Docker Image
+    runs-on: ubuntu-latest
+    needs: security-scan-code
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup JDK 21
+        uses: actions/setup-java@v3
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+      
+      # Re-build JAR (Runners are stateless, previous artifact is gone unless uploaded)
+      - name: Generate JAR
+        run: |
+          chmod +x backend/mvnw
+          cd backend
+          ./mvnw clean package -DskipTests -Dproject.build.sourceEncoding=ISO-8859-1
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./backend
+          push: true
+          tags: ${{ env.DOCKER_IMAGE_NAME }}:${{ github.sha }},${{ env.DOCKER_IMAGE_NAME }}:latest
+
+      - name: Trivy Image Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: '${{ env.DOCKER_IMAGE_NAME }}:${{ github.sha }}'
+          format: 'table'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0' # Don't fail pipeline on scan for now (set to 1 to enforce)
+
+  # ------------------------------------------------------------------
+  # ETAPA 4: DESPLIEGUE DIRECTO (Hardcoded Key)
+  # ------------------------------------------------------------------
+  deploy-infrastructure:
+    name: Deploy to Azure VM
+    runs-on: ubuntu-latest
+    needs: build-push-image
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v3
+
+      # 1. Copiar archivos (usando la key pegada directamente)
+      - name: Copy Config Files to VM
+        uses: appleboy/scp-action@master
+        with:
+          host: "48.217.66.209" # <--- PUT YOUR AZURE VM PUBLIC IP HERE
+          username: azureuser
+          source: "docker-compose.yml,prometheus.yml"
+          target: "/home/azureuser/app"
+          # PASTE THE CONTENT OF UBUNTU-TEST_key.pem BELOW
+          # INDENTATION IS CRITICAL (Everything must align under the pipe |)
+          key: 
+            -----BEGIN RSA PRIVATE KEY-----
+            MIIG5AIBAAKCAYEAxVxGcLBVzVuo1NTKD+yzhVefp66UyNSYrP1Sm9hF0PbsxLcr
+            FS9gBcYDQFuEfsX+Mk2rEtYAEBcjXLcdjwoEc5/RK7x0XstgRu3BolnNz8pvA8su
+            K0trpKAo+D7DZMeeJWuir6fhv+psV68cryvSie9yI7Y0jy/rwgwHHi3QzwCnXDgm
+            sY42fsHyUVYNmHEyE1VTe/Nm+8lQnz9x4aDLxNsuKYZDcmajJHBEQZp9MCzIgw/M
+            DM6xbed/7IEtcXuJEfTEK7qBUklWyszi9egH+y78oXaH8caSNlfruJ/CLpQ+WgbO
+            Pv5KhmB9/zPIjFRFosbfryy3R4XcOQTtITpQo70rJeDhUmXBgGEztSS1O1MwDTXk
+            EdPH3kgvDWdfAj18Zb8+bvSl8Rj9lrurVNdpDs/ToYcVzzVHcroDaYSd62uZ3wuw
+            Os0vmbIecJlmyF8dxXXgAVeP3l3GkpnhZtgnW8QJVTgrkIY9UnyP6BpHFmnpwhLo
+            eVvfT2rIiaIJuPQxAgMBAAECggGATBcGZV3mxrTnA59ChB87G1asDCcH3+HvNwq3
+            tbQNPsJkiHciGhnYyIEOMdrW21WUamp9YVa2UX3KOW2z7Ljs/HMKXvVaXE3GwbHa
+            rLA45Drk0C6ejzyVtLO29/aiuJEpjL3RzC1KoQZNXQT7ZyHbGykA9XnDC81q9LZU
+            bDM3xQc4fxp6+IuewQIfXXJy7Wn+52tHM4ulEcAM4EjCrD2lMjFau9Gy4UFm9p5+
+            AlkAmPk7GSSXA/0QdRICxPkMvyrkAFcTyOvgHra7m8z/yW/WoeVfXOtE3K/67wtl
+            G1lsbEEa/r0rFCLn7mJnKax/uCmyjmrMHso/yHctemY7UCPs1MwCkBE0WZ9ErAYf
+            k5E1NHnieRfEmG/bO/dlLIHiKhjTtOwXTbqgFS98iL5SgmUzVYpTFyquRVJNaosc
+            hCSzUgcivLDaa/aGuxI/838sEdRU9/xIdXVNNDfNQRIJUHCnMKM3BC0dxXfPDpsN
+            snFgUZcd/F+NDp42QAEVH/pi9k/tAoHBAPxeEyF2LTZyAp0rmb6kiiieJHZJ20eF
+            r9QmUCW8pBQu7Q1f/bqqdeJqleB9hr9/ID7dHFC6CtssRasA3w++FHPnRmqrvgbS
+            CYUl0RCgfshuRHU3lFyVxje837hwkyD1SkyGpYMlSP428vrpEQSKcycCJzjGYAbi
+            wgMBxN2dAlemjwCYUxpJSdo4lhOIEQjEGDRFAinHk1qTb0AcErmwBUrJ8/hIbM9v
+            Z9/ymUb7aOYlgWCgtqpmBTUf5RmfhVfG7wKBwQDIM4KbKkTntFSRZtmZgVsDKv87
+            4BxZJmntKxI4O49wy1oyW6NyljvUcBSZBsAJGjei8H7Pr+9GlDtC7pvefVRiZ6fr
+            YvhJmu316jQMtshj7bxHSo5mxFOzGenXvAkLu/va/mC2Nqsy0aaqlg15eBL3UZKo
+            yburR2EBCN9dqTi5XTlvuXRSD2pTl3Odv3Guih+7/sKmo3FeoH30v8gbLaDVFXFb
+            Eic6NXolSGryjI6fuP+iGgsqAH3e7U9Uk/B39t8CgcEAwsp2J7jIsyKTA+94bx8f
+            iLRv3mGpgG4exjiAWnBdkTqbPFygQql57jZo0urwy/R61irixSikYoGskI5Onh8Q
+            OFoGDyXaufb65CvJT/UhhuEdtAAfYss0QSdm4zz5Q1IxdBnlvPFVguq055hny0J2
+            GWDfF0J/MjFqoNmHs6qR+UeVT1dDpaF2AJr2s8Ktqz94kzfEsKzb/uiX0TsZ9Pt5
+            Sj3RMw3r9ry9x6zARHqfgCzozMWf2KyATn383qczTAo/AoHABaRl/ud/D6SmaX6j
+            jU72+KziipZzVhPeEmAPYGRVU5F3lkm83oLbZs5N1k45ZUhG3yG2ATZtIOkWjnlZ
+            DTktAqT3N4wPgUuLf029b8pK9X4Cu2Ofhcfsr/SAAaN8AcenfnGC2j/KLWF5N/+I
+            m67FohC7eGRPFLGrSzMr0GDvh1HYR4zLeXCTx41SJdT6aDfeUxcH91hN3qPZSOeK
+            xTFRAhBbpHxrfJl7OsfCs9lAP8If+jqPq/xdj8XSYYjV0xuzAoHBAI/RK/Wm9Vtw
+            xph507t+eHu18NMdbrcTDCiYuzoOviK8YPHJiqfXHOpS9TtitcSuu9oShab8UeOX
+            X6u0kij0xr30BsKtF9Ut3HrlwLUfuEfUzDa820TBkwSGWC13OPawHV3ykkxWRu6W
+            C1dxo04VelizTW1x4m9gdgxBH+pQXNv1taH9hwBcY3M53iTQARdfCo7YDyWFnPu7
+            6ccrlQUhUWc6j37oLPam/sLp/zMZiW5dhL1e0VFUHyT9NfKqZY6bPA==
+            -----END RSA PRIVATE KEY-----
+
+      # 2. Conectar via SSH (usando la key pegada directamente)
+      - name: Execute Remote Deployment
+        uses: appleboy/ssh-action@master
+        with:
+          host: "48.217.66.209" # <--- PUT YOUR AZURE VM PUBLIC IP HERE
+          username: azureuser
+          # Passes the vars to the remote shell
+          script_env: GITHUB_SHA,DOCKER_IMAGE_NAME 
+          env:
+            GITHUB_SHA: ${{ github.sha }}
+            DOCKER_IMAGE_NAME: ${{ env.DOCKER_IMAGE_NAME }}
+          script: |
+            echo "Deploying version: $GITHUB_SHA"
+            cd /home/azureuser/app
+            
+            export TAG=$GITHUB_SHA
+            export DOCKER_IMAGE_NAME=$DOCKER_IMAGE_NAME
+            
+            docker compose pull backend
+            docker compose up -d --remove-orphans
+            docker image prune -f
+          # PASTE THE SAME KEY HERE AGAIN
+          key: |
+            -----BEGIN RSA PRIVATE KEY-----
+            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
+            -----END RSA PRIVATE KEY-----
