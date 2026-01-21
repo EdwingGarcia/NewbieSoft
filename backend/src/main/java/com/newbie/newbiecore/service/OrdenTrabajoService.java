@@ -366,7 +366,7 @@ public class OrdenTrabajoService {
         var tecnico = orden.getTecnicoAsignado();
         var equipo  = orden.getEquipo();
 
-        var fichaOpt = fichaTecnicaRepository.findByOrdenTrabajoId(ordenId);
+        var fichas = fichaTecnicaRepository.findByOrdenTrabajoId(ordenId);
 
         Long fichaId = null;
         Instant fechaFicha = null;
@@ -374,8 +374,9 @@ public class OrdenTrabajoService {
         String tecnicoFichaCedula = null;
         String tecnicoFichaNombre = null;
 
-        if (fichaOpt.isPresent()) {
-            var ficha = fichaOpt.get();
+// Tomar la primera ficha (o la más reciente si prefieres)
+        if (!fichas.isEmpty()) {
+            var ficha = fichas.get(0); // Primera ficha de la lista
             fichaId = ficha.getId();
             fechaFicha = ficha.getFechaCreacion();
             observacionesFicha = ficha.getObservaciones();

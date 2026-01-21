@@ -1,13 +1,31 @@
 "use client";
 
-import React, { useEffect, useState, useCallback, type FormEvent } from "react";
+import React, {
+  useEffect,
+  useState,
+  useCallback,
+  useRef,
+  type FormEvent,
+  type SyntheticEvent,
+} from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { Loader2, X, FileUp, Save } from "lucide-react";
+import { Loader2, X, FileUp, Save, Search, ChevronDown } from "lucide-react";
 import { API_BASE_URL } from "@/app/lib/api";
 
 const FICHAS_API_BASE = `${API_BASE_URL}/api/fichas`;
+const EQUIPOS_API_BASE = `${API_BASE_URL}/api/equipos`;
+
+// ===== DTO Equipo =====
+interface EquipoDTO {
+  idEquipo: number;
+  tipo: string | null;
+  marca: string | null;
+  modelo: string | null;
+  numeroSerie: string | null;
+  hostname: string | null;
+  sistemaOperativo: string | null;
+}
 
 // ===== DTO =====
 interface FichaTecnicaDTO {
@@ -198,13 +216,196 @@ const Section: React.FC<{
       <h3 className="text-xs font-semibold tracking-wide text-slate-700 dark:text-slate-100 uppercase">
         {title}
       </h3>
-      {subtitle && (
-        <span className="text-[10px] text-slate-400">{subtitle}</span>
-      )}
+      {subtitle && <span className="text-[10px] text-slate-400">{subtitle}</span>}
     </div>
     {children}
   </section>
 );
+
+// ===== Combobox de Equipos con búsqueda =====
+interface EquipoComboboxProps {
+  value: number | null;
+  onChange: (equipoId: number | null) => void;
+  disabled?: boolean;
+}
+
+const EquipoCombobox: React.FC<EquipoComboboxProps> = ({ value, onChange, disabled }) => {
+  const [equipos, setEquipos] = useState<EquipoDTO[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+
+  useEffect(() => {
+    const fetchEquipos = async () => {
+      if (!token) return;
+      setLoading(true);
+      try {
+        const res = await fetch(EQUIPOS_API_BASE, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setEquipos(Array.isArray(data) ? data : []);
+        }
+      } catch (e) {
+        console.error("Error cargando equipos:", e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchEquipos();
+  }, [token]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const normalizeText = (text: string | null | undefined) => {
+    if (!text) return "";
+    return text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  };
+
+  const filteredEquipos = equipos.filter((eq) => {
+    if (!searchTerm.trim()) return true;
+    const term = normalizeText(searchTerm);
+    return (
+      normalizeText(eq.modelo).includes(term) ||
+      normalizeText(eq.marca).includes(term) ||
+      normalizeText(eq.numeroSerie).includes(term) ||
+      normalizeText(eq.hostname).includes(term) ||
+      normalizeText(eq.tipo).includes(term) ||
+      String(eq.idEquipo).includes(term)
+    );
+  });
+
+  const selectedEquipo = equipos.find((eq) => eq.idEquipo === value);
+
+  const formatEquipoDisplay = (eq: EquipoDTO) => {
+    const parts = [
+      eq.marca,
+      eq.modelo,
+      eq.numeroSerie ? `(S/N: ${eq.numeroSerie})` : null,
+      eq.hostname ? `[${eq.hostname}]` : null,
+    ].filter(Boolean);
+    return parts.length > 0 ? parts.join(" ") : `Equipo #${eq.idEquipo}`;
+  };
+
+  const handleSelect = (eq: EquipoDTO) => {
+    onChange(eq.idEquipo);
+    setIsOpen(false);
+    setSearchTerm("");
+  };
+
+  const handleClear = () => {
+    onChange(null);
+    setSearchTerm("");
+  };
+
+  if (disabled) {
+    return (
+      <div className="h-8 px-3 flex items-center bg-slate-100 border rounded-md text-xs text-slate-600">
+        {selectedEquipo ? formatEquipoDisplay(selectedEquipo) : value ? `ID: ${value}` : "-"}
+      </div>
+    );
+  }
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        onClick={() => {
+          setIsOpen(!isOpen);
+          if (!isOpen) setTimeout(() => inputRef.current?.focus(), 100);
+        }}
+        className="h-8 w-full px-3 flex items-center justify-between bg-white border rounded-md text-xs text-slate-700 hover:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
+      >
+        <span className="truncate">
+          {selectedEquipo
+            ? formatEquipoDisplay(selectedEquipo)
+            : value
+              ? `ID: ${value}`
+              : "Seleccionar equipo..."}
+        </span>
+        <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+      </button>
+
+      {isOpen && (
+        <div className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg max-h-72 overflow-hidden">
+          <div className="p-2 border-b border-slate-100">
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+              <input
+                ref={inputRef}
+                type="text"
+                placeholder="Buscar por serie, modelo, hostname..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full h-8 pl-8 pr-3 text-xs border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-slate-400"
+              />
+            </div>
+          </div>
+
+          <div className="max-h-52 overflow-y-auto">
+            {loading ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+                <span className="ml-2 text-xs text-slate-500">Cargando equipos...</span>
+              </div>
+            ) : filteredEquipos.length === 0 ? (
+              <div className="py-4 text-center text-xs text-slate-500">No se encontraron equipos</div>
+            ) : (
+              filteredEquipos.map((eq) => (
+                <button
+                  key={eq.idEquipo}
+                  type="button"
+                  onClick={() => handleSelect(eq)}
+                  className={`w-full px-3 py-2 text-left hover:bg-slate-50 border-b border-slate-50 last:border-0 ${value === eq.idEquipo ? "bg-slate-100" : ""
+                    }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-medium text-slate-800 truncate">
+                        {eq.marca} {eq.modelo}
+                      </p>
+                      <p className="text-[10px] text-slate-500 truncate">
+                        {eq.tipo && <span className="mr-2">{eq.tipo}</span>}
+                        {eq.numeroSerie && <span className="mr-2">S/N: {eq.numeroSerie}</span>}
+                        {eq.hostname && <span>[{eq.hostname}]</span>}
+                      </p>
+                    </div>
+                    <span className="text-[10px] text-slate-400 shrink-0">#{eq.idEquipo}</span>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+
+          {value && (
+            <div className="p-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={handleClear}
+                className="w-full text-xs text-rose-600 hover:text-rose-700 py-1"
+              >
+                Quitar selección
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
 
 // ===== Props =====
 interface FichaTecnicaEditorModalProps {
@@ -229,9 +430,7 @@ export default function FichaTecnicaEditorModal({
 
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
-  // Helpers para selects booleanos
-  const fmtBoolSelect = (v: boolean | null): string =>
-    v === null ? "" : v ? "true" : "false";
+  const fmtBoolSelect = (v: boolean | null): string => (v === null ? "" : v ? "true" : "false");
 
   const parseBoolInput = (value: string): boolean | null => {
     if (value === "") return null;
@@ -240,14 +439,10 @@ export default function FichaTecnicaEditorModal({
     return null;
   };
 
-  const updateField = <K extends keyof FichaTecnicaDTO>(
-    field: K,
-    value: FichaTecnicaDTO[K]
-  ) => {
+  const updateField = <K extends keyof FichaTecnicaDTO>(field: K, value: FichaTecnicaDTO[K]) => {
     setDetalleForm((prev) => (prev ? { ...prev, [field]: value } : prev));
   };
 
-  // ===== Cargar ficha =====
   const fetchFicha = useCallback(async () => {
     if (!fichaId || !token) return;
 
@@ -281,7 +476,6 @@ export default function FichaTecnicaEditorModal({
     }
   }, [open, fichaId, fetchFicha]);
 
-  // ===== Escape key =====
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -291,9 +485,9 @@ export default function FichaTecnicaEditorModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  // ===== Guardar ficha =====
-  const guardarFichaCompleta = async (e: FormEvent) => {
-    e.preventDefault();
+  // ✅ acepta submit o click sin pelear con TS
+  const guardarFichaCompleta = async (e?: SyntheticEvent) => {
+    e?.preventDefault();
     if (!detalleForm || !token) return;
 
     try {
@@ -322,7 +516,6 @@ export default function FichaTecnicaEditorModal({
     }
   };
 
-  // ===== Descargar PDF =====
   const descargarPdf = async () => {
     if (!detalleForm || !token) return;
 
@@ -427,36 +620,44 @@ export default function FichaTecnicaEditorModal({
                     <label className="text-[11px] font-semibold text-slate-600">ID ficha</label>
                     <Input className="h-8 bg-slate-100 text-xs" value={detalleForm.id} disabled />
                   </div>
+
                   <div>
                     <label className="text-[11px] font-semibold text-slate-600">Fecha creación</label>
                     <Input
                       className="h-8 bg-slate-100 text-xs"
-                      value={detalleForm.fechaCreacion ? new Date(detalleForm.fechaCreacion).toLocaleString() : ""}
+                      value={
+                        detalleForm.fechaCreacion
+                          ? new Date(detalleForm.fechaCreacion).toLocaleString()
+                          : ""
+                      }
                       disabled
                     />
                   </div>
+
+                  {/* ✅ EQUIPO COMBOBOX */}
                   <div>
-                    <label className="text-[11px] font-semibold text-slate-600">Equipo ID</label>
-                    <Input
-                      type="number"
-                      className="h-8 text-xs"
-                      value={detalleForm.equipoId ?? ""}
-                      onChange={(e) =>
-                        updateField("equipoId", e.target.value === "" ? null : Number(e.target.value))
-                      }
+                    <label className="text-[11px] font-semibold text-slate-600">Equipo</label>
+                    <EquipoCombobox
+                      value={detalleForm.equipoId}
+                      onChange={(equipoId) => updateField("equipoId", equipoId)}
                     />
                   </div>
+
+                  {/* ✅ OT SOLO LECTURA */}
                   <div>
-                    <label className="text-[11px] font-semibold text-slate-600">Orden Trabajo ID</label>
+                    <label className="text-[11px] font-semibold text-slate-600">
+                      Orden Trabajo ID{" "}
+                      <span className="ml-1 text-[10px] text-slate-400">(solo lectura)</span>
+                    </label>
                     <Input
                       type="number"
-                      className="h-8 text-xs"
+                      className="h-8 bg-slate-100 text-xs cursor-not-allowed"
                       value={detalleForm.ordenTrabajoId ?? ""}
-                      onChange={(e) =>
-                        updateField("ordenTrabajoId", e.target.value === "" ? null : Number(e.target.value))
-                      }
+                      disabled
+                      title="La orden de trabajo no se puede modificar"
                     />
                   </div>
+
                   <div className="md:col-span-2">
                     <label className="text-[11px] font-semibold text-slate-600">Técnico (cédula)</label>
                     <Input
@@ -518,7 +719,10 @@ export default function FichaTecnicaEditorModal({
                       className="h-8 text-xs"
                       value={detalleForm.cpuFrecuenciaOriginalMhz ?? ""}
                       onChange={(e) =>
-                        updateField("cpuFrecuenciaOriginalMhz", e.target.value === "" ? null : Number(e.target.value))
+                        updateField(
+                          "cpuFrecuenciaOriginalMhz",
+                          e.target.value === "" ? null : Number(e.target.value)
+                        )
                       }
                     />
                   </div>
@@ -1118,7 +1322,9 @@ export default function FichaTecnicaEditorModal({
                     <select
                       className="border rounded-md px-2 h-8 w-full text-[11px]"
                       value={fmtBoolSelect(detalleForm.antivirusLicenciaActiva)}
-                      onChange={(e) => updateField("antivirusLicenciaActiva", parseBoolInput(e.target.value))}
+                      onChange={(e) =>
+                        updateField("antivirusLicenciaActiva", parseBoolInput(e.target.value))
+                      }
                     >
                       <option value="">-</option>
                       <option value="true">Sí</option>
@@ -1164,7 +1370,9 @@ export default function FichaTecnicaEditorModal({
                     <select
                       className="border rounded-md px-2 h-8 w-full text-[11px]"
                       value={fmtBoolSelect(detalleForm.informacionRequiereRespaldo)}
-                      onChange={(e) => updateField("informacionRequiereRespaldo", parseBoolInput(e.target.value))}
+                      onChange={(e) =>
+                        updateField("informacionRequiereRespaldo", parseBoolInput(e.target.value))
+                      }
                     >
                       <option value="">-</option>
                       <option value="true">Sí</option>
@@ -1199,9 +1407,7 @@ export default function FichaTecnicaEditorModal({
         {detalleForm && !loading && !error && (
           <footer className="sticky bottom-0 z-20 border-t border-slate-200 bg-white px-5 py-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-[11px] text-slate-500">
-                Los cambios se guardarán en la ficha #{detalleForm.id}
-              </p>
+              <p className="text-[11px] text-slate-500">Los cambios se guardarán en la ficha #{detalleForm.id}</p>
 
               <div className="flex gap-2">
                 <Button
@@ -1224,6 +1430,7 @@ export default function FichaTecnicaEditorModal({
                   <Save className="h-4 w-4" />
                   Guardar ficha
                 </Button>
+
               </div>
             </div>
           </footer>

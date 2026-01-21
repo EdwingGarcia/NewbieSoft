@@ -62,29 +62,26 @@ public class FichaTecnicaService {
         Equipo equipo = equipoRepository.findById(equipoId)
                 .orElseThrow(() -> new IllegalArgumentException("Equipo no encontrado"));
 
-        // ✅ Validar OT y reutilizar ficha si ya existe
+        // ✅ Validar OT (sin restricción de ficha única)
         OrdenTrabajo ot = null;
         if (ordenTrabajoId != null) {
             ot = ordenTrabajoRepository.findById(ordenTrabajoId)
                     .orElseThrow(() -> new IllegalArgumentException("Orden de trabajo no encontrada"));
 
-            var existente = fichaTecnicaRepository.findByOrdenTrabajoId(ordenTrabajoId);
-            if (existente.isPresent()) {
-                return existente.get();
-            }
+            // ❌ ELIMINAR ESTE BLOQUE:
+            // var existente = fichaTecnicaRepository.findByOrdenTrabajoId(ordenTrabajoId);
+            // if (existente.isPresent()) {
+            //     return existente.get();
+            // }
         }
 
-        // Construcción de la entidad (Usando setters para evitar problemas con @Builder si no está configurado)
+        // Construcción de la entidad
         FichaTecnica ficha = new FichaTecnica();
         ficha.setTecnicoId(cedulaTecnico);
         ficha.setEquipoId(equipoId);
-        // Si usaste la Opción 1 (Relación Objeto), usa esto:
         if (ot != null) {
             ficha.setOrdenTrabajo(ot);
         }
-        // Si usaste la Opción 2 (Solo ID), usa esto (descomenta si es tu caso):
-        // ficha.setOrdenTrabajoId(ordenTrabajoId);
-
         ficha.setObservaciones(observaciones);
         ficha.setFechaCreacion(Instant.now());
 
@@ -175,9 +172,11 @@ public class FichaTecnicaService {
 
     /** 🔍 Buscar ficha por orden de trabajo (siempre debería ser máx. 1) */
     @Transactional(readOnly = true)
-    public Optional<FichaTecnicaDTO> buscarPorOrdenTrabajo(Long ordenTrabajoId) {
+    public List<FichaTecnicaDTO> buscarPorOrdenTrabajo(Long ordenTrabajoId) {
         return fichaTecnicaRepository.findByOrdenTrabajoId(ordenTrabajoId)
-                .map(FichaTecnicaMapper::toDTO);
+                .stream()
+                .map(FichaTecnicaMapper::toDTO)
+                .toList();
     }
 
     /** 🔍 NUEVO: Obtener todas las fichas de un cliente por cédula */
