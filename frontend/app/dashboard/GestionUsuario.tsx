@@ -13,11 +13,9 @@ import {
     ShieldCheck,
     ShieldAlert,
     Users,
-    Briefcase,
     UserCog,
     Phone,
     Mail,
-    MapPin,
     LayoutGrid,
     FilterX,
     Lock
@@ -62,36 +60,40 @@ const generateRandomPassword = () => {
     return Math.random().toString(36).slice(-10) + "Aa1";
 };
 
-// Estilos de Roles (Bordes y Textos)
+// Estilos de Roles
 const getRoleTheme = (roleName: string) => {
     const lower = roleName.toLowerCase();
     if (lower.includes("admin")) return {
         borderTop: "border-t-indigo-500",
         textTitle: "text-indigo-700",
         iconColor: "text-indigo-600",
-        badge: "bg-indigo-50 text-indigo-700",
-        avatarBg: "bg-indigo-50 text-indigo-700"
+        badge: "bg-indigo-100 text-indigo-800",
+        avatarBg: "bg-indigo-100 text-indigo-700",
+        bgColumn: "bg-indigo-50/30"
     };
     if (lower.includes("tecnico") || lower.includes("técnico")) return {
         borderTop: "border-t-blue-500",
         textTitle: "text-blue-700",
         iconColor: "text-blue-600",
-        badge: "bg-blue-50 text-blue-700",
-        avatarBg: "bg-blue-50 text-blue-700"
+        badge: "bg-blue-100 text-blue-800",
+        avatarBg: "bg-blue-100 text-blue-700",
+        bgColumn: "bg-blue-50/30"
     };
     if (lower.includes("cliente")) return {
         borderTop: "border-t-emerald-500",
         textTitle: "text-emerald-700",
         iconColor: "text-emerald-600",
-        badge: "bg-emerald-50 text-emerald-700",
-        avatarBg: "bg-emerald-50 text-emerald-700"
+        badge: "bg-emerald-100 text-emerald-800",
+        avatarBg: "bg-emerald-100 text-emerald-700",
+        bgColumn: "bg-emerald-50/30"
     };
     return {
         borderTop: "border-t-slate-400",
         textTitle: "text-slate-700",
         iconColor: "text-slate-500",
-        badge: "bg-slate-100 text-slate-700",
-        avatarBg: "bg-slate-100 text-slate-700"
+        badge: "bg-slate-200 text-slate-800",
+        avatarBg: "bg-slate-200 text-slate-700",
+        bgColumn: "bg-slate-50/30"
     };
 };
 
@@ -133,7 +135,12 @@ export default function GestionUsuario(): JSX.Element {
         if (!getToken()) return;
         setLoading(true);
         try {
-            const res = await fetch(API_BASE, { headers: { ...getAuthHeaders() } });
+            const headers: Record<string, string> = {};
+            const authHeaders = getAuthHeaders();
+            if (authHeaders.Authorization) {
+                headers.Authorization = authHeaders.Authorization;
+            }
+            const res = await fetch(API_BASE, { headers });
             if (!res.ok) throw new Error("Error obteniendo usuarios");
             setUsuarios(await res.json());
         } catch (err: any) {
@@ -146,7 +153,12 @@ export default function GestionUsuario(): JSX.Element {
     const fetchRoles = useCallback(async () => {
         if (!getToken()) return;
         try {
-            const res = await fetch(ROLES_API, { headers: { ...getAuthHeaders() } });
+            const headers: Record<string, string> = {};
+            const authHeaders = getAuthHeaders();
+            if (authHeaders.Authorization) {
+                headers.Authorization = authHeaders.Authorization;
+            }
+            const res = await fetch(ROLES_API, { headers });
             if (res.ok) setRoles(await res.json());
         } catch (e) { console.error(e); }
     }, []);
@@ -225,9 +237,15 @@ export default function GestionUsuario(): JSX.Element {
                 if (password.trim()) payload.password = password;
             }
 
+            const headers: Record<string, string> = { "Content-Type": "application/json" };
+            const authHeaders = getAuthHeaders();
+            if (authHeaders.Authorization) {
+                headers.Authorization = authHeaders.Authorization;
+            }
+
             const res = await fetch(isEditing ? `${API_BASE}/${cedula}` : API_BASE, {
                 method: isEditing ? "PUT" : "POST",
-                headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+                headers,
                 body: JSON.stringify(payload),
             });
 
@@ -244,7 +262,12 @@ export default function GestionUsuario(): JSX.Element {
     const deleteUsuario = async (ced: string) => {
         if (!confirm("¿Eliminar usuario?")) return;
         try {
-            await fetch(`${API_BASE}/${ced}`, { method: "DELETE", headers: { ...getAuthHeaders() } });
+            const headers: Record<string, string> = {};
+            const authHeaders = getAuthHeaders();
+            if (authHeaders.Authorization) {
+                headers.Authorization = authHeaders.Authorization;
+            }
+            await fetch(`${API_BASE}/${ced}`, { method: "DELETE", headers });
             fetchUsuarios();
         } catch (e) { alert("Error eliminando"); }
     };
@@ -273,10 +296,12 @@ export default function GestionUsuario(): JSX.Element {
     }), [usuarios]);
 
     return (
-        <div className="flex flex-col h-[calc(100vh-theme(spacing.4))] bg-slate-50/50 p-4 lg:p-6 gap-6">
+        // ✅ CAMBIO 1: h-auto y min-h-screen en lugar de h-fixed. 
+        // Esto permite que el fondo crezca pero no fuerza a que las columnas sean gigantes.
+        <div className="flex flex-col min-h-screen bg-slate-50 p-4 lg:p-6 gap-6">
 
             {/* HEADER */}
-            <div className="flex flex-col gap-4 md:flex-row md:items-center justify-between">
+            <div className="flex-none flex flex-col gap-4 md:flex-row md:items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
                         <LayoutGrid className="h-6 w-6 text-slate-600" />
@@ -311,29 +336,28 @@ export default function GestionUsuario(): JSX.Element {
             </div>
 
             {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2 text-sm">
+                <div className="flex-none bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2 text-sm">
                     <ShieldAlert className="h-4 w-4" /> {error}
                 </div>
             )}
 
             {/* DASHBOARD KANBAN */}
-            <div className="flex-1 min-h-0">
+            <div className="flex-1 w-full">
                 {loading && usuarios.length === 0 ? (
-                    <div className="flex h-full items-center justify-center">
+                    <div className="flex h-64 items-center justify-center">
                         <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
                     </div>
                 ) : Object.keys(filteredData).length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full text-slate-400 border-2 border-dashed border-slate-200 rounded-xl">
+                    <div className="flex flex-col items-center justify-center h-64 text-slate-400 border-2 border-dashed border-slate-200 rounded-xl bg-white/50">
                         <FilterX className="h-10 w-10 mb-2 opacity-50" />
                         <p>No se encontraron resultados</p>
                         {search && <Button variant="link" onClick={() => setSearch("")}>Limpiar búsqueda</Button>}
                     </div>
                 ) : (
-                    // GRID RESPONSIVE: Usa todo el alto disponible, scroll interno en cada columna
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 h-full items-start">
+                    // GRID DE COLUMNAS
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-start">
                         {Object.entries(filteredData).map(([roleName, users]) => {
                             const theme = getRoleTheme(roleName);
-                            // Icono dinámico
                             const RoleIcon = () => {
                                 const lower = roleName.toLowerCase();
                                 if (lower.includes("admin")) return <ShieldCheck className={`h-4 w-4 ${theme.iconColor}`} />;
@@ -342,12 +366,15 @@ export default function GestionUsuario(): JSX.Element {
                             };
 
                             return (
-                                <div key={roleName} className="flex flex-col h-full min-h-0 bg-transparent rounded-xl">
-
-                                    {/* Header de Columna (Sticky visualmente) */}
-                                    <div className="flex items-center justify-between mb-4 px-1">
+                                <div
+                                    key={roleName}
+                                    // ✅ CAMBIO 2: Eliminé h-full para que el contenedor se encoja al contenido.
+                                    className={`flex flex-col rounded-xl border border-slate-100 overflow-hidden shadow-sm ${theme.bgColumn || 'bg-slate-50'}`}
+                                >
+                                    {/* Header de Columna */}
+                                    <div className="flex-none flex items-center justify-between p-3 bg-white border-b border-slate-100">
                                         <div className="flex items-center gap-2">
-                                            <div className={`p-1.5 rounded-md bg-white border shadow-sm ${theme.borderTop}`}>
+                                            <div className={`p-1.5 rounded-md bg-slate-50 ${theme.textTitle}`}>
                                                 <RoleIcon />
                                             </div>
                                             <h3 className={`font-bold text-sm uppercase tracking-wide ${theme.textTitle}`}>
@@ -359,58 +386,64 @@ export default function GestionUsuario(): JSX.Element {
                                         </span>
                                     </div>
 
-                                    {/* Lista Scrollable Vertical */}
-                                    <div className="flex-1 overflow-y-auto pr-2 pb-2 space-y-3 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
+                                    {/* ✅ CAMBIO 3: max-h-[450px]
+                                        Esto limita la lista interna a aprox 3 tarjetas.
+                                        Si hay más, aparece el scroll SOLO aquí.
+                                        Si hay menos, la columna se hace pequeña. */}
+                                    <div className="overflow-y-auto p-3 space-y-3 custom-scrollbar max-h-[450px] min-h-[100px]">
                                         {users.map((u) => (
                                             <div
                                                 key={u.cedula}
-                                                className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-200 group flex flex-col gap-3 relative"
+                                                className="bg-white p-3 rounded-lg border border-slate-200/60 shadow-sm hover:shadow-md hover:border-indigo-200 transition-all duration-200 group flex flex-col gap-2"
                                             >
                                                 {/* Cabecera Tarjeta */}
                                                 <div className="flex justify-between items-start">
                                                     <div className="flex items-center gap-3">
-                                                        <div className={`h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold ${theme.avatarBg}`}>
+                                                        <div className={`h-9 w-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${theme.avatarBg}`}>
                                                             {getInitials(u.nombre)}
                                                         </div>
                                                         <div className="min-w-0">
-                                                            <h4 className="font-semibold text-slate-900 text-sm truncate" title={u.nombre}>
+                                                            <h4 className="font-semibold text-slate-900 text-sm truncate w-36" title={u.nombre}>
                                                                 {u.nombre || "Sin Nombre"}
                                                             </h4>
-                                                            <p className="text-[11px] text-slate-400 font-mono tracking-tight">{u.cedula}</p>
+                                                            <p className="text-[10px] text-slate-400 font-mono tracking-tight">{u.cedula}</p>
                                                         </div>
                                                     </div>
-                                                    <div className={`w-2 h-2 rounded-full mt-1.5 ${u.estado ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" : "bg-slate-300"}`} title={u.estado ? "Activo" : "Inactivo"} />
+                                                    <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${u.estado ? "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]" : "bg-slate-300"}`} title={u.estado ? "Activo" : "Inactivo"} />
                                                 </div>
 
-                                                {/* Datos */}
-                                                <div className="space-y-1.5 text-xs text-slate-600 pl-1">
-                                                    <div className="flex items-center gap-2">
-                                                        <Mail className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                                                        <span className="truncate" title={u.correo}>{u.correo || "-"}</span>
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <Phone className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                                                        <span className="truncate">{u.telefono || "-"}</span>
-                                                    </div>
+                                                {/* Datos Rápidos */}
+                                                <div className="text-[11px] text-slate-500 space-y-1 pl-1">
+                                                    {u.correo && (
+                                                        <div className="flex items-center gap-1.5">
+                                                            <Mail className="h-3 w-3 text-slate-300" />
+                                                            <span className="truncate max-w-[180px]" title={u.correo}>{u.correo}</span>
+                                                        </div>
+                                                    )}
+                                                    {u.telefono && (
+                                                        <div className="flex items-center gap-1.5">
+                                                            <Phone className="h-3 w-3 text-slate-300" />
+                                                            <span className="truncate">{u.telefono}</span>
+                                                        </div>
+                                                    )}
                                                 </div>
 
-                                                {/* Footer Acciones - Siempre visible y bien distribuido */}
-                                                <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 mt-1">
-                                                    <Button
-                                                        variant="ghost" size="sm"
-                                                        className="h-7 px-3 text-xs font-medium text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-md"
+                                                {/* Botones Acciones */}
+                                                <div className="flex items-center justify-end gap-2 pt-2 mt-1 border-t border-slate-50">
+                                                    <button
                                                         onClick={() => openEdit(u)}
+                                                        className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors"
+                                                        title="Editar"
                                                     >
-                                                        <Edit className="h-3.5 w-3.5 mr-1.5" /> Editar
-                                                    </Button>
-                                                    <Button
-                                                        variant="ghost" size="sm"
-                                                        className="h-7 w-7 p-0 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md"
-                                                        title="Eliminar usuario"
+                                                        <Edit className="h-3.5 w-3.5" />
+                                                    </button>
+                                                    <button
                                                         onClick={() => deleteUsuario(u.cedula)}
+                                                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                                        title="Eliminar"
                                                     >
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
+                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                    </button>
                                                 </div>
                                             </div>
                                         ))}
