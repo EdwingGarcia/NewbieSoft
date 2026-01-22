@@ -2,13 +2,6 @@
 
 import { useEffect, useState, useCallback, useMemo, JSX } from "react";
 import { Button } from "@/components/ui/button";
-import {
-    Card,
-    CardHeader,
-    CardTitle,
-    CardDescription,
-    CardContent,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
     Loader2,
@@ -18,16 +11,25 @@ import {
     Trash2,
     X,
     ShieldCheck,
+    ShieldAlert,
+    Users,
+    Briefcase,
+    UserCog,
+    Phone,
+    Mail,
+    MapPin,
+    LayoutGrid,
+    FilterX,
+    Lock
 } from "lucide-react";
 
-// --- IMPORTANTE: Traer la URL centralizada
+// --- API CONFIG ---
 import { API_BASE_URL } from "@/app/lib/api";
 
-// --- Usar la variable en lugar de localhost
 const API_BASE = `${API_BASE_URL}/api/usuarios`;
-const ROLES_API = `${API_BASE_URL}/api/roles`; // Asegúrate de que la ruta en el backend sea /api/roles o /roles y ajústala aquí.
-// Si tu backend tiene los roles en /roles (sin /api), usa: `${API_BASE_URL}/roles`
+const ROLES_API = `${API_BASE_URL}/roles`;
 
+// --- INTERFACES ---
 interface Rol {
     idRol: number;
     nombre: string;
@@ -45,17 +47,66 @@ interface Usuario {
     estado?: boolean;
 }
 
+// --- UTILS ---
+const getInitials = (name?: string) => {
+    if (!name) return "U";
+    return name
+        .split(" ")
+        .map((n) => n[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase();
+};
+
+const generateRandomPassword = () => {
+    return Math.random().toString(36).slice(-10) + "Aa1";
+};
+
+// Estilos de Roles (Bordes y Textos)
+const getRoleTheme = (roleName: string) => {
+    const lower = roleName.toLowerCase();
+    if (lower.includes("admin")) return {
+        borderTop: "border-t-indigo-500",
+        textTitle: "text-indigo-700",
+        iconColor: "text-indigo-600",
+        badge: "bg-indigo-50 text-indigo-700",
+        avatarBg: "bg-indigo-50 text-indigo-700"
+    };
+    if (lower.includes("tecnico") || lower.includes("técnico")) return {
+        borderTop: "border-t-blue-500",
+        textTitle: "text-blue-700",
+        iconColor: "text-blue-600",
+        badge: "bg-blue-50 text-blue-700",
+        avatarBg: "bg-blue-50 text-blue-700"
+    };
+    if (lower.includes("cliente")) return {
+        borderTop: "border-t-emerald-500",
+        textTitle: "text-emerald-700",
+        iconColor: "text-emerald-600",
+        badge: "bg-emerald-50 text-emerald-700",
+        avatarBg: "bg-emerald-50 text-emerald-700"
+    };
+    return {
+        borderTop: "border-t-slate-400",
+        textTitle: "text-slate-700",
+        iconColor: "text-slate-500",
+        badge: "bg-slate-100 text-slate-700",
+        avatarBg: "bg-slate-100 text-slate-700"
+    };
+};
+
 export default function GestionUsuario(): JSX.Element {
+    // --- ESTADOS ---
     const [usuarios, setUsuarios] = useState<Usuario[]>([]);
     const [roles, setRoles] = useState<Rol[]>([]);
-
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    // Modal
     const [showForm, setShowForm] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
 
-    // Campos usuario
+    // Form Fields
     const [cedula, setCedula] = useState("");
     const [nombre, setNombre] = useState("");
     const [correo, setCorreo] = useState("");
@@ -65,59 +116,39 @@ export default function GestionUsuario(): JSX.Element {
     const [estado, setEstado] = useState(true);
     const [selectedRolId, setSelectedRolId] = useState<number | "">("");
 
+    // Validaciones
+    const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+    // Search
     const [search, setSearch] = useState("");
 
-    const getToken = (): string | null =>
-        typeof window !== "undefined" ? localStorage.getItem("token") : null;
-
-    const getAuthHeaders = (): Record<string, string> => {
+    // --- API LOGIC ---
+    const getToken = () => typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    const getAuthHeaders = () => {
         const token = getToken();
-        if (!token) return {};
-        return { Authorization: `Bearer ${token}` };
+        return token ? { Authorization: `Bearer ${token}` } : {};
     };
 
-    // ===== fetch usuarios =====
     const fetchUsuarios = useCallback(async () => {
-        const token = getToken();
-        if (!token) {
-            setError("No se encontró token. Inicie sesión nuevamente.");
-            return;
-        }
+        if (!getToken()) return;
         setLoading(true);
-        setError(null);
-
         try {
-            const res = await fetch(API_BASE, {
-                headers: {
-                    ...getAuthHeaders(),
-                },
-            });
-            if (!res.ok) throw new Error("Error al obtener usuarios");
-            const data: Usuario[] = await res.json();
-            setUsuarios(data);
+            const res = await fetch(API_BASE, { headers: { ...getAuthHeaders() } });
+            if (!res.ok) throw new Error("Error obteniendo usuarios");
+            setUsuarios(await res.json());
         } catch (err: any) {
-            setError(err.message || "Error al cargar usuarios");
+            setError(err.message);
         } finally {
             setLoading(false);
         }
     }, []);
 
-    // ===== fetch roles =====
     const fetchRoles = useCallback(async () => {
-        const token = getToken();
-        if (!token) return;
+        if (!getToken()) return;
         try {
-            const res = await fetch(ROLES_API, {
-                headers: {
-                    ...getAuthHeaders(),
-                },
-            });
-            if (!res.ok) throw new Error("Error al cargar roles");
-            const data: Rol[] = await res.json();
-            setRoles(data);
-        } catch (e) {
-            console.warn("No se pudieron cargar los roles", e);
-        }
+            const res = await fetch(ROLES_API, { headers: { ...getAuthHeaders() } });
+            if (res.ok) setRoles(await res.json());
+        } catch (e) { console.error(e); }
     }, []);
 
     useEffect(() => {
@@ -125,21 +156,28 @@ export default function GestionUsuario(): JSX.Element {
         fetchRoles();
     }, [fetchUsuarios, fetchRoles]);
 
-    // ===== abrir crear =====
+    // --- LOGICA ROL CLIENTE ---
+    const isSelectedRoleClient = useMemo(() => {
+        if (!selectedRolId) return false;
+        const rol = roles.find(r => r.idRol === Number(selectedRolId));
+        return rol ? rol.nombre.toUpperCase().includes("CLIENTE") : false;
+    }, [selectedRolId, roles]);
+
+    useEffect(() => {
+        if (isSelectedRoleClient && !isEditing) {
+            setPassword("");
+        }
+    }, [isSelectedRoleClient, isEditing]);
+
+    // --- HANDLERS ---
     const openCreate = () => {
         setIsEditing(false);
-        setCedula("");
-        setNombre("");
-        setCorreo("");
-        setTelefono("");
-        setDireccion("");
-        setPassword("");
-        setEstado(true);
-        setSelectedRolId("");
+        setCedula(""); setNombre(""); setCorreo(""); setTelefono(""); setDireccion("");
+        setPassword(""); setEstado(true); setSelectedRolId("");
+        setFormErrors({});
         setShowForm(true);
     };
 
-    // ===== abrir editar =====
     const openEdit = (u: Usuario) => {
         setIsEditing(true);
         setCedula(u.cedula);
@@ -150,333 +188,362 @@ export default function GestionUsuario(): JSX.Element {
         setPassword("");
         setEstado(u.estado ?? true);
         setSelectedRolId(u.rol?.idRol ?? "");
+        setFormErrors({});
         setShowForm(true);
     };
 
-    // ===== guardar =====
+    const validateForm = () => {
+        const errors: Record<string, string> = {};
+        if (!cedula.trim()) errors.cedula = "La cédula es obligatoria.";
+        else if (!/^\d{10}$/.test(cedula)) errors.cedula = "Debe tener 10 dígitos numéricos.";
+
+        if (!selectedRolId) errors.rol = "Seleccione un rol.";
+
+        if (correo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) errors.correo = "Correo inválido.";
+        if (telefono && !/^\d{9,10}$/.test(telefono)) errors.telefono = "Numérico (9-10 dígitos).";
+
+        if (!isEditing && !isSelectedRoleClient && !password) errors.password = "Contraseña obligatoria.";
+
+        setFormErrors(errors);
+        return Object.keys(errors).length === 0;
+    };
+
     const saveUsuario = async () => {
-        const token = getToken();
-        if (!token) {
-            setError("No se encontró token.");
-            return;
-        }
-
-        if (!cedula) {
-            setError("La cédula es obligatoria.");
-            return;
-        }
-        if (!isEditing && !password) {
-            setError("La contraseña es obligatoria para crear.");
-            return;
-        }
-        if (!selectedRolId) {
-            setError("Debes seleccionar un rol.");
-            return;
-        }
-
+        if (!validateForm()) return;
         setLoading(true);
-        setError(null);
-
         try {
             const rolObj = roles.find((r) => r.idRol === Number(selectedRolId));
-
             const payload: any = {
-                cedula,
-                nombre,
-                correo,
-                telefono,
-                direccion,
-                estado,
-                rol: rolObj
-                    ? {
-                        idRol: rolObj.idRol,
-                        nombre: rolObj.nombre,
-                        descripcion: rolObj.descripcion ?? rolObj.nombre,
-                    }
-                    : null,
+                cedula, nombre, correo, telefono, direccion, estado,
+                rol: rolObj ? { idRol: rolObj.idRol, nombre: rolObj.nombre } : null,
             };
 
-            if (!isEditing || password.trim() !== "") {
-                payload.password = password;
+            if (!isEditing) {
+                if (isSelectedRoleClient) payload.password = generateRandomPassword();
+                else if (password.trim()) payload.password = password;
+            } else {
+                if (password.trim()) payload.password = password;
             }
 
-            const res = await fetch(
-                isEditing ? `${API_BASE}/${cedula}` : API_BASE,
-                {
-                    method: isEditing ? "PUT" : "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        ...getAuthHeaders(),
-                    },
-                    body: JSON.stringify(payload),
-                }
-            );
+            const res = await fetch(isEditing ? `${API_BASE}/${cedula}` : API_BASE, {
+                method: isEditing ? "PUT" : "POST",
+                headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+                body: JSON.stringify(payload),
+            });
 
-            if (!res.ok) {
-                const txt = await res.text();
-                // si es 401/403 lo decimos claro
-                if (res.status === 401 || res.status === 403) {
-                    throw new Error("No autorizado. Revisa tu sesión.");
-                }
-                throw new Error(txt || "Error guardando usuario");
-            }
-
+            if (!res.ok) throw new Error(await res.text());
             await fetchUsuarios();
             setShowForm(false);
         } catch (err: any) {
-            setError(err.message || "Error guardando usuario");
+            alert("Error: " + err.message);
         } finally {
             setLoading(false);
         }
     };
 
-    // ===== eliminar =====
     const deleteUsuario = async (ced: string) => {
-        if (!confirm("¿Seguro que deseas desactivar/eliminar este usuario?")) return;
-        const token = getToken();
-        if (!token) {
-            setError("No se encontró token.");
-            return;
-        }
+        if (!confirm("¿Eliminar usuario?")) return;
         try {
-            const res = await fetch(`${API_BASE}/${ced}`, {
-                method: "DELETE",
-                headers: {
-                    ...getAuthHeaders(),
-                },
-            });
-            if (!res.ok) throw new Error("Error al eliminar usuario");
-            await fetchUsuarios();
-        } catch (err: any) {
-            setError(err.message || "Error al eliminar");
-        }
+            await fetch(`${API_BASE}/${ced}`, { method: "DELETE", headers: { ...getAuthHeaders() } });
+            fetchUsuarios();
+        } catch (e) { alert("Error eliminando"); }
     };
 
-    // ===== filtro front =====
-    const filteredUsuarios = useMemo(() => {
-        const term = search.trim().toLowerCase();
-        if (!term) return usuarios;
-        return usuarios.filter((u) => {
-            return (
-                u.cedula?.toLowerCase().includes(term) ||
-                (u.nombre || "").toLowerCase().includes(term) ||
-                (u.correo || "").toLowerCase().includes(term)
-            );
+    // --- FILTROS Y AGRUPACIÓN ---
+    const filteredData = useMemo(() => {
+        const term = search.toLowerCase();
+        const data = search ? usuarios.filter(u =>
+            u.cedula.toLowerCase().includes(term) ||
+            u.nombre?.toLowerCase().includes(term) ||
+            u.correo?.toLowerCase().includes(term)
+        ) : usuarios;
+
+        const groups: Record<string, Usuario[]> = {};
+        data.forEach(user => {
+            const role = user.rol?.nombre || "Sin Rol";
+            if (!groups[role]) groups[role] = [];
+            groups[role].push(user);
         });
+        return groups;
     }, [usuarios, search]);
 
+    const stats = useMemo(() => ({
+        total: usuarios.length,
+        active: usuarios.filter(u => u.estado).length
+    }), [usuarios]);
+
     return (
-        <div className="p-6 space-y-6">
-            <div className="flex items-center justify-between">
+        <div className="flex flex-col h-[calc(100vh-theme(spacing.4))] bg-slate-50/50 p-4 lg:p-6 gap-6">
+
+            {/* HEADER */}
+            <div className="flex flex-col gap-4 md:flex-row md:items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold">Gestión de Usuarios</h1>
-                    <p className="text-sm text-gray-500">
-                        Listar, crear, editar y desactivar usuarios.
-                    </p>
+                    <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
+                        <LayoutGrid className="h-6 w-6 text-slate-600" />
+                        Gestión de Usuarios
+                    </h1>
+                    <div className="flex items-center gap-3 mt-1 text-sm text-slate-500">
+                        <span>Total: <b>{stats.total}</b></span>
+                        <span className="w-1 h-1 rounded-full bg-slate-300" />
+                        <span className="text-emerald-600">Activos: <b>{stats.active}</b></span>
+                    </div>
                 </div>
-                <Button onClick={openCreate} className="flex items-center gap-2">
-                    <Plus className="h-4 w-4" /> Nuevo usuario
-                </Button>
+
+                <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                    <div className="relative w-full sm:w-64">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <Input
+                            placeholder="Buscar..."
+                            className="pl-9 bg-white shadow-sm border-slate-200"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                        />
+                        {search && (
+                            <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                                <X className="h-3 w-3" />
+                            </button>
+                        )}
+                    </div>
+                    <Button onClick={openCreate} className="bg-slate-900 hover:bg-slate-800 shadow-sm shrink-0">
+                        <Plus className="mr-2 h-4 w-4" /> Nuevo Usuario
+                    </Button>
+                </div>
             </div>
 
-            <Card>
-                <CardHeader>
-                    <div className="flex items-center justify-between gap-4">
-                        <div>
-                            <CardTitle className="text-lg">Usuarios registrados</CardTitle>
-                            <CardDescription>
+            {error && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2 text-sm">
+                    <ShieldAlert className="h-4 w-4" /> {error}
+                </div>
+            )}
 
-                            </CardDescription>
-                        </div>
-                        <div className="relative w-64">
-                            <Input
-                                placeholder="Buscar por cédula, nombre..."
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                                className="pl-8 h-9 text-sm"
-                            />
-                            <Search className="h-4 w-4 text-gray-400 absolute left-2 top-2.5" />
-                        </div>
+            {/* DASHBOARD KANBAN */}
+            <div className="flex-1 min-h-0">
+                {loading && usuarios.length === 0 ? (
+                    <div className="flex h-full items-center justify-center">
+                        <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
                     </div>
-                </CardHeader>
+                ) : Object.keys(filteredData).length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full text-slate-400 border-2 border-dashed border-slate-200 rounded-xl">
+                        <FilterX className="h-10 w-10 mb-2 opacity-50" />
+                        <p>No se encontraron resultados</p>
+                        {search && <Button variant="link" onClick={() => setSearch("")}>Limpiar búsqueda</Button>}
+                    </div>
+                ) : (
+                    // GRID RESPONSIVE: Usa todo el alto disponible, scroll interno en cada columna
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 h-full items-start">
+                        {Object.entries(filteredData).map(([roleName, users]) => {
+                            const theme = getRoleTheme(roleName);
+                            // Icono dinámico
+                            const RoleIcon = () => {
+                                const lower = roleName.toLowerCase();
+                                if (lower.includes("admin")) return <ShieldCheck className={`h-4 w-4 ${theme.iconColor}`} />;
+                                if (lower.includes("tecnico")) return <UserCog className={`h-4 w-4 ${theme.iconColor}`} />;
+                                return <Users className={`h-4 w-4 ${theme.iconColor}`} />;
+                            };
 
-                <CardContent>
-                    {error && <div className="text-red-500 text-sm mb-3">{error}</div>}
+                            return (
+                                <div key={roleName} className="flex flex-col h-full min-h-0 bg-transparent rounded-xl">
 
-                    {loading ? (
-                        <div className="flex justify-center py-10">
-                            <Loader2 className="h-6 w-6 animate-spin text-gray-600" />
-                        </div>
-                    ) : filteredUsuarios.length === 0 ? (
-                        <div className="text-gray-500 text-center py-6">
-                            {search ? "No hay coincidencias" : "No hay usuarios registrados"}
-                        </div>
-                    ) : (
-                        <div className="overflow-x-auto rounded-lg border border-gray-200">
-                            <table className="w-full text-sm">
-                                <thead className="bg-gray-100">
-                                    <tr>
-                                        <th className="px-4 py-2 text-left">Cédula</th>
-                                        <th className="px-4 py-2 text-left">Nombres</th>
-                                        <th className="px-4 py-2 text-left">Email</th>
-                                        <th className="px-4 py-2 text-left">Teléfono</th>
-                                        <th className="px-4 py-2 text-left">Dirección</th>
-                                        <th className="px-4 py-2 text-left">Estado</th>
-                                        <th className="px-4 py-2 text-right">Acciones</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filteredUsuarios.map((u) => (
-                                        <tr key={u.cedula} className="border-t">
-                                            <td className="px-4 py-2 font-medium">{u.cedula}</td>
-                                            <td className="px-4 py-2">{u.nombre || "—"}</td>
-                                            <td className="px-4 py-2">{u.correo || "—"}</td>
-                                            <td className="px-4 py-2">{u.telefono || "—"}</td>
-                                            <td className="px-4 py-2">{u.direccion || "—"}</td>
-                                            <td className="px-4 py-2">
-                                                {u.estado ?? true ? (
-                                                    <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
-                                                        <ShieldCheck className="h-3 w-3" /> Activo
-                                                    </span>
-                                                ) : (
-                                                    <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-700">
-                                                        Inactivo
-                                                    </span>
-                                                )}
-                                            </td>
-                                            <td className="px-4 py-2 flex gap-2 justify-end">
-                                                <Button
-                                                    variant="outline"
-                                                    size="icon"
-                                                    onClick={() => openEdit(u)}
-                                                >
-                                                    <Edit className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    variant="destructive"
-                                                    size="icon"
-                                                    onClick={() => deleteUsuario(u.cedula)}
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
+                                    {/* Header de Columna (Sticky visualmente) */}
+                                    <div className="flex items-center justify-between mb-4 px-1">
+                                        <div className="flex items-center gap-2">
+                                            <div className={`p-1.5 rounded-md bg-white border shadow-sm ${theme.borderTop}`}>
+                                                <RoleIcon />
+                                            </div>
+                                            <h3 className={`font-bold text-sm uppercase tracking-wide ${theme.textTitle}`}>
+                                                {roleName}
+                                            </h3>
+                                        </div>
+                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${theme.badge}`}>
+                                            {users.length}
+                                        </span>
+                                    </div>
 
-            {/* ===== Modal crear/editar ===== */}
+                                    {/* Lista Scrollable Vertical */}
+                                    <div className="flex-1 overflow-y-auto pr-2 pb-2 space-y-3 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
+                                        {users.map((u) => (
+                                            <div
+                                                key={u.cedula}
+                                                className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-200 group flex flex-col gap-3 relative"
+                                            >
+                                                {/* Cabecera Tarjeta */}
+                                                <div className="flex justify-between items-start">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={`h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold ${theme.avatarBg}`}>
+                                                            {getInitials(u.nombre)}
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <h4 className="font-semibold text-slate-900 text-sm truncate" title={u.nombre}>
+                                                                {u.nombre || "Sin Nombre"}
+                                                            </h4>
+                                                            <p className="text-[11px] text-slate-400 font-mono tracking-tight">{u.cedula}</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className={`w-2 h-2 rounded-full mt-1.5 ${u.estado ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" : "bg-slate-300"}`} title={u.estado ? "Activo" : "Inactivo"} />
+                                                </div>
+
+                                                {/* Datos */}
+                                                <div className="space-y-1.5 text-xs text-slate-600 pl-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <Mail className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                                                        <span className="truncate" title={u.correo}>{u.correo || "-"}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <Phone className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                                                        <span className="truncate">{u.telefono || "-"}</span>
+                                                    </div>
+                                                </div>
+
+                                                {/* Footer Acciones - Siempre visible y bien distribuido */}
+                                                <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 mt-1">
+                                                    <Button
+                                                        variant="ghost" size="sm"
+                                                        className="h-7 px-3 text-xs font-medium text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-md"
+                                                        onClick={() => openEdit(u)}
+                                                    >
+                                                        <Edit className="h-3.5 w-3.5 mr-1.5" /> Editar
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost" size="sm"
+                                                        className="h-7 w-7 p-0 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md"
+                                                        title="Eliminar usuario"
+                                                        onClick={() => deleteUsuario(u.cedula)}
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+
+            {/* ===== MODAL CREAR/EDITAR ===== */}
             {showForm && (
-                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-xl p-6 w-full max-w-xl relative shadow-xl">
-                        <button
-                            onClick={() => setShowForm(false)}
-                            className="absolute top-3 right-3 text-gray-500 hover:text-gray-900"
-                        >
-                            <X className="h-5 w-5" />
-                        </button>
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
 
-                        <h2 className="text-lg font-semibold mb-4">
-                            {isEditing ? "Editar usuario" : "Nuevo usuario"}
-                        </h2>
+                        <div className="flex justify-between p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-xl">
+                            <div>
+                                <h2 className="text-xl font-bold text-slate-900">{isEditing ? "Editar Usuario" : "Registrar Nuevo Usuario"}</h2>
+                                <p className="text-sm text-slate-500">Complete la información requerida.</p>
+                            </div>
+                            <button onClick={() => setShowForm(false)} className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-2 rounded-full transition-colors">
+                                <X className="h-5 w-5" />
+                            </button>
+                        </div>
 
-                        <div className="space-y-3">
-                            <div>
-                                <label className="text-xs text-gray-600">Cédula *</label>
-                                <Input
-                                    value={cedula}
-                                    onChange={(e) => setCedula(e.target.value)}
-                                    disabled={isEditing}
-                                />
-                            </div>
-                            <div>
-                                <label className="text-xs text-gray-600">Nombre</label>
-                                <Input
-                                    value={nombre}
-                                    onChange={(e) => setNombre(e.target.value)}
-                                />
-                            </div>
-                            <div>
-                                <label className="text-xs text-gray-600">Correo</label>
-                                <Input
-                                    value={correo}
-                                    onChange={(e) => setCorreo(e.target.value)}
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="p-6 overflow-y-auto space-y-6 custom-scrollbar">
+                            {/* ID & Rol */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="text-xs text-gray-600">Teléfono</label>
+                                    <label className="text-xs font-semibold text-slate-500 uppercase">Cédula</label>
+                                    <Input
+                                        value={cedula}
+                                        onChange={e => setCedula(e.target.value)}
+                                        disabled={isEditing}
+                                        className={`mt-1 ${formErrors.cedula ? "border-red-500 ring-1 ring-red-500" : ""}`}
+                                        placeholder="Ej: 1712345678"
+                                    />
+                                    {formErrors.cedula && <p className="text-[10px] text-red-500 mt-1 font-medium">{formErrors.cedula}</p>}
+                                </div>
+                                <div>
+                                    <label className="text-xs font-semibold text-slate-500 uppercase">Rol</label>
+                                    <select
+                                        value={selectedRolId}
+                                        onChange={e => setSelectedRolId(Number(e.target.value))}
+                                        className={`mt-1 flex h-10 w-full rounded-md border bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${formErrors.rol ? "border-red-500 ring-1 ring-red-500" : "border-input"}`}
+                                    >
+                                        <option value="">Seleccionar...</option>
+                                        {roles.map(r => <option key={r.idRol} value={r.idRol}>{r.nombre}</option>)}
+                                    </select>
+                                    {formErrors.rol && <p className="text-[10px] text-red-500 mt-1 font-medium">{formErrors.rol}</p>}
+                                </div>
+                            </div>
+
+                            {/* Personal */}
+                            <div>
+                                <label className="text-xs font-semibold text-slate-500 uppercase">Nombre Completo</label>
+                                <Input value={nombre} onChange={e => setNombre(e.target.value)} className="mt-1" />
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-xs font-semibold text-slate-500 uppercase">Correo</label>
+                                    <Input
+                                        type="email"
+                                        value={correo}
+                                        onChange={e => setCorreo(e.target.value)}
+                                        className={`mt-1 ${formErrors.correo ? "border-red-500" : ""}`}
+                                    />
+                                    {formErrors.correo && <p className="text-[10px] text-red-500 mt-1">{formErrors.correo}</p>}
+                                </div>
+                                <div>
+                                    <label className="text-xs font-semibold text-slate-500 uppercase">Teléfono</label>
                                     <Input
                                         value={telefono}
-                                        onChange={(e) => setTelefono(e.target.value)}
+                                        onChange={e => setTelefono(e.target.value)}
+                                        className={`mt-1 ${formErrors.telefono ? "border-red-500" : ""}`}
                                     />
+                                    {formErrors.telefono && <p className="text-[10px] text-red-500 mt-1">{formErrors.telefono}</p>}
                                 </div>
+                            </div>
+                            <div>
+                                <label className="text-xs font-semibold text-slate-500 uppercase">Dirección</label>
+                                <Input value={direccion} onChange={e => setDireccion(e.target.value)} className="mt-1" />
+                            </div>
+
+                            {/* Security */}
+                            <div className="pt-4 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
                                 <div>
-                                    <label className="text-xs text-gray-600">Dirección</label>
-                                    <Input
-                                        value={direccion}
-                                        onChange={(e) => setDireccion(e.target.value)}
-                                    />
+                                    <label className="text-xs font-semibold text-slate-500 uppercase flex items-center gap-2">
+                                        {isEditing ? "Nueva Contraseña" : "Contraseña"}
+                                        {isSelectedRoleClient && (
+                                            <span className="text-[10px] font-normal text-emerald-600 bg-emerald-50 px-1.5 rounded flex items-center gap-1 border border-emerald-100">
+                                                <ShieldCheck className="h-3 w-3" /> Auto-generada
+                                            </span>
+                                        )}
+                                    </label>
+
+                                    <div className="relative mt-1">
+                                        <Input
+                                            type="password"
+                                            value={isSelectedRoleClient ? "" : password}
+                                            onChange={e => setPassword(e.target.value)}
+                                            className={`pr-8 ${formErrors.password ? "border-red-500" : ""} ${isSelectedRoleClient ? "bg-slate-50 text-slate-400 cursor-not-allowed" : ""}`}
+                                            placeholder={isSelectedRoleClient ? "Se generará automáticamente" : "••••••"}
+                                            disabled={isSelectedRoleClient}
+                                        />
+                                        {isSelectedRoleClient && (
+                                            <Lock className="absolute right-2.5 top-2.5 h-4 w-4 text-slate-400" />
+                                        )}
+                                    </div>
+                                    {formErrors.password && <p className="text-[10px] text-red-500 mt-1">{formErrors.password}</p>}
+                                </div>
+
+                                <div className="flex items-center gap-3 justify-end md:justify-start">
+                                    <div
+                                        className={`flex items-center gap-3 px-3 py-2 rounded-lg border cursor-pointer transition-all ${estado ? "border-emerald-200 bg-emerald-50" : "border-slate-200 bg-slate-50"}`}
+                                        onClick={() => setEstado(!estado)}
+                                    >
+                                        <label className={`text-sm font-medium cursor-pointer ${estado ? "text-emerald-700" : "text-slate-600"}`}>
+                                            {estado ? "Usuario Activo" : "Usuario Inactivo"}
+                                        </label>
+                                        <div className={`relative w-9 h-5 rounded-full transition-colors ${estado ? "bg-emerald-500" : "bg-slate-300"}`}>
+                                            <div className={`absolute top-1 left-1 bg-white w-3 h-3 rounded-full shadow-sm transition-transform ${estado ? "translate-x-4" : "translate-x-0"}`} />
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
+                        </div>
 
-                            {/* combo de roles */}
-                            <div>
-                                <label className="text-xs text-gray-600">Rol *</label>
-                                <select
-                                    value={selectedRolId}
-                                    onChange={(e) =>
-                                        setSelectedRolId(e.target.value ? Number(e.target.value) : "")
-                                    }
-                                    className="w-full border rounded-md px-2 py-2 text-sm bg-white"
-                                >
-                                    <option value="">-- Selecciona un rol --</option>
-                                    {roles.map((r) => (
-                                        <option key={r.idRol} value={r.idRol}>
-                                            {r.nombre} {r.descripcion ? `(${r.descripcion})` : ""}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            {/* password */}
-                            <div>
-                                <label className="text-xs text-gray-600">
-                                    {isEditing ? "Password (opcional)" : "Password *"}
-                                </label>
-                                <Input
-                                    type="password"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    placeholder={isEditing ? "Dejar vacío para no cambiar" : ""}
-                                />
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                                <input
-                                    id="estado"
-                                    type="checkbox"
-                                    checked={estado}
-                                    onChange={(e) => setEstado(e.target.checked)}
-                                    className="h-4 w-4"
-                                />
-                                <label htmlFor="estado" className="text-sm">
-                                    Usuario activo
-                                </label>
-                            </div>
-
-                            <Button
-                                onClick={saveUsuario}
-                                disabled={loading}
-                                className="flex items-center gap-2"
-                            >
-                                {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-                                Guardar
+                        <div className="p-4 bg-slate-50 rounded-b-xl flex justify-end gap-3 border-t border-slate-100">
+                            <Button variant="outline" onClick={() => setShowForm(false)}>Cancelar</Button>
+                            <Button onClick={saveUsuario} disabled={loading} className="bg-slate-900 text-white hover:bg-slate-800 shadow-md">
+                                {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />} Guardar
                             </Button>
                         </div>
                     </div>

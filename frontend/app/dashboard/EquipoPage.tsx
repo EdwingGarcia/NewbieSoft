@@ -33,25 +33,31 @@ interface Usuario {
     nombre: string;
     rol?: Rol;
 }
-
 interface Equipo {
-    id?: number;
-    equipoId?: number;
-    numeroSerie?: string;
-    modelo?: string;
+    // Coincide con EquipoListDto
+    idEquipo: number;       // Antes id o equipoId
+    tipo?: string;          // Nuevo campo
     marca?: string;
-    cedulaCliente?: string;
+    modelo?: string;
+    numeroSerie?: string;
+    hostname?: string;      // Nuevo campo
+    sistemaOperativo?: string; // Nuevo campo
+    propietario?: string;   // EL CAMBIO IMPORTANTE: Ahora es un String, no un objeto
+
+    // Mantenemos este opcional por si el endpoint de "Detalles" trae más info
     hardwareJson?: Record<string, any>;
-    cliente?: { cedula?: string; nombre?: string };
+    // Campos antiguos para compatibilidad con el formulario de creación si es necesario
+    cedulaCliente?: string;
 }
 
 /* ============================
    CONSTANTES
 =============================== */
 
-import { API_BASE_URL } from "../lib/api"; // <-- Importar
+import { API_BASE_URL } from "../lib/api";
 
-const API_BASE = `${API_BASE_URL}/api/equipo`; // <-- Usar la variable centralizada
+// Asegurarse de que no haya doble slash al concatenar
+const API_BASE = `${API_BASE_URL}/api/equipos`;
 
 /* ============================
    COMPONENTE PRINCIPAL
@@ -102,17 +108,18 @@ export default function EquipoPage(): JSX.Element {
                 headers: { Authorization: `Bearer ${token}` },
             });
 
-            const data: Usuario[] = await res.json();
-
-            setClientes(data.filter((u) => u.rol?.nombre === "ROLE_CLIENTE"));
-            setTecnicos(data.filter((u) => u.rol?.nombre === "ROLE_TECNICO"));
+            if (res.ok) {
+                const data: Usuario[] = await res.json();
+                setClientes(data.filter((u) => u.rol?.nombre === "ROLE_CLIENTE"));
+                setTecnicos(data.filter((u) => u.rol?.nombre === "ROLE_TECNICO"));
+            }
         } catch (error) {
             console.error("Error cargando usuarios:", error);
         }
     }, []);
 
     /* ============================
-       CARGAR EQUIPOS
+       CARGAR EQUIPOS (CORREGIDO)
     =============================== */
 
     const fetchEquipos = useCallback(async (): Promise<void> => {
@@ -121,14 +128,32 @@ export default function EquipoPage(): JSX.Element {
 
         try {
             setLoading(true);
-            const res = await fetch(`${API_BASE}/`, {
+
+            // CORRECCIÓN 1: Usamos API_BASE sin agregar "/" extra al final
+            const res = await fetch(API_BASE, {
                 headers: { Authorization: `Bearer ${token}` },
             });
 
-            const data: Equipo[] = await res.json();
-            setEquipos(data);
+            if (!res.ok) {
+                // Si la API devuelve error (404, 500), lanzamos excepción para ir al catch
+                throw new Error(`Error ${res.status}: No se pudieron cargar los equipos.`);
+            }
+
+            const data = await res.json();
+
+            // CORRECCIÓN 2: Verificamos que sea array antes de setear el estado
+            if (Array.isArray(data)) {
+                setEquipos(data);
+                setError(null);
+            } else {
+                console.error("Respuesta inesperada (no es lista):", data);
+                setEquipos([]); // Evitamos que map explote
+            }
+
         } catch (err: any) {
+            console.error(err);
             setError(err.message);
+            setEquipos([]); // Limpiamos la lista en caso de error crítico
         } finally {
             setLoading(false);
         }
@@ -192,7 +217,7 @@ export default function EquipoPage(): JSX.Element {
         } finally {
             setLoading(false);
         }
-    }, [numeroSerie, modelo, marca, cedulaCliente, tecnicoId]);
+    }, [numeroSerie, modelo, marca, cedulaCliente, tecnicoId, fetchEquipos]);
 
     /* ============================
        DETALLES DE EQUIPO
@@ -206,10 +231,14 @@ export default function EquipoPage(): JSX.Element {
                 headers: { Authorization: `Bearer ${token}` },
             });
 
-            const data = await res.json();
-            setDetalle(data);
-            setHardwareSearch("");
-            setShowXml(false);
+            if (res.ok) {
+                const data = await res.json();
+                setDetalle(data);
+                setHardwareSearch("");
+                setShowXml(false);
+            } else {
+                alert("No se pudo cargar el detalle del equipo.");
+            }
         } catch (err: any) {
             alert(err.message);
         }
@@ -236,18 +265,24 @@ export default function EquipoPage(): JSX.Element {
        FILTRO LISTA
     =============================== */
 
+    /* ============================
+          FILTRO LISTA
+       =============================== */
+
     const filteredEquipos = useMemo(() => {
+        if (!Array.isArray(equipos)) return [];
+
         const term = listaSearch.trim().toLowerCase();
         if (!term) return equipos;
 
         return equipos.filter((eq) => {
-            const ced = eq.cedulaCliente ?? eq.cliente?.cedula ?? "";
-
+            // Ajustamos para buscar en los nuevos campos del DTO
             return (
                 (eq.numeroSerie ?? "").toLowerCase().includes(term) ||
                 (eq.modelo ?? "").toLowerCase().includes(term) ||
                 (eq.marca ?? "").toLowerCase().includes(term) ||
-                ced.toLowerCase().includes(term)
+                (eq.propietario ?? "").toLowerCase().includes(term) || // Buscamos por propietario
+                (eq.hostname ?? "").toLowerCase().includes(term)
             );
         });
     }, [equipos, listaSearch]);
@@ -258,9 +293,7 @@ export default function EquipoPage(): JSX.Element {
 
     return (
         <div className="p-6 space-y-6">
-            {/* ============================
-                HEADER
-            =============================== */}
+            {/* HEADER */}
             <div className="flex items-center justify-between">
                 <h1 className="text-2xl font-bold">Gestión de Equipos 💻</h1>
                 <Button
@@ -271,9 +304,7 @@ export default function EquipoPage(): JSX.Element {
                 </Button>
             </div>
 
-            {/* ============================
-                TABLA PRINCIPAL
-            =============================== */}
+            {/* TABLA PRINCIPAL */}
             <Card>
                 <CardHeader>
                     <div className="flex items-center justify-between gap-4">
@@ -299,7 +330,9 @@ export default function EquipoPage(): JSX.Element {
 
                 <CardContent>
                     {error && (
-                        <div className="text-red-600 text-sm mb-3">{error}</div>
+                        <div className="text-red-600 text-sm mb-3 bg-red-50 p-2 rounded border border-red-200">
+                            Error: {error}
+                        </div>
                     )}
 
                     {loading ? (
@@ -313,33 +346,46 @@ export default function EquipoPage(): JSX.Element {
                                 : "No hay equipos registrados."}
                         </div>
                     ) : (
-                        <div className="overflow-x-auto rounded-lg border border-gray-200">
+
+                        < div className="overflow-x-auto rounded-lg border border-gray-200">
                             <table className="w-full border-collapse text-sm">
                                 <thead className="bg-gray-100">
                                     <tr>
                                         <th className="px-4 py-2 text-left">ID</th>
-                                        <th className="px-4 py-2 text-left">Número Serie</th>
-                                        <th className="px-4 py-2 text-left">Modelo</th>
-                                        <th className="px-4 py-2 text-left">Marca</th>
-                                        <th className="px-4 py-2 text-left">Cliente</th>
+                                        <th className="px-4 py-2 text-left">Serie / Hostname</th>
+                                        <th className="px-4 py-2 text-left">Equipo</th>
+                                        <th className="px-4 py-2 text-left">Propietario</th>
                                     </tr>
                                 </thead>
 
                                 <tbody>
-                                    {filteredEquipos.map((eq) => (
+                                    {filteredEquipos.map((eq, index) => (
                                         <tr
-                                            key={eq.id ?? eq.equipoId}
+                                            // Usamos idEquipo como key principal
+                                            key={eq.idEquipo ?? `fallback-key-${index}`}
                                             className="hover:bg-gray-50 cursor-pointer"
-                                            onClick={() => verDetalles(eq.id ?? eq.equipoId!)}
+                                            // Al hacer click, pasamos el idEquipo
+                                            onClick={() => verDetalles(eq.idEquipo)}
                                         >
-                                            <td className="px-4 py-2">
-                                                {eq.id ?? eq.equipoId}
+                                            <td className="px-4 py-2 font-mono text-xs text-gray-500">
+                                                {eq.idEquipo}
                                             </td>
-                                            <td className="px-4 py-2">{eq.numeroSerie}</td>
-                                            <td className="px-4 py-2">{eq.modelo}</td>
-                                            <td className="px-4 py-2">{eq.marca}</td>
+
                                             <td className="px-4 py-2">
-                                                {eq.cliente?.nombre} ({eq.cliente?.cedula})
+                                                <div className="flex flex-col">
+                                                    <span className="font-medium">{eq.numeroSerie}</span>
+                                                    <span className="text-xs text-gray-500">{eq.hostname}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-2">
+                                                <div className="flex flex-col">
+                                                    <span>{eq.marca} / {eq.modelo}</span>
+                                                    <span className="text-xs text-gray-500">{eq.sistemaOperativo}</span>
+                                                </div>
+                                            </td>
+                                            {/* AQUÍ SE MUESTRA EL PROPIETARIO */}
+                                            <td className="px-4 py-2 font-medium text-blue-600">
+                                                {eq.propietario ?? "Sin asignar"}
                                             </td>
                                         </tr>
                                     ))}
@@ -350,171 +396,158 @@ export default function EquipoPage(): JSX.Element {
                 </CardContent>
             </Card>
 
-            {/* ============================
-                MODAL NUEVO EQUIPO
-            =============================== */}
+            {/* MODAL NUEVO EQUIPO */}
+            {
+                showForm && (
+                    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+                        <div className="bg-white rounded-xl p-6 w-full max-w-2xl relative shadow-xl">
 
-            {showForm && (
-                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-xl p-6 w-full max-w-2xl relative shadow-xl">
-
-                        <button
-                            onClick={() => setShowForm(false)}
-                            className="absolute top-2 right-3 text-gray-500 hover:text-gray-800 text-xl"
-                        >
-                            ✕
-                        </button>
-
-                        <h2 className="text-lg font-semibold mb-4">
-                            Nuevo Equipo
-                        </h2>
-
-                        {/* FORMULARIO */}
-                        <div className="space-y-3">
-
-                            <Input
-                                placeholder="Número de serie"
-                                value={numeroSerie}
-                                onChange={(e) => setNumeroSerie(e.target.value)}
-                            />
-
-                            <Input
-                                placeholder="Modelo"
-                                value={modelo}
-                                onChange={(e) => setModelo(e.target.value)}
-                            />
-
-                            <Input
-                                placeholder="Marca"
-                                value={marca}
-                                onChange={(e) => setMarca(e.target.value)}
-                            />
-
-                            {/* 🔵 COMBO CLIENTE */}
-                            <select
-                                value={cedulaCliente}
-                                onChange={(e) => setCedulaCliente(e.target.value)}
-                                className="w-full border rounded-md px-3 py-2 bg-white"
+                            <button
+                                onClick={() => setShowForm(false)}
+                                className="absolute top-2 right-3 text-gray-500 hover:text-gray-800 text-xl"
                             >
-                                <option value="">-- Selecciona un Cliente --</option>
-                                {clientes.map((c) => (
-                                    <option key={c.cedula} value={c.cedula}>
-                                        {c.nombre} — {c.cedula}
-                                    </option>
-                                ))}
-                            </select>
+                                ✕
+                            </button>
 
-                            {/* 🔵 COMBO TECNICO */}
-                            <select
-                                value={tecnicoId}
-                                onChange={(e) => setTecnicoId(e.target.value)}
-                                className="w-full border rounded-md px-3 py-2 bg-white"
-                            >
-                                <option value="">-- Selecciona un Técnico --</option>
-                                {tecnicos.map((t) => (
-                                    <option key={t.cedula} value={t.cedula}>
-                                        {t.nombre} — {t.cedula}
-                                    </option>
-                                ))}
-                            </select>
+                            <h2 className="text-lg font-semibold mb-4">
+                                Nuevo Equipo
+                            </h2>
 
-                            <Button
-                                onClick={crearEquipo}
-                                disabled={loading}
-                                className="flex items-center gap-2"
-                            >
-                                {loading ? (
-                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                ) : (
-                                    <Plus className="h-4 w-4 mr-2" />
-                                )}
-                                Crear equipo
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-            )}
+                            <div className="space-y-3">
+                                <Input
+                                    placeholder="Número de serie"
+                                    value={numeroSerie}
+                                    onChange={(e) => setNumeroSerie(e.target.value)}
+                                />
+                                <Input
+                                    placeholder="Modelo"
+                                    value={modelo}
+                                    onChange={(e) => setModelo(e.target.value)}
+                                />
+                                <Input
+                                    placeholder="Marca"
+                                    value={marca}
+                                    onChange={(e) => setMarca(e.target.value)}
+                                />
 
-            {/* ============================
-                MODAL DETALLES
-                (NO MODIFIQUÉ NADA AQUÍ)
-            =============================== */}
+                                {/* COMBO CLIENTE */}
+                                <select
+                                    value={cedulaCliente}
+                                    onChange={(e) => setCedulaCliente(e.target.value)}
+                                    className="w-full border rounded-md px-3 py-2 bg-white"
+                                >
+                                    <option value="">-- Selecciona un Cliente --</option>
+                                    {clientes.map((c) => (
+                                        <option key={c.cedula} value={c.cedula}>
+                                            {c.nombre} — {c.cedula}
+                                        </option>
+                                    ))}
+                                </select>
 
-            {detalle && (
-                <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-xl w-[90vw] max-w-6xl max-h-[90vh] p-6 relative flex flex-col overflow-y-auto">
+                                {/* COMBO TECNICO */}
+                                <select
+                                    value={tecnicoId}
+                                    onChange={(e) => setTecnicoId(e.target.value)}
+                                    className="w-full border rounded-md px-3 py-2 bg-white"
+                                >
+                                    <option value="">-- Selecciona un Técnico --</option>
+                                    {tecnicos.map((t) => (
+                                        <option key={t.cedula} value={t.cedula}>
+                                            {t.nombre} — {t.cedula}
+                                        </option>
+                                    ))}
+                                </select>
 
-                        <button
-                            onClick={() => {
-                                setDetalle(null);
-                                setShowXml(false);
-                            }}
-                            className="absolute top-2 right-3 text-gray-600 hover:text-gray-900 text-xl"
-                        >
-                            <X className="h-5 w-5" />
-                        </button>
-
-                        <h2 className="text-2xl font-semibold mb-4">
-                            Detalles del Equipo #{detalle.id}
-                        </h2>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 mb-8">
-                            <div className="space-y-2">
-                                <p>
-                                    <span className="font-semibold">
-                                        Número de serie:
-                                    </span>{" "}
-                                    {detalle.numeroSerie ?? "—"}
-                                </p>
-                                <p>
-                                    <span className="font-semibold">Modelo:</span>{" "}
-                                    {detalle.modelo ?? "—"}
-                                </p>
-                                <p>
-                                    <span className="font-semibold">Marca:</span>{" "}
-                                    {detalle.marca ?? "—"}
-                                </p>
-                                <p>
-                                    <span className="font-semibold">
-                                        Cliente (Cédula):
-                                    </span>{" "}
-                                    {detalle.cedulaCliente ?? "—"}
-                                </p>
+                                <Button
+                                    onClick={crearEquipo}
+                                    disabled={loading}
+                                    className="flex items-center gap-2"
+                                >
+                                    {loading ? (
+                                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                    ) : (
+                                        <Plus className="h-4 w-4 mr-2" />
+                                    )}
+                                    Crear equipo
+                                </Button>
                             </div>
                         </div>
+                    </div>
+                )
+            }
 
-                        {/* SECTION HARDWARE */}
-                        <div className="mt-4">
-                            <div className="flex items-center justify-between mb-2 gap-2">
-                                <h3 className="text-lg font-semibold">
-                                    Hardware detectado
-                                </h3>
-                                <div className="relative w-64">
-                                    <Input
-                                        value={hardwareSearch}
-                                        onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                                            setHardwareSearch(e.target.value)
-                                        }
-                                        placeholder="Buscar en hardware..."
-                                        className="pl-8 h-8 text-sm"
-                                    />
-                                    <Search className="h-4 w-4 text-gray-400 absolute left-2 top-2" />
+            {/* MODAL DETALLES */}
+            {
+                detalle && (
+                    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+                        <div className="bg-white rounded-xl w-[90vw] max-w-6xl max-h-[90vh] p-6 relative flex flex-col overflow-y-auto">
+
+                            <button
+                                onClick={() => {
+                                    setDetalle(null);
+                                    setShowXml(false);
+                                }}
+                                className="absolute top-2 right-3 text-gray-600 hover:text-gray-900 text-xl"
+                            >
+                                <X className="h-5 w-5" />
+                            </button>
+
+                            <h2 className="text-2xl font-semibold mb-4">
+                                Detalles del Equipo #{detalle.id ?? detalle.equipoId}
+                            </h2>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 mb-8">
+                                <div className="space-y-2">
+                                    <p>
+                                        <span className="font-semibold">Número de serie:</span>{" "}
+                                        {detalle.numeroSerie ?? "—"}
+                                    </p>
+                                    <p>
+                                        <span className="font-semibold">Modelo:</span>{" "}
+                                        {detalle.modelo ?? "—"}
+                                    </p>
+                                    <p>
+                                        <span className="font-semibold">Marca:</span>{" "}
+                                        {detalle.marca ?? "—"}
+                                    </p>
+                                    <p>
+                                        <span className="font-semibold">Cliente (Cédula):</span>{" "}
+                                        {detalle.cedulaCliente ?? "—"}
+                                    </p>
                                 </div>
                             </div>
 
-                            {detalle.hardwareJson ? (
-                                <div className="border rounded-lg max-h-[400px] overflow-y-auto text-sm">
-                                    <table className="w-full">
-                                        <tbody>
-                                            {getHardwareEntries().length === 0 ? (
-                                                <tr>
-                                                    <td className="py-3 px-3 text-gray-400 italic">
-                                                        Sin coincidencias.
-                                                    </td>
-                                                </tr>
-                                            ) : (
-                                                getHardwareEntries().map(
-                                                    ([key, value]) => (
+                            {/* SECTION HARDWARE */}
+                            <div className="mt-4">
+                                <div className="flex items-center justify-between mb-2 gap-2">
+                                    <h3 className="text-lg font-semibold">
+                                        Hardware detectado
+                                    </h3>
+                                    <div className="relative w-64">
+                                        <Input
+                                            value={hardwareSearch}
+                                            onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                                                setHardwareSearch(e.target.value)
+                                            }
+                                            placeholder="Buscar en hardware..."
+                                            className="pl-8 h-8 text-sm"
+                                        />
+                                        <Search className="h-4 w-4 text-gray-400 absolute left-2 top-2" />
+                                    </div>
+                                </div>
+
+                                {detalle.hardwareJson ? (
+                                    <div className="border rounded-lg max-h-[400px] overflow-y-auto text-sm">
+                                        <table className="w-full">
+                                            <tbody>
+                                                {getHardwareEntries().length === 0 ? (
+                                                    <tr>
+                                                        <td className="py-3 px-3 text-gray-400 italic">
+                                                            Sin coincidencias.
+                                                        </td>
+                                                    </tr>
+                                                ) : (
+                                                    getHardwareEntries().map(([key, value]) => (
                                                         <tr
                                                             key={key}
                                                             className="border-b last:border-b-0"
@@ -525,57 +558,53 @@ export default function EquipoPage(): JSX.Element {
                                                             <td className="py-2 px-3 text-gray-600 break-words">
                                                                 {typeof value === "string"
                                                                     ? value
-                                                                    : JSON.stringify(
-                                                                        value
-                                                                    )}
+                                                                    : JSON.stringify(value)}
                                                             </td>
                                                         </tr>
-                                                    )
-                                                )
-                                            )}
-                                        </tbody>
-                                    </table>
+                                                    ))
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                ) : (
+                                    <p className="text-gray-500 italic text-sm mt-2">
+                                        Sin información de hardware.
+                                    </p>
+                                )}
+                            </div>
+
+                            {/* BOTÓN XML */}
+                            <div className="mt-6 flex justify-end">
+                                <Button
+                                    variant="outline"
+                                    className="flex items-center gap-2"
+                                    onClick={() => setShowXml(true)}
+                                >
+                                    <FileUp className="h-4 w-4" />
+                                    Cargar XML del equipo
+                                </Button>
+                            </div>
+
+                            {/* MODAL XML */}
+                            {showXml && (
+                                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+                                    <div className="bg-white rounded-xl p-6 w-full max-w-3xl relative shadow-xl">
+                                        <button
+                                            onClick={() => setShowXml(false)}
+                                            className="absolute top-2 right-3 text-gray-500 hover:text-gray-800 text-xl"
+                                        >
+                                            ✕
+                                        </button>
+                                        <XmlUploader
+                                            equipoId={(detalle.id ?? detalle.equipoId) as number}
+                                        />
+                                    </div>
                                 </div>
-                            ) : (
-                                <p className="text-gray-500 italic text-sm mt-2">
-                                    Sin información de hardware.
-                                </p>
                             )}
                         </div>
-
-                        {/* BOTÓN XML */}
-                        <div className="mt-6 flex justify-end">
-                            <Button
-                                variant="outline"
-                                className="flex items-center gap-2"
-                                onClick={() => setShowXml(true)}
-                            >
-                                <FileUp className="h-4 w-4" />
-                                Cargar XML del equipo
-                            </Button>
-                        </div>
-
-                        {/* MODAL XML */}
-                        {showXml && (
-                            <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-                                <div className="bg-white rounded-xl p-6 w-full max-w-3xl relative shadow-xl">
-                                    <button
-                                        onClick={() => setShowXml(false)}
-                                        className="absolute top-2 right-3 text-gray-500 hover:text-gray-800 text-xl"
-                                    >
-                                        ✕
-                                    </button>
-                                    <XmlUploader
-                                        equipoId={
-                                            (detalle.id ?? detalle.equipoId) as number
-                                        }
-                                    />
-                                </div>
-                            </div>
-                        )}
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 }

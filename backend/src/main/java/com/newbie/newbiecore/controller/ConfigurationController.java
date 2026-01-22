@@ -28,188 +28,180 @@ public class ConfigurationController {
     @Autowired
     private ConfigurationService configurationService;
 
-    /**
-     * Obtiene todas las configuraciones agrupadas por categoría
-     */
+    /* =========================
+       GET ALL (GROUPED)
+    ========================= */
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Obtener todas las configuraciones",
-            description = "Retorna todas las configuraciones del sistema agrupadas por categoría")
+    @Operation(
+            summary = "Obtener todas las configuraciones",
+            description = "Retorna todas las configuraciones agrupadas por categoría"
+    )
     public ResponseEntity<Map<String, Object>> getAllConfigurations(
-            @Parameter(description = "Si es true, muestra los valores sensibles enmascarados")
-            @RequestParam(defaultValue = "true") boolean maskSensitive) {
+            @Parameter(description = "Si es true, muestra valores sensibles enmascarados")
+            @RequestParam(defaultValue = "true") boolean maskSensitive
+    ) {
 
         Map<String, List<ConfigurationPropertyDTO>> grouped =
                 configurationService.getAllConfigurationsGrouped(maskSensitive);
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", true);
-        response.put("data", grouped);
-        response.put("categories", configurationService.getAllCategories());
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "data", grouped,
+                "categories", configurationService.getAllCategories()
+        ));
     }
 
-    /**
-     * Obtiene todas las configuraciones como lista plana
-     */
+    /* =========================
+       GET LIST
+    ========================= */
     @GetMapping("/list")
     @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Obtener configuraciones como lista",
-            description = "Retorna todas las configuraciones como una lista plana")
+    @Operation(summary = "Obtener configuraciones como lista")
     public ResponseEntity<Map<String, Object>> getAllConfigurationsAsList(
-            @RequestParam(defaultValue = "true") boolean maskSensitive) {
+            @RequestParam(defaultValue = "true") boolean maskSensitive
+    ) {
 
         List<ConfigurationPropertyDTO> configurations =
                 configurationService.getAllConfigurations(maskSensitive);
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", true);
-        response.put("data", configurations);
-        response.put("total", configurations.size());
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "data", configurations,
+                "total", configurations.size()
+        ));
     }
 
-    /**
-     * Obtiene configuraciones por categoría
-     */
+    /* =========================
+       GET BY CATEGORY
+    ========================= */
     @GetMapping("/category/{category}")
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Obtener configuraciones por categoría")
     public ResponseEntity<Map<String, Object>> getByCategory(
             @PathVariable String category,
-            @RequestParam(defaultValue = "true") boolean maskSensitive) {
+            @RequestParam(defaultValue = "true") boolean maskSensitive
+    ) {
 
-        List<ConfigurationPropertyDTO> configurations =
-                configurationService.getByCategory(category, maskSensitive);
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", true);
-        response.put("data", configurations);
-        response.put("category", category);
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "category", category,
+                "data", configurationService.getByCategory(category, maskSensitive)
+        ));
     }
 
-    /**
-     * Obtiene todas las categorías disponibles
-     */
+    /* =========================
+       GET CATEGORIES
+    ========================= */
     @GetMapping("/categories")
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Obtener categorías disponibles")
     public ResponseEntity<Map<String, Object>> getCategories() {
-        List<String> categories = configurationService.getAllCategories();
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", true);
-        response.put("data", categories);
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "data", configurationService.getAllCategories()
+        ));
     }
 
-    /**
-     * Obtiene una configuración por ID
-     */
+    /* =========================
+       GET BY ID
+    ========================= */
     @GetMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Obtener configuración por ID")
     public ResponseEntity<Map<String, Object>> getById(
             @PathVariable Long id,
-            @RequestParam(defaultValue = "true") boolean maskSensitive) {
+            @RequestParam(defaultValue = "true") boolean maskSensitive
+    ) {
 
-        ConfigurationPropertyDTO configuration =
-                configurationService.getById(id, maskSensitive);
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", true);
-        response.put("data", configuration);
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "data", configurationService.getById(id, maskSensitive)
+        ));
     }
 
-    /**
-     * Busca configuraciones por texto
-     */
+    /* =========================
+       SEARCH
+    ========================= */
     @GetMapping("/search")
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Buscar configuraciones")
     public ResponseEntity<Map<String, Object>> search(
             @RequestParam String q,
-            @RequestParam(defaultValue = "true") boolean maskSensitive) {
+            @RequestParam(defaultValue = "true") boolean maskSensitive
+    ) {
 
         List<ConfigurationPropertyDTO> results =
                 configurationService.search(q, maskSensitive);
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", true);
-        response.put("data", results);
-        response.put("query", q);
-        response.put("total", results.size());
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "query", q,
+                "total", results.size(),
+                "data", results
+        ));
     }
 
-    /**
-     * Actualiza una configuración individual
-     */
+    /* =========================
+       UPDATE SINGLE
+    ========================= */
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Actualizar una configuración")
     public ResponseEntity<Map<String, Object>> updateConfiguration(
             @PathVariable Long id,
-            @Valid @RequestBody UpdateConfigurationDTO updateDTO) {
+            @Valid @RequestBody UpdateConfigurationDTO updateDTO
+    ) {
 
         ConfigurationPropertyDTO updated =
                 configurationService.updateConfiguration(id, updateDTO.getValue());
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", true);
-        response.put("message", "Configuración actualizada correctamente");
-        response.put("data", updated);
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Configuración actualizada correctamente",
+                "data", updated
+        ));
     }
 
-    /**
-     * Actualiza múltiples configuraciones en lote
-     */
+    /* =========================
+       BULK UPDATE
+    ========================= */
     @PutMapping("/bulk")
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Actualizar múltiples configuraciones")
     public ResponseEntity<Map<String, Object>> bulkUpdate(
-            @Valid @RequestBody BulkUpdateConfigurationDTO bulkUpdate) {
+            @Valid @RequestBody BulkUpdateConfigurationDTO bulkUpdate
+    ) {
 
         List<ConfigurationPropertyDTO> updated =
                 configurationService.bulkUpdate(bulkUpdate);
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", true);
-        response.put("message", "Configuraciones actualizadas correctamente");
-        response.put("data", updated);
-        response.put("updatedCount", updated.size());
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Configuraciones actualizadas correctamente",
+                "updatedCount", updated.size(),
+                "data", updated
+        ));
     }
 
-    /**
-     * Obtiene el valor de una configuración específica (sin máscara, para uso interno)
-     * Este endpoint debe estar muy protegido
-     */
+    /* =========================
+       GET RAW VALUE (SUPER ADMIN)
+    ========================= */
     @GetMapping("/value/{key}")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
     @Operation(summary = "Obtener valor real de una configuración (SUPER_ADMIN)")
     public ResponseEntity<Map<String, Object>> getConfigurationValue(
-            @PathVariable String key) {
+            @PathVariable String key
+    ) {
 
         ConfigurationPropertyDTO config =
                 configurationService.getByKey(key, false);
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", true);
-        response.put("key", key);
-        response.put("value", config.getValue());
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "key", key,
+                "value", config.getValue()
+        ));
     }
 }

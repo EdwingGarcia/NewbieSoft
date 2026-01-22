@@ -488,13 +488,6 @@ export default function DashboardPage() {
                         />
 
                         <SidebarItem
-                            label="Fichas Técnicas"
-                            icon="📄"
-                            isActive={activeSection === "fichas"}
-                            onClick={() => setActiveSection("fichas")}
-                        />
-
-                        <SidebarItem
                             label="Catálogo"
                             icon="📦"
                             isActive={activeSection === "catalogo"}

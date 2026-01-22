@@ -1,7 +1,6 @@
 // lib/configurationService.ts
 
-import { API_BASE_URL } from "../lib/api"; // <--- AGREGAR ESTA LÍNEA
-
+import { API_BASE_URL } from "../lib/api";
 
 // ==================== TIPOS ====================
 
@@ -98,6 +97,8 @@ async function fetchWithAuth<T>(url: string, options: RequestInit = {}): Promise
 // ==================== API SERVICE ====================
 
 const CONFIGURATIONS_API = `${API_BASE_URL}/api/v1/configurations`;
+// Definimos la ruta del endpoint de administración para el refresh
+const ADMIN_API = `${API_BASE_URL}/api/v1/configurations/admin`;
 
 export const configurationService = {
     /**
@@ -153,29 +154,61 @@ export const configurationService = {
     },
 
     /**
-     * Actualiza una configuración individual
+     * MÉTODO NUEVO: Dispara el refresh en el backend
+     * Se llama internamente después de un update exitoso.
+     */
+    async triggerRefresh(): Promise<void> {
+        try {
+            // No esperamos respuesta JSON porque a veces el refresh puede tardar o no devolver cuerpo
+            // Lo importante es lanzar la petición POST
+            await fetchWithAuth(`${ADMIN_API}/refresh`, { method: "POST" });
+            console.log("✅ Contexto de Spring Boot refrescado correctamente.");
+        } catch (error) {
+            console.warn("⚠️ La configuración se guardó, pero hubo un problema al refrescar el contexto automáticamente:", error);
+            // No lanzamos el error para no asustar al usuario, ya que el dato sí se guardó.
+        }
+    },
+
+    /**
+     * Actualiza una configuración individual y luego refresca el backend
      */
     async update(id: number, value: string): Promise<ApiResponse<ConfigurationProperty>> {
-        return fetchWithAuth<ApiResponse<ConfigurationProperty>>(
+        // 1. Guardar en Base de Datos
+        const response = await fetchWithAuth<ApiResponse<ConfigurationProperty>>(
             `${CONFIGURATIONS_API}/${id}`,
             {
                 method: "PUT",
                 body: JSON.stringify({ id, value }),
             }
         );
+
+        // 2. Si el guardado fue exitoso, forzar el refresh
+        if (response.success) {
+            await this.triggerRefresh();
+        }
+
+        return response;
     },
 
     /**
-     * Actualiza múltiples configuraciones
+     * Actualiza múltiples configuraciones y luego refresca el backend
      */
     async bulkUpdate(configurations: UpdateConfigurationDTO[]): Promise<ApiResponse<ConfigurationProperty[]>> {
-        return fetchWithAuth<ApiResponse<ConfigurationProperty[]>>(
+        // 1. Guardar en Base de Datos
+        const response = await fetchWithAuth<ApiResponse<ConfigurationProperty[]>>(
             `${CONFIGURATIONS_API}/bulk`,
             {
                 method: "PUT",
                 body: JSON.stringify({ configurations }),
             }
         );
+
+        // 2. Si el guardado fue exitoso, forzar el refresh
+        if (response.success) {
+            await this.triggerRefresh();
+        }
+
+        return response;
     },
 };
 

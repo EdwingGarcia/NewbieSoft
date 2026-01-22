@@ -21,8 +21,8 @@ import { X, FileUp, Upload, Loader2, Search, Trash2 } from "lucide-react";
 interface Props {
     equipoId: number;
 }
-
-const buildUrl = (path: string) => `http://localhost:8080${path}`;
+import { API_BASE_URL } from "../lib/api";
+const buildUrl = (path: string) => `${API_BASE_URL}${path}`;
 
 function getAuthToken(): string | null {
     if (typeof window === "undefined") return null;
@@ -159,7 +159,7 @@ export default function XmlUploaderFull({ equipoId }: Props) {
             fd.append("file", file, file.name);
 
             const res = await fetch(
-                buildUrl(`/api/equipo/${equipoId}/hardware/upload-xml`),
+                buildUrl(`/api/equipos/${equipoId}/hardware/upload-xml`),
                 {
                     method: "POST",
                     body: fd,

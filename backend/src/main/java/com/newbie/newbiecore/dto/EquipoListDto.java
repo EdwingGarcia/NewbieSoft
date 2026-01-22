@@ -13,4 +13,5 @@ public class EquipoListDto {
     private String numeroSerie;
     private String hostname;
     private String sistemaOperativo;
+    private String propietario;
 }

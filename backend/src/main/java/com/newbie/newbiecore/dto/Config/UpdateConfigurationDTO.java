@@ -1,11 +1,10 @@
 package com.newbie.newbiecore.dto.Config;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 
 public class UpdateConfigurationDTO {
 
-    @NotNull(message = "El ID es requerido")
+    // ⚠️ NO @NotNull aquí
     private Long id;
 
     @NotBlank(message = "El valor no puede estar vacío")

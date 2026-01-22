@@ -3,6 +3,7 @@ package com.newbie.newbiecore.controller;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cloud.context.config.annotation.RefreshScope;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpHeaders;
@@ -14,7 +15,7 @@ import org.springframework.web.servlet.HandlerMapping;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
-
+@RefreshScope
 @RestController
 @RequestMapping("/uploads")
 @RequiredArgsConstructor

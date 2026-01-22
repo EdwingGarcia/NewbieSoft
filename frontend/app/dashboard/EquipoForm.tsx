@@ -14,7 +14,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Loader2, Plus } from "lucide-react";
 import { API_BASE_URL } from "../lib/api"; // <-- Importar
 
-const API_BASE = `${API_BASE_URL}/api/equipo`; // <-- Usar la variable centralizada
+const API_BASE = `${API_BASE_URL}/api/equipos`; // <-- Usar la variable centralizada
 interface Props {
     onClose: () => void;
 }

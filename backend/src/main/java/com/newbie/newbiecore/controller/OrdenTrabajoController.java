@@ -4,6 +4,7 @@ import com.newbie.newbiecore.dto.OrdenTrabajo.*;
 import com.newbie.newbiecore.service.OrdenTrabajoImagenService;
 import com.newbie.newbiecore.service.OrdenTrabajoService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cloud.context.config.annotation.RefreshScope;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -13,7 +14,7 @@ import org.springframework.security.core.Authentication;
 
 import java.io.IOException;
 import java.util.List;
-
+@RefreshScope
 @RestController
 @RequestMapping("/api/ordenes")
 @RequiredArgsConstructor

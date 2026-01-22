@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback, ChangeEvent, useMemo } from "react";
+import React, { useEffect, useState, useCallback, ChangeEvent, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
     Signature,
@@ -14,13 +14,14 @@ import {
     User,
     History,
     Search,
+    Check,
+    ChevronsUpDown,
 } from "lucide-react";
 
 import ModalNotificacion from "../components/ModalNotificacion";
 import SecureImage from "../components/SecureImage";
 import FichaTecnicaEditorModal from "@/app/dashboard/components/FichaTecnicaEditorModal";
 import CostosPanel from "./components/costos/CostosPanel";
-
 
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -60,39 +61,29 @@ interface OrdenTrabajoListaDTO {
     id: number;
     numeroOrden: string;
     estado: string | null;
-
     tipoServicio: string | null;
     prioridad: string | null;
-
     fechaHoraIngreso: string;
     fechaHoraEntrega?: string | null;
-
     medioContacto?: string | null;
     modalidad?: string | null;
-
     clienteCedula?: string | null;
     clienteNombre?: string | null;
-
     tecnicoCedula?: string | null;
     tecnicoNombre?: string | null;
-
     equipoId: number;
     equipoModelo?: string | null;
     equipoHostname?: string | null;
-
     problemaReportado?: string | null;
     observacionesIngreso?: string | null;
 }
 
 interface OrdenTrabajoDetalleDTO extends OrdenTrabajoListaDTO {
     ordenId: number;
-
     clienteCorreo?: string | null;
-
     diagnosticoTrabajo?: string | null;
     observacionesRecomendaciones?: string | null;
     imagenes?: ImagenDTO[];
-
     costoManoObra?: number | null;
     costoRepuestos?: number | null;
     costoOtros?: number | null;
@@ -100,17 +91,14 @@ interface OrdenTrabajoDetalleDTO extends OrdenTrabajoListaDTO {
     subtotal?: number | null;
     iva?: number | null;
     total?: number | null;
-
     fechaHoraInicioDiagnostico?: string | null;
     fechaHoraFinDiagnostico?: string | null;
     fechaHoraInicioReparacion?: string | null;
     fechaHoraFinReparacion?: string | null;
-
     esEnGarantia?: boolean | null;
     referenciaOrdenGarantia?: number | null;
     motivoCierre?: string | null;
     cerradaPor?: string | null;
-
     otpCodigo?: string | null;
     otpValidado?: boolean | null;
     otpFechaValidacion?: string | null;
@@ -173,6 +161,147 @@ interface FichaTecnicaAnexaDTO {
     tecnicoNombre?: string | null;
     observaciones?: string | null;
 }
+
+/* =========================
+   COMPONENTE: EquipoSelector
+========================= */
+
+interface EquipoBasicDTO {
+    idEquipo: number;
+    marca: string | null;
+    modelo: string | null;
+    numeroSerie: string | null;
+    tipo: string | null;
+}
+
+interface EquipoSelectorProps {
+    value: number | string;
+    onChange: (id: number) => void;
+}
+
+const EquipoSelector = ({ value, onChange }: EquipoSelectorProps) => {
+    const [open, setOpen] = useState(false);
+    const [equipos, setEquipos] = useState<EquipoBasicDTO[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [searchTerm, setSearchTerm] = useState("");
+
+    const containerRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        const fetchEquipos = async () => {
+            const token = localStorage.getItem("token");
+            if (!token) return;
+
+            setLoading(true);
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/equipos`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    setEquipos(Array.isArray(data) ? data : []);
+                }
+            } catch (e) {
+                console.error("Error al cargar equipos", e);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchEquipos();
+    }, []);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+                setOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    const filteredEquipos = equipos.filter((eq) => {
+        const term = searchTerm.toLowerCase();
+        const textoCompleto = `${eq.marca} ${eq.modelo} ${eq.numeroSerie} ${eq.idEquipo}`.toLowerCase();
+        return textoCompleto.includes(term);
+    });
+
+    const selectedEquipo = equipos.find((eq) => eq.idEquipo === Number(value));
+
+    return (
+        <div className="relative w-full" ref={containerRef}>
+            <div
+                onClick={() => {
+                    setOpen(!open);
+                    if (!open) setTimeout(() => inputRef.current?.focus(), 100);
+                }}
+                className={`flex h-9 w-full items-center justify-between rounded-md border bg-white px-3 py-2 text-sm shadow-sm ring-offset-background cursor-pointer hover:bg-slate-50 border-slate-300`}
+            >
+                <span className="truncate text-slate-700">
+                    {selectedEquipo ? (
+                        <span className="flex items-center gap-2">
+                            <span className="font-semibold">{selectedEquipo.marca} {selectedEquipo.modelo}</span>
+                            <span className="text-slate-400 text-xs">| S/N: {selectedEquipo.numeroSerie}</span>
+                        </span>
+                    ) : (
+                        <span className="text-slate-400 text-xs">Seleccionar equipo...</span>
+                    )}
+                </span>
+                <ChevronsUpDown className="h-4 w-4 opacity-50" />
+            </div>
+
+            {open && (
+                <div className="absolute z-50 mt-1 w-full rounded-md border border-slate-200 bg-white shadow-lg">
+                    <div className="flex items-center border-b px-3 py-2">
+                        <Search className="mr-2 h-4 w-4 opacity-50" />
+                        <input
+                            ref={inputRef}
+                            className="flex h-5 w-full rounded-md bg-transparent text-sm outline-none placeholder:text-slate-400"
+                            placeholder="Buscar por serie, modelo o marca..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+
+                    <div className="max-h-[200px] overflow-y-auto p-1">
+                        {loading ? (
+                            <div className="py-6 text-center text-sm text-slate-500 flex justify-center items-center gap-2">
+                                <Loader2 className="h-4 w-4 animate-spin" /> Cargando...
+                            </div>
+                        ) : filteredEquipos.length === 0 ? (
+                            <div className="py-6 text-center text-sm text-slate-500">No se encontraron equipos.</div>
+                        ) : (
+                            filteredEquipos.map((eq) => (
+                                <div
+                                    key={eq.idEquipo}
+                                    className={`relative flex cursor-default select-none items-center rounded-sm px-2 py-2 text-sm outline-none hover:bg-slate-100 cursor-pointer ${Number(value) === eq.idEquipo ? "bg-slate-100 text-slate-900" : "text-slate-700"
+                                        }`}
+                                    onClick={() => {
+                                        onChange(eq.idEquipo);
+                                        setOpen(false);
+                                        setSearchTerm("");
+                                    }}
+                                >
+                                    <div className="flex flex-col w-full">
+                                        <div className="flex justify-between items-center w-full">
+                                            <span className="font-medium">{eq.marca} {eq.modelo}</span>
+                                            {Number(value) === eq.idEquipo && <Check className="h-3 w-3 text-blue-600" />}
+                                        </div>
+                                        <div className="text-xs text-slate-500 flex justify-between mt-0.5">
+                                            <span>S/N: {eq.numeroSerie ?? "N/A"}</span>
+                                            <span>ID: {eq.idEquipo}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
 
 /* ===== COMPONENTE: LISTA DE FICHAS POR CLIENTE ===== */
 const ListaFichasPorCliente: React.FC<{
@@ -711,6 +840,12 @@ export default function OrdenesTrabajoPage() {
         prioridad: "MEDIA",
     });
 
+    // ✅ Nuevo estado para almacenar los nombres obtenidos de la API
+    const [nombresAutocompletados, setNombresAutocompletados] = useState({
+        cliente: "",
+        tecnico: ""
+    });
+
     // === MODAL HISTORIAL FICHAS ===
     const [showHistorialFichas, setShowHistorialFichas] = useState(false);
     const [historialCedula, setHistorialCedula] = useState<string>("");
@@ -843,6 +978,65 @@ export default function OrdenesTrabajoPage() {
         fetchOrdenes();
         fetchCombos();
     }, [fetchOrdenes, fetchCombos]);
+
+    // Helpers para mostrar nombre en inputs readonly
+    const getNombreCliente = (cedula: string) => listaClientes.find(c => c.cedula === cedula)?.nombre || cedula || "";
+    const getNombreTecnico = (cedula: string) => listaTecnicos.find(t => t.cedula === cedula)?.nombre || cedula || "";
+
+    // ✅ LÓGICA AUTOCOMPLETAR AL SELECCIONAR EQUIPO
+    const handleEquipoSeleccionado = async (id: number) => {
+        setFormCrear(prev => ({ ...prev, equipoId: String(id) }));
+
+        if (!token) return;
+
+        try {
+            // 1. Buscamos los detalles completos del equipo
+            const res = await fetch(`${API_BASE_URL}/api/equipos/${id}`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            if (res.ok) {
+                const equipoData = await res.json();
+
+                // Extraer datos del equipo
+                const clienteCed = equipoData.cliente?.cedula || equipoData.cedulaCliente || "";
+                const tecnicoCed = equipoData.tecnico?.cedula || equipoData.tecnicoCedula || "";
+                const tecnicoNom = equipoData.tecnico?.nombre || equipoData.tecnicoNombre || "";
+
+                // 2. Buscar el nombre real del cliente usando la cédula
+                let clienteNom = "";
+                if (clienteCed) {
+                    try {
+                        const resUsuario = await fetch(`${API_BASE_URL}/api/usuarios/${clienteCed}`, {
+                            headers: { Authorization: `Bearer ${token}` },
+                        });
+                        if (resUsuario.ok) {
+                            const usuarioData = await resUsuario.json();
+                            clienteNom = usuarioData.nombre || "";
+                        }
+                    } catch (err) {
+                        console.error("Error buscando nombre de cliente:", err);
+                    }
+                }
+
+                // 3. Actualizar el formulario (datos que se envían)
+                setFormCrear(prev => ({
+                    ...prev,
+                    clienteCedula: clienteCed,
+                    tecnicoCedula: tecnicoCed
+                }));
+
+                // 4. Actualizar nombres visuales
+                setNombresAutocompletados({
+                    cliente: clienteNom,
+                    tecnico: tecnicoNom
+                });
+            }
+        } catch (error) {
+            console.error("Error al obtener datos del equipo:", error);
+        }
+    };
+
 
     /* ===== GET imágenes ===== */
     const fetchImagenes = useCallback(
@@ -1474,7 +1668,9 @@ export default function OrdenesTrabajoPage() {
             tipoServicio: "DIAGNOSTICO",
             prioridad: "MEDIA",
         });
+        setNombresAutocompletados({ cliente: "", tecnico: "" });
     };
+
     const eliminarFichaTecnica = async (fichaId: number) => {
         const confirmDelete = window.confirm(
             "¿Estás seguro de que deseas eliminar esta ficha técnica? Esta acción no se puede deshacer."
@@ -1513,6 +1709,7 @@ export default function OrdenesTrabajoPage() {
             alert("❌ " + (e?.message ?? "Error eliminando la ficha técnica"));
         }
     };
+
     const crearOrden = async () => {
         if (!token) {
             alert("No hay token de autenticación");
@@ -1575,25 +1772,7 @@ export default function OrdenesTrabajoPage() {
         }
     };
 
-    /* ===== Historial fichas ===== */
-    const abrirHistorialFichas = (clienteCedula?: string | null, otId?: number, equipoId?: number) => {
-        if (!clienteCedula) {
-            alert("No se encontró la cédula del cliente para ver el historial.");
-            return;
-        }
-        setHistorialCedula(clienteCedula);
-        setHistorialOtId(otId ?? null);
-        setHistorialEquipoId(equipoId ?? null);
-        setShowHistorialFichas(true);
-    };
 
-    const onCrearNuevaFichaDesdeHistorial = () => {
-        if (!historialOtId || !historialEquipoId) {
-            alert("No se pudo determinar OT/equipo para crear ficha desde aquí.");
-            return;
-        }
-        router.push(`/fichas/nueva?ordenTrabajoId=${historialOtId}&equipoId=${historialEquipoId}`);
-    };
 
     /* =========================
        RENDER
@@ -1666,58 +1845,63 @@ export default function OrdenesTrabajoPage() {
                         <CardHeader className="border-b border-slate-100 pb-3">
                             <CardTitle className="text-base font-semibold text-slate-900">Crear nueva Orden de Trabajo</CardTitle>
                             <CardDescription className="text-xs text-slate-500">
-                                Completa los datos de ingreso y clasificación del servicio.
+                                Selecciona el equipo para cargar automáticamente los responsables.
                             </CardDescription>
                         </CardHeader>
 
                         <CardContent className="space-y-4 pt-4">
-                            <div className="grid gap-4 md:grid-cols-3">
-                                <div className="space-y-1.5">
-                                    <label className="text-xs font-medium text-slate-700">Cédula cliente *</label>
-                                    <select
-                                        name="clienteCedula"
-                                        value={formCrear.clienteCedula}
-                                        onChange={(e) => setFormCrear((prev) => ({ ...prev, clienteCedula: e.target.value }))}
-                                        className="h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
-                                    >
-                                        <option value="">-- Selecciona Cliente --</option>
-                                        {listaClientes.map((c) => (
-                                            <option key={c.cedula} value={c.cedula}>
-                                                {c.nombre} — {c.cedula}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
 
+                            {/* FILA 1: EQUIPO (El disparador) */}
+                            <div className="grid gap-4 md:grid-cols-1">
                                 <div className="space-y-1.5">
-                                    <label className="text-xs font-medium text-slate-700">Cédula técnico</label>
-                                    <select
-                                        name="tecnicoCedula"
-                                        value={formCrear.tecnicoCedula}
-                                        onChange={(e) => setFormCrear((prev) => ({ ...prev, tecnicoCedula: e.target.value }))}
-                                        className="h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
-                                    >
-                                        <option value="">-- Selecciona Técnico --</option>
-                                        {listaTecnicos.map((t) => (
-                                            <option key={t.cedula} value={t.cedula}>
-                                                {t.nombre} — {t.cedula}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div className="space-y-1.5">
-                                    <label className="text-xs font-medium text-slate-700">ID equipo *</label>
-                                    <Input
-                                        name="equipoId"
+                                    <label className="text-xs font-medium text-slate-700">Equipo *</label>
+                                    <EquipoSelector
                                         value={formCrear.equipoId}
-                                        onChange={handleCrearChange}
-                                        placeholder="1"
-                                        className="h-9 text-sm"
+                                        onChange={handleEquipoSeleccionado}
                                     />
+                                    <p className="text-[10px] text-slate-400">
+                                        Busca por serie, marca o modelo. Esto asignará el cliente y técnico automáticamente.
+                                    </p>
                                 </div>
                             </div>
 
+                            {/* FILA 2: CLIENTE Y TÉCNICO (Autocompletados y ReadOnly) */}
+                            <div className="grid gap-4 md:grid-cols-2">
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-medium text-slate-700">Cliente (Asignado al equipo)</label>
+                                    <div className="relative">
+                                        <Input
+                                            readOnly
+                                            disabled
+                                            value={formCrear.clienteCedula ? `${nombresAutocompletados.cliente || "Cargando..."} (${formCrear.clienteCedula})` : ""}
+                                            placeholder="Se cargará automáticamente..."
+                                            className="h-9 bg-slate-100 text-slate-600 font-medium"
+                                        />
+                                        {/* Input oculto para asegurar que se envíe el valor si usas FormData nativo */}
+                                        <input type="hidden" name="clienteCedula" value={formCrear.clienteCedula} />
+                                        <User className="absolute right-3 top-2.5 h-4 w-4 text-slate-400" />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-medium text-slate-700">Técnico (Responsable del equipo)</label>
+                                    <div className="relative">
+                                        <Input
+                                            readOnly
+                                            disabled
+                                            value={formCrear.tecnicoCedula ? `${nombresAutocompletados.tecnico || "Sin nombre"} (${formCrear.tecnicoCedula})` : ""}
+                                            placeholder="Se cargará automáticamente..."
+                                            className="h-9 bg-slate-100 text-slate-600 font-medium"
+                                        />
+                                        <input type="hidden" name="tecnicoCedula" value={formCrear.tecnicoCedula} />
+                                        <User className="absolute right-3 top-2.5 h-4 w-4 text-slate-400" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="border-t border-slate-100 my-2"></div>
+
+                            {/* FILA 3: DETALLES DE LA ORDEN */}
                             <div className="grid gap-4 md:grid-cols-3">
                                 <div className="space-y-1.5">
                                     <label className="text-xs font-medium text-slate-700">Medio de contacto</label>
@@ -2060,16 +2244,6 @@ export default function OrdenesTrabajoPage() {
                                                 Garantía
                                             </span>
                                         )}
-
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="flex items-center gap-2 border border-white/40 bg-white/10 px-3 text-[11px] text-white hover:bg-white/20"
-                                            onClick={() => abrirHistorialFichas(detalle.clienteCedula, detalle.ordenId, detalle.equipoId)}
-                                        >
-                                            <History className="h-4 w-4" />
-                                            Fichas
-                                        </Button>
 
                                         <Button
                                             variant="ghost"

@@ -62,28 +62,31 @@ public class SecurityConfig {
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS) // Sin estado (JWT)
                 )
                 .authorizeHttpRequests(auth -> auth
-                        // ✅ Preflight siempre permitido
+                        // Preflight
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                        // 1) Auth + docs
+                        // Auth + docs
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
 
-                        // 2) Público cliente
+                        // 🔐 ACTUATOR (ADMIN)
+                        .requestMatchers("/actuator/**").hasRole("ADMIN")
+
+                        // Público
                         .requestMatchers("/api/public/consultas/**").permitAll()
                         .requestMatchers("/api/public/otp/**").permitAll()
-
-                        // 3) Archivos públicos
                         .requestMatchers("/uploads/**").permitAll()
 
-                        // 4) Endpoints de prueba (si de verdad los quieres públicos)
+                        // Configuración sistema
+                        .requestMatchers("/api/v1/configurations/**").hasRole("ADMIN")
+
+                        // Temporales
                         .requestMatchers("/api/ordenes/**").permitAll()
                         .requestMatchers("/api/firmas/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/equipo/*/hardware/upload-xml").permitAll()
 
-                        // ✅ Todo lo demás bajo /api requiere token
+                        // Todo lo demás
                         .requestMatchers("/api/**").authenticated()
-
                         .anyRequest().authenticated()
                 );
 

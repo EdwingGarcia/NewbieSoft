@@ -176,6 +176,7 @@ public class EquipoService {
                 .numeroSerie(equipo.getNumeroSerie())
                 .hostname(equipo.getHostname())
                 .sistemaOperativo(equipo.getSistemaOperativo())
+                .propietario(equipo.getUsuario().getNombre() + " (" + equipo.getUsuario().getCedula() + ")")
                 .build();
     }
 }

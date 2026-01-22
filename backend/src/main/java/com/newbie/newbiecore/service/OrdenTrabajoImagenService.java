@@ -8,6 +8,7 @@ import com.newbie.newbiecore.entity.OrdenTrabajo;
 import com.newbie.newbiecore.repository.OrdenTrabajoImagenRepository;
 import com.newbie.newbiecore.repository.OrdenTrabajoRepository;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cloud.context.config.annotation.RefreshScope;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -18,6 +19,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
+@RefreshScope
 public class OrdenTrabajoImagenService {
 
     private final OrdenTrabajoRepository ordenTrabajoRepository;
