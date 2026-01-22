@@ -125,7 +125,7 @@ export default function DashboardTecnico() {
                     }}
                 >
                     <span style={{ fontWeight: 600 }}>
-                        {activeSection === "dashboard" && "Resumen"}
+                        {activeSection === "dashboard" && "Reaaaan"}
                         {activeSection === "ordenes" && "Gestión de Órdenes"}
                         {activeSection === "equipos" && "Inventario de Equipos"}
                         {activeSection === "citas" && "Agenda de Citas"}
@@ -143,7 +143,7 @@ export default function DashboardTecnico() {
                             cursor: "pointer",
                         }}
                     >
-                        🚪 Cerrar sesión
+                        Cerrar sesión
                     </button>
                 </header>
 
