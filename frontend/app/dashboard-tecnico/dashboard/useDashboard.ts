@@ -32,8 +32,8 @@ export function useDashboard() {
 
     setTotalAsignadas(ordenes.length);
 
-    const abiertas = ordenes.filter(o => o.estado !== "CERRADA");
-    const cerradas = ordenes.filter(o => o.estado === "CERRADA");
+    const abiertas = ordenes.filter(o => o.estado !== "CERRADO");
+    const cerradas = ordenes.filter(o => o.estado === "CERRADO");
     const hoy = new Date();
     const inicioDia = new Date(hoy.setHours(0, 0, 0, 0));
     const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
