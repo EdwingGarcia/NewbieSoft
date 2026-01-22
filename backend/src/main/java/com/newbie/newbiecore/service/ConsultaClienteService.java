@@ -2,6 +2,8 @@ package com.newbie.newbiecore.service;
 
 import com.newbie.newbiecore.dto.Consultas.ConsultaOtpVerifyResponse;
 import com.newbie.newbiecore.dto.Consultas.OrdenPublicaDto;
+import com.newbie.newbiecore.dto.EquipoDto;
+import com.newbie.newbiecore.entity.OrdenTrabajo;
 import com.newbie.newbiecore.entity.OtpValidacion;
 import com.newbie.newbiecore.repository.OrdenTrabajoRepository;
 import com.newbie.newbiecore.repository.OtpValidacionRepository;
@@ -148,22 +150,13 @@ public class ConsultaClienteService {
                 .orElseThrow(() -> new IllegalArgumentException("Token inválido o expirado"));
         return otp.getUsuario().getCedula();
     }
-
     public OrdenPublicaDto consultarProcedimiento(String token, String numeroOrden) {
         String cedula = validarTokenYObtenerCedula(token);
 
         var ot = ordenTrabajoRepository.findByNumeroOrdenAndCliente_Cedula(numeroOrden, cedula)
                 .orElseThrow(() -> new IllegalArgumentException("Procedimiento no encontrado"));
 
-        return new OrdenPublicaDto(
-                ot.getNumeroOrden(),
-                ot.getEstado(),
-                ot.getTipoServicio(),
-                ot.getPrioridad(),
-                ot.getFechaHoraIngreso(),
-                ot.getFechaHoraEntrega(),
-                ot.getProblemaReportado()
-        );
+        return mapToOrdenPublicaDto(ot);
     }
 
     public java.util.List<OrdenPublicaDto> consultarHistorial(String token) {
@@ -171,15 +164,37 @@ public class ConsultaClienteService {
 
         return ordenTrabajoRepository.findByCliente_CedulaOrderByFechaHoraIngresoDesc(cedula)
                 .stream()
-                .map(ot -> new OrdenPublicaDto(
-                        ot.getNumeroOrden(),
-                        ot.getEstado(),
-                        ot.getTipoServicio(),
-                        ot.getPrioridad(),
-                        ot.getFechaHoraIngreso(),
-                        ot.getFechaHoraEntrega(),
-                        ot.getProblemaReportado()
-                ))
+                .map(this::mapToOrdenPublicaDto)
                 .toList();
+    }
+
+    // Método auxiliar para mapear la Entidad a tu nuevo DTO público
+    private OrdenPublicaDto mapToOrdenPublicaDto(OrdenTrabajo ot) {
+        // Mapeo del Equipo a EquipoDto
+        EquipoDto equipoDto = null;
+        if (ot.getEquipo() != null) {
+            equipoDto = EquipoDto.builder()
+                    .id(ot.getEquipo().getIdEquipo())
+                    .numeroSerie(ot.getEquipo().getNumeroSerie())
+                    .modelo(ot.getEquipo().getModelo())
+                    .marca(ot.getEquipo().getMarca())
+                    // Agrega aquí otros campos de Equipo si son necesarios y existen en la entidad
+                    .build();
+        }
+
+        return new OrdenPublicaDto(
+                ot.getNumeroOrden(),
+                ot.getEstado(),
+                ot.getTipoServicio(),
+                ot.getFechaHoraIngreso(),
+                ot.getFechaHoraEntrega(),
+                equipoDto,
+                ot.getAccesorios(),
+                ot.getProblemaReportado(),
+                ot.getObservacionesIngreso(),
+                ot.getDiagnosticoTrabajo(),
+                ot.getObservacionesRecomendaciones(),
+                ot.getMotivoCierre()
+        );
     }
 }
