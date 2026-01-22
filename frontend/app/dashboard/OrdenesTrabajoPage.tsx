@@ -479,7 +479,7 @@ const mapEstadoToPaso = (estado: string | null): Paso => {
     if (e === "INGRESO" || e === "PENDIENTE") return 1;
     if (e === "EN_DIAGNOSTICO") return 2;
     if (e === "COSTOS") return 3;
-    if (e === "LISTA_ENTREGA" || e === "CERRADA") return 4;
+    if (e === "LISTA_ENTREGA" || e === "CERRADO") return 4;
     return 1;
 };
 
@@ -496,7 +496,7 @@ const estadoBadgeClasses = (estado: string | null) => {
         return "bg-blue-50 text-blue-700 border border-blue-200";
     if (e === "INGRESO" || e === "PENDIENTE")
         return "bg-amber-50 text-amber-700 border border-amber-200";
-    if (e === "CERRADA" || e === "LISTA_ENTREGA")
+    if (e === "CERRADO" || e === "LISTA_ENTREGA")
         return "bg-emerald-50 text-emerald-700 border border-emerald-200";
     return "bg-slate-50 text-slate-700 border border-slate-200";
 };
@@ -1124,7 +1124,7 @@ export default function OrdenesTrabajoPage() {
         const payload = {
             tipoServicio: tipoServicioEdit,
             prioridad: prioridadEdit,
-            estado: esCierre ? "CERRADA" : estadoFlujo,
+            estado: esCierre ? "CERRADO" : estadoFlujo,
 
             diagnosticoTrabajo: diagEdit.trim(),
             observacionesRecomendaciones: obsRecEdit.trim(),
@@ -2687,20 +2687,7 @@ export default function OrdenesTrabajoPage() {
                                                     </div>
                                                 </div>
 
-                                                <div className="flex justify-end">
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        className="h-9 border-slate-300 text-[11px]"
-                                                        onClick={() => {
-                                                            setFichaDetalleId(null);
-                                                            irAFichaTecnica(detalle.ordenId, detalle.equipoId);
-                                                        }}
-                                                    >
-                                                        <FileText className="h-4 w-4 mr-2" />
-                                                        Ver ficha técnica (modal)
-                                                    </Button>
-                                                </div>
+
                                             </CardContent>
                                         </Card>
                                     </div>
