@@ -18,6 +18,7 @@ import {
     ChevronsUpDown,
     ChevronLeft,
     ChevronRight,
+    ArrowUpDown // Nuevo icono
 } from "lucide-react";
 
 import ModalNotificacion from "../components/ModalNotificacion";
@@ -30,6 +31,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { API_BASE_URL } from "../lib/api";
+import { CrearFichaTecnicaModal } from "@/app/dashboard/components/CrearFichaTecnicaModal";
 
 const FICHAS_API_BASE = `${API_BASE_URL}/api/fichas`;
 const API_BASE = `${API_BASE_URL}/api/ordenes`;
@@ -517,80 +519,6 @@ const StepPill: React.FC<{ active: boolean; label: string; desc: string }> = ({
     </div>
 );
 
-interface HistorialFichasModalProps {
-    open: boolean;
-    onClose: () => void;
-    clienteCedula: string;
-    ordenTrabajoId?: number;
-    equipoId?: number;
-    onSelectFicha: (id: number) => void;
-    onCrearNuevaFicha?: () => void;
-}
-
-function HistorialFichasModal({
-    open,
-    onClose,
-    clienteCedula,
-    onSelectFicha,
-    onCrearNuevaFicha,
-}: HistorialFichasModalProps) {
-    useEffect(() => {
-        if (!open) return;
-        const onKey = (e: KeyboardEvent) => {
-            if (e.key === "Escape") onClose();
-        };
-        window.addEventListener("keydown", onKey);
-        return () => window.removeEventListener("keydown", onKey);
-    }, [open, onClose]);
-
-    if (!open) return null;
-
-    return (
-        <div
-            className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-sm"
-            onMouseDown={(e) => {
-                if (e.target === e.currentTarget) onClose();
-            }}
-        >
-            <div className="relative mx-3 w-full max-w-6xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
-                <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-4 py-3">
-                    <div className="flex items-center gap-2">
-                        <History className="h-4 w-4 text-slate-600" />
-                        <div>
-                            <p className="text-sm font-semibold text-slate-900">Fichas técnicas del cliente</p>
-                            <p className="text-[11px] text-slate-500">Cédula: {clienteCedula}</p>
-                        </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                        {onCrearNuevaFicha && (
-                            <Button
-                                size="sm"
-                                className="h-8 bg-slate-900 text-white hover:bg-slate-800 text-[11px]"
-                                onClick={onCrearNuevaFicha}
-                            >
-                                <Plus className="h-4 w-4 mr-1" />
-                                Nueva ficha
-                            </Button>
-                        )}
-
-                        <button
-                            onClick={onClose}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-900/80 text-white hover:bg-slate-900"
-                            aria-label="Cerrar"
-                        >
-                            <X className="h-4 w-4" />
-                        </button>
-                    </div>
-                </div>
-
-                <div className="max-h-[80vh] overflow-y-auto p-4">
-                    <ListaFichasPorCliente clienteCedula={clienteCedula} onSelectFicha={onSelectFicha} />
-                </div>
-            </div>
-        </div>
-    );
-}
 
 function FichaTecnicaDetalleModal({
     open,
@@ -877,13 +805,16 @@ export default function OrdenesTrabajoPage() {
     const [showFichaEditor, setShowFichaEditor] = useState(false);
     const [editorFichaId, setEditorFichaId] = useState<number | null>(null);
 
-    // ✅ NUEVO: Estado para crear ficha
-    const [creandoFicha, setCreandoFicha] = useState(false);
+    // ✅ NUEVO: Estado para el modal de crear ficha
+    const [showCrearFichaTecnica, setShowCrearFichaTecnica] = useState(false);
 
     // === BUSCADOR Y FILTROS ===
     const [searchTerm, setSearchTerm] = useState("");
     const [dateStart, setDateStart] = useState("");
     const [dateEnd, setDateEnd] = useState("");
+
+    // ✅ NUEVO: Estado para el ordenamiento (Defecto: 'desc' para ver las más recientes primero)
+    const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
@@ -922,7 +853,8 @@ export default function OrdenesTrabajoPage() {
     const ordenesFiltradas = useMemo(() => {
         const term = normalizeText(searchTerm);
 
-        return ordenes.filter((ot) => {
+        // 1. Filtrar primero
+        const filtradas = ordenes.filter((ot) => {
             const matchesText =
                 !term ||
                 normalizeText(ot.numeroOrden).includes(term) ||
@@ -948,7 +880,20 @@ export default function OrdenesTrabajoPage() {
 
             return matchesText && matchDate;
         });
-    }, [ordenes, searchTerm, dateStart, dateEnd]);
+
+        // 2. Ordenar después (✅ NUEVA LÓGICA DE ORDENAMIENTO)
+        return filtradas.sort((a, b) => {
+            const dateA = new Date(a.fechaHoraIngreso).getTime();
+            const dateB = new Date(b.fechaHoraIngreso).getTime();
+
+            if (sortOrder === "asc") {
+                return dateA - dateB; // Más antiguas primero
+            } else {
+                return dateB - dateA; // Más recientes primero (descendente)
+            }
+        });
+
+    }, [ordenes, searchTerm, dateStart, dateEnd, sortOrder]);
 
     // Resetear página cuando cambian los filtros
     useEffect(() => {
@@ -1546,127 +1491,6 @@ export default function OrdenesTrabajoPage() {
         setShowFichaEditor(true);
     };
 
-    // ✅ Crear ficha anexa y abrir editor
-    const crearFichaAnexaYAbrirEditor = async () => {
-        if (!detalle) {
-            alert("No hay detalle de orden cargado");
-            return;
-        }
-        if (!token) {
-            alert("No hay token de autenticación");
-            return;
-        }
-
-        const tecnico = detalle.tecnicoCedula;
-        if (!tecnico) {
-            alert("No se encontró la cédula del técnico en la OT.");
-            return;
-        }
-
-        setCreandoFicha(true);
-
-        try {
-            const params = new URLSearchParams({
-                cedulaTecnico: tecnico,
-                equipoId: String(detalle.equipoId),
-                ordenTrabajoId: String(detalle.ordenId),
-                observaciones: "",
-            });
-
-            const res = await fetch(`${FICHAS_API_BASE}`, {
-                method: "POST",
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    "Content-Type": "application/x-www-form-urlencoded",
-                },
-                body: params,
-            });
-
-            if (!res.ok) {
-                const text = await res.text().catch(() => null);
-                throw new Error(text || `Error creando ficha (HTTP ${res.status})`);
-            }
-
-            let newId: number | null = null;
-
-            try {
-                const responseText = await res.clone().text();
-                if (responseText && responseText.trim()) {
-                    try {
-                        const maybeJson = JSON.parse(responseText);
-                        newId = maybeJson?.id ?? maybeJson?.data?.id ?? null;
-                    } catch {
-                        const parsed = parseInt(responseText.trim(), 10);
-                        if (!isNaN(parsed)) newId = parsed;
-                    }
-                }
-            } catch {
-                // ignore
-            }
-
-            if (!newId) {
-                await new Promise((resolve) => setTimeout(resolve, 500));
-                try {
-                    const listRes = await fetch(`${FICHAS_API_BASE}`, {
-                        headers: { Authorization: `Bearer ${token}` },
-                    });
-
-                    if (listRes.ok) {
-                        const allFichas = await listRes.json();
-
-                        if (Array.isArray(allFichas) && allFichas.length > 0) {
-                            const fichasDeEstaOT = allFichas.filter(
-                                (f: any) => Number(f.ordenTrabajoId) === Number(detalle.ordenId)
-                            );
-
-                            if (fichasDeEstaOT.length > 0) {
-                                const sorted = [...fichasDeEstaOT].sort(
-                                    (a: any, b: any) => (Number(b.id) || 0) - (Number(a.id) || 0)
-                                );
-                                newId = sorted[0].id;
-                            } else {
-                                const fichasDelEquipo = allFichas.filter(
-                                    (f: any) => Number(f.equipoId) === Number(detalle.equipoId)
-                                );
-
-                                if (fichasDelEquipo.length > 0) {
-                                    const sorted = [...fichasDelEquipo].sort(
-                                        (a: any, b: any) => (Number(b.id) || 0) - (Number(a.id) || 0)
-                                    );
-                                    newId = sorted[0].id;
-                                } else {
-                                    const sorted = [...allFichas].sort(
-                                        (a: any, b: any) => (Number(b.id) || 0) - (Number(a.id) || 0)
-                                    );
-                                    newId = sorted[0].id;
-                                }
-                            }
-                        }
-                    }
-                } catch (e) {
-                    console.error("Error buscando en lista de fichas:", e);
-                }
-            }
-
-            await fetchFichasAnexasPorOT(detalle.ordenId, detalle.equipoId);
-
-            if (!newId) {
-                alert(
-                    "✅ Ficha creada exitosamente.\n\nNo se pudo obtener el ID automáticamente. Por favor, haz clic en la ficha de la lista para editarla."
-                );
-                return;
-            }
-
-            setEditorFichaId(newId);
-            setShowFichaEditor(true);
-        } catch (e: any) {
-            console.error("Error en crearFichaAnexaYAbrirEditor:", e);
-            alert("❌ " + (e?.message ?? "Error creando ficha anexa"));
-        } finally {
-            setCreandoFicha(false);
-        }
-    };
-
     /* ===== Crear OT ===== */
     const handleCrearChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
@@ -1797,19 +1621,6 @@ export default function OrdenesTrabajoPage() {
         setShowHistorialFichas(true);
     };
 
-    const onCrearNuevaFichaDesdeHistorial = () => {
-        if (!historialOtId || !historialEquipoId) return;
-        // Simplemente cerramos el historial y cargamos la OT.
-        // O si ya estamos en la OT (desde donde abrimos historial),
-        // podríamos llamar la función de crear directo.
-        // Pero esta función es para el modal.
-        // Lo ideal: Cerrar modal historial -> Abrir detalle -> Disparar crear.
-        // Como simplificación, cerramos modal historial y alertamos al usuario.
-        setShowHistorialFichas(false);
-        // Si ya estás en la vista de detalle de OT, usa el botón de "Nueva ficha" ahí.
-        alert("Por favor, crea la nueva ficha desde la sección 'Diagnóstico' dentro del detalle de la Orden.");
-    };
-
 
     /* =========================
        RENDER
@@ -1863,6 +1674,25 @@ export default function OrdenesTrabajoPage() {
                                     onChange={(e) => setDateEnd(e.target.value)}
                                 />
                             </div>
+                        </div>
+
+                        {/* ✅ NUEVO: Selector de Ordenamiento */}
+                        <div className="relative min-w-[140px]">
+                            <Select
+                                value={sortOrder}
+                                onValueChange={(val) => setSortOrder(val as "asc" | "desc")}
+                            >
+                                <SelectTrigger className="h-9 w-full bg-slate-50 border-slate-200 text-xs">
+                                    <div className="flex items-center gap-2 text-slate-600">
+                                        <ArrowUpDown className="h-3.5 w-3.5" />
+                                        <SelectValue placeholder="Orden" />
+                                    </div>
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="desc">Más recientes</SelectItem>
+                                    <SelectItem value="asc">Más antiguas</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
 
                         <Button
@@ -2169,18 +1999,6 @@ export default function OrdenesTrabajoPage() {
 
                                         <div className="flex items-center justify-between pt-1">
                                             <span className="text-[11px] text-slate-500">Doble clic para ver detalle</span>
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                className="flex items-center gap-2 border-slate-300 text-xs"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    abrirHistorialFichas(ot.clienteCedula || "", ot.id, ot.equipoId);
-                                                }}
-                                            >
-                                                <History className="h-4 w-4" />
-                                                Fichas
-                                            </Button>
                                         </div>
                                     </CardContent>
                                 </Card>
@@ -2442,24 +2260,15 @@ export default function OrdenesTrabajoPage() {
                                                                     </p>
                                                                 </div>
 
+                                                                {/* ✅ BOTÓN NUEVA FICHA CON LÓGICA DE MODAL */}
                                                                 <Button
                                                                     type="button"
                                                                     size="sm"
                                                                     className="h-8 bg-slate-900 text-[11px] text-white hover:bg-slate-800"
-                                                                    onClick={crearFichaAnexaYAbrirEditor}
-                                                                    disabled={creandoFicha}
+                                                                    onClick={() => setShowCrearFichaTecnica(true)}
                                                                 >
-                                                                    {creandoFicha ? (
-                                                                        <>
-                                                                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                                                                            Creando...
-                                                                        </>
-                                                                    ) : (
-                                                                        <>
-                                                                            <Plus className="h-4 w-4 mr-1" />
-                                                                            Nueva ficha
-                                                                        </>
-                                                                    )}
+                                                                    <Plus className="h-4 w-4 mr-1" />
+                                                                    Nueva ficha
                                                                 </Button>
                                                             </div>
 
@@ -2971,25 +2780,6 @@ export default function OrdenesTrabajoPage() {
                     </div>
                 )}
 
-                {/* Modal Historial */}
-                <HistorialFichasModal
-                    open={showHistorialFichas}
-                    onClose={() => setShowHistorialFichas(false)}
-                    clienteCedula={historialCedula}
-                    ordenTrabajoId={historialOtId ?? undefined}
-                    equipoId={historialEquipoId ?? undefined}
-                    onSelectFicha={(id) => {
-                        setShowHistorialFichas(false);
-                        setFichaDetalleId(id);
-
-                        if (historialOtId && historialEquipoId) {
-                            irAFichaTecnica(historialOtId, historialEquipoId);
-                        } else {
-                            irAFichaTecnica(0, 0);
-                        }
-                    }}
-                    onCrearNuevaFicha={historialOtId && historialEquipoId ? onCrearNuevaFichaDesdeHistorial : undefined}
-                />
 
                 {/* Modal detalle ficha técnica */}
                 <FichaTecnicaDetalleModal
@@ -3000,7 +2790,7 @@ export default function OrdenesTrabajoPage() {
                     data={fichaDetalle}
                 />
 
-                {/* Editor de fichas técnicas anexas */}
+                {/* Editor de fichas técnicas anexas (Mejorado) */}
                 <FichaTecnicaEditorModal
                     open={showFichaEditor}
                     fichaId={editorFichaId}
@@ -3012,6 +2802,28 @@ export default function OrdenesTrabajoPage() {
                         if (detalle) fetchFichasAnexasPorOT(detalle.ordenId, detalle.equipoId);
                     }}
                 />
+
+                {/* ✅ MODAL DE CREACIÓN DE FICHA INTEGRADO */}
+                {detalle && (
+                    <CrearFichaTecnicaModal
+                        open={showCrearFichaTecnica}
+                        clienteCedula={detalle.clienteCedula || ""}
+                        tecnicoCedula={detalle.tecnicoCedula || ""}
+                        ordenTrabajoId={detalle.ordenId}
+                        onClose={() => setShowCrearFichaTecnica(false)}
+                        onCreated={(newFichaId) => {
+                            // Abrir el editor con la ficha creada
+                            setShowCrearFichaTecnica(false);
+                            setEditorFichaId(newFichaId);
+                            setShowFichaEditor(true);
+
+                            // Refrescar lista de fichas
+                            if (detalle) {
+                                fetchFichasAnexasPorOT(detalle.ordenId, detalle.equipoId);
+                            }
+                        }}
+                    />
+                )}
             </div>
         </div>
     );

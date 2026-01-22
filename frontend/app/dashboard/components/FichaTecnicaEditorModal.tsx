@@ -5,7 +5,6 @@ import React, {
   useState,
   useCallback,
   useRef,
-  type FormEvent,
   type SyntheticEvent,
 } from "react";
 import { Button } from "@/components/ui/button";
@@ -25,9 +24,10 @@ interface EquipoDTO {
   numeroSerie: string | null;
   hostname: string | null;
   sistemaOperativo: string | null;
+  propietario?: string | null;
 }
 
-// ===== DTO =====
+// ===== DTO Ficha =====
 interface FichaTecnicaDTO {
   id: number;
   fechaCreacion: string;
@@ -36,6 +36,7 @@ interface FichaTecnicaDTO {
   equipoId: number | null;
   ordenTrabajoId: number | null;
   tecnicoId: string | null;
+  clienteId: string | null;
 
   adaptadorRed: string | null;
   arranqueUefiPresente: boolean | null;
@@ -205,6 +206,59 @@ interface FichaTecnicaDTO {
   trabajoRealizado: string | null;
 }
 
+// ===== Campos que se llenan automáticamente desde la API =====
+const AUTO_FILL_FIELDS: (keyof FichaTecnicaDTO)[] = [
+  "cpuNombre",
+  "cpuNucleos",
+  "cpuLogicos",
+  "cpuPaquetesFisicos",
+  "cpuFrecuenciaOriginalMhz",
+  "ramCapacidadGb",
+  "ramFrecuenciaMhz",
+  "ramTecnologiaModulo",
+  "ramTipo",
+  "ramNumeroModulo",
+  "ramSerieModulo",
+  "ramFechaFabricacion",
+  "ramLugarFabricacion",
+  "discoModelo",
+  "discoNumeroSerie",
+  "discoTipo",
+  "discoCapacidadMb",
+  "discoCapacidadStr",
+  "discoRpm",
+  "discoLetras",
+  "discoWwn",
+  "discoTemperatura",
+  "discoHorasEncendido",
+  "discoSectoresReasignados",
+  "discoSectoresPendientes",
+  "discoErroresLectura",
+  "discoErrorCrc",
+  "mainboardModelo",
+  "chipset",
+  "gpuNombre",
+  "adaptadorRed",
+  "macAddress",
+  "wifiLinkSpeedActual",
+  "wifiLinkSpeedMax",
+  "biosFabricante",
+  "biosVersion",
+  "biosFechaStr",
+  "biosEsUefiCapaz",
+  "arranqueUefiPresente",
+  "secureBootActivo",
+  "tpmPresente",
+  "tpmVersion",
+  "hvciEstado",
+  "monitorNombre",
+  "monitorModelo",
+  "audioAdaptador",
+  "audioCodec",
+  "audioHardwareId",
+  "soDescripcion",
+];
+
 // ===== Section Component =====
 const Section: React.FC<{
   title: string;
@@ -222,14 +276,22 @@ const Section: React.FC<{
   </section>
 );
 
-// ===== Combobox de Equipos con búsqueda =====
+// ===== Combobox de Equipos con búsqueda y Soporte para InitialDisplay =====
 interface EquipoComboboxProps {
   value: number | null;
-  onChange: (equipoId: number | null) => void;
+  onChange: (equipoId: number | null, equipoData?: EquipoDTO | null) => void;
   disabled?: boolean;
+  isLoading?: boolean;
+  initialDisplay?: string | null;
 }
 
-const EquipoCombobox: React.FC<EquipoComboboxProps> = ({ value, onChange, disabled }) => {
+const EquipoCombobox: React.FC<EquipoComboboxProps> = ({
+  value,
+  onChange,
+  disabled,
+  isLoading = false,
+  initialDisplay
+}) => {
   const [equipos, setEquipos] = useState<EquipoDTO[]>([]);
   const [loading, setLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
@@ -239,6 +301,7 @@ const EquipoCombobox: React.FC<EquipoComboboxProps> = ({ value, onChange, disabl
 
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
+  // Cargar equipos solo si no está deshabilitado para ahorrar recursos
   useEffect(() => {
     const fetchEquipos = async () => {
       if (!token) return;
@@ -257,8 +320,12 @@ const EquipoCombobox: React.FC<EquipoComboboxProps> = ({ value, onChange, disabl
         setLoading(false);
       }
     };
-    fetchEquipos();
-  }, [token]);
+
+    // Solo cargamos la lista si el combo está habilitado
+    if (!disabled) {
+      fetchEquipos();
+    }
+  }, [token, disabled]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -301,20 +368,37 @@ const EquipoCombobox: React.FC<EquipoComboboxProps> = ({ value, onChange, disabl
   };
 
   const handleSelect = (eq: EquipoDTO) => {
-    onChange(eq.idEquipo);
+    onChange(eq.idEquipo, eq);
     setIsOpen(false);
     setSearchTerm("");
   };
 
   const handleClear = () => {
-    onChange(null);
+    onChange(null, null);
     setSearchTerm("");
   };
 
+  // Función para obtener el texto a mostrar con prioridad
+  const getDisplayText = () => {
+    // 1. Si encontramos el equipo en la lista cargada (Prioridad Alta - Modo Selección)
+    if (selectedEquipo) return formatEquipoDisplay(selectedEquipo);
+
+    // 2. Si hay un initialDisplay y tenemos valor seleccionado (Prioridad Media - Modo Edición/Bloqueado)
+    if (initialDisplay && value) return initialDisplay;
+
+    // 3. Fallback si solo tenemos ID
+    if (value) return `Equipo ID: ${value}`;
+
+    return "Seleccionar equipo...";
+  };
+
+  // Renderizado en modo deshabilitado (SOLO LECTURA / EDICIÓN)
   if (disabled) {
     return (
-      <div className="h-8 px-3 flex items-center bg-slate-100 border rounded-md text-xs text-slate-600">
-        {selectedEquipo ? formatEquipoDisplay(selectedEquipo) : value ? `ID: ${value}` : "-"}
+      <div className="h-8 px-3 flex items-center bg-slate-100 border rounded-md text-xs text-slate-600 cursor-not-allowed opacity-80 select-none">
+        <span className="truncate font-medium">
+          {isLoading ? "Cargando..." : getDisplayText()}
+        </span>
       </div>
     );
   }
@@ -327,19 +411,23 @@ const EquipoCombobox: React.FC<EquipoComboboxProps> = ({ value, onChange, disabl
           setIsOpen(!isOpen);
           if (!isOpen) setTimeout(() => inputRef.current?.focus(), 100);
         }}
-        className="h-8 w-full px-3 flex items-center justify-between bg-white border rounded-md text-xs text-slate-700 hover:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
+        disabled={isLoading || loading}
+        className={`h-8 w-full px-3 flex items-center justify-between bg-white border rounded-md text-xs text-slate-700 hover:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400 disabled:opacity-50 disabled:cursor-not-allowed`}
       >
         <span className="truncate">
-          {selectedEquipo
-            ? formatEquipoDisplay(selectedEquipo)
-            : value
-              ? `ID: ${value}`
-              : "Seleccionar equipo..."}
+          {(isLoading || loading) ? (
+            <span className="flex items-center gap-2">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Cargando...
+            </span>
+          ) : (
+            getDisplayText()
+          )}
         </span>
         <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${isOpen ? "rotate-180" : ""}`} />
       </button>
 
-      {isOpen && (
+      {isOpen && !isLoading && !loading && (
         <div className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg max-h-72 overflow-hidden">
           <div className="p-2 border-b border-slate-100">
             <div className="relative">
@@ -356,12 +444,7 @@ const EquipoCombobox: React.FC<EquipoComboboxProps> = ({ value, onChange, disabl
           </div>
 
           <div className="max-h-52 overflow-y-auto">
-            {loading ? (
-              <div className="flex items-center justify-center py-4">
-                <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
-                <span className="ml-2 text-xs text-slate-500">Cargando equipos...</span>
-              </div>
-            ) : filteredEquipos.length === 0 ? (
+            {filteredEquipos.length === 0 ? (
               <div className="py-4 text-center text-xs text-slate-500">No se encontraron equipos</div>
             ) : (
               filteredEquipos.map((eq) => (
@@ -369,8 +452,7 @@ const EquipoCombobox: React.FC<EquipoComboboxProps> = ({ value, onChange, disabl
                   key={eq.idEquipo}
                   type="button"
                   onClick={() => handleSelect(eq)}
-                  className={`w-full px-3 py-2 text-left hover:bg-slate-50 border-b border-slate-50 last:border-0 ${value === eq.idEquipo ? "bg-slate-100" : ""
-                    }`}
+                  className={`w-full px-3 py-2 text-left hover:bg-slate-50 border-b border-slate-50 last:border-0 ${value === eq.idEquipo ? "bg-slate-100" : ""}`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
@@ -424,9 +506,14 @@ export default function FichaTecnicaEditorModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
+  const [cargandoEquipo, setCargandoEquipo] = useState(false);
 
   const [detalle, setDetalle] = useState<FichaTecnicaDTO | null>(null);
   const [detalleForm, setDetalleForm] = useState<FichaTecnicaDTO | null>(null);
+
+  // ✅ Variable Helper para saber si estamos editando
+  // Si fichaId existe (y es > 0), es modo edición. Si es null/0, es modo crear.
+  const esModoEdicion = Boolean(fichaId && fichaId > 0);
 
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
@@ -441,6 +528,83 @@ export default function FichaTecnicaEditorModal({
 
   const updateField = <K extends keyof FichaTecnicaDTO>(field: K, value: FichaTecnicaDTO[K]) => {
     setDetalleForm((prev) => (prev ? { ...prev, [field]: value } : prev));
+  };
+
+  const handleEquipoChange = async (equipoId: number | null, equipoData?: EquipoDTO | null) => {
+    // Si estamos editando una ficha existente, no permitimos cambiar el equipo
+    if (esModoEdicion) return;
+
+    console.log("📝 Cambio de equipo:", { equipoId, tengoData: !!equipoData });
+
+    // Si se quita la selección
+    if (equipoId === null) {
+      setDetalleForm((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          equipoId: null,
+        };
+      });
+      return;
+    }
+
+    // Actualizar el ID del equipo inmediatamente
+    setDetalleForm((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        equipoId,
+        // Información básica del equipo
+        equipoNombre: equipoData?.hostname || null,
+        equipoMarca: equipoData?.marca || null,
+        equipoModelo: equipoData?.modelo || null,
+        equipoSerie: equipoData?.numeroSerie || null,
+        // SO si está disponible
+        soDescripcion: equipoData?.sistemaOperativo || null,
+        // Si la ficha no tiene cliente aún, poner el propietario
+        clienteId: (!prev.clienteId && equipoData?.propietario) ? equipoData.propietario : prev.clienteId
+      };
+    });
+
+    if (!token) return;
+
+    console.log("🔍 Buscando ficha técnica anterior del equipo:", equipoId);
+    setCargandoEquipo(true);
+
+    try {
+      const res = await fetch(`${FICHAS_API_BASE}/equipo/${equipoId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (res.ok) {
+        const fichasArray = await res.json();
+        const fichaEquipo = Array.isArray(fichasArray) && fichasArray.length > 0
+          ? fichasArray[fichasArray.length - 1]
+          : fichasArray;
+
+        if (fichaEquipo && fichaEquipo.id) {
+          // Autollenar los campos especificados
+          setDetalleForm((prev) => {
+            if (!prev) return prev;
+            const updated = { ...prev };
+
+            AUTO_FILL_FIELDS.forEach((field) => {
+              if (fichaEquipo[field] !== undefined && fichaEquipo[field] !== null) {
+                updated[field] = fichaEquipo[field];
+              }
+            });
+
+            // Reasegurar el ID correcto del equipo seleccionado
+            updated.equipoId = equipoId;
+            return updated;
+          });
+        }
+      }
+    } catch (e) {
+      console.error("❌ Error al cargar ficha del equipo:", e);
+    } finally {
+      setCargandoEquipo(false);
+    }
   };
 
   const fetchFicha = useCallback(async () => {
@@ -467,8 +631,15 @@ export default function FichaTecnicaEditorModal({
   }, [fichaId, token]);
 
   useEffect(() => {
-    if (open && fichaId) {
-      fetchFicha();
+    if (open) {
+      if (fichaId) {
+        fetchFicha();
+      } else {
+        // Modo CREAR
+        setDetalleForm({} as FichaTecnicaDTO);
+        setDetalle(null);
+        setError(null);
+      }
     } else {
       setDetalle(null);
       setDetalleForm(null);
@@ -485,15 +656,18 @@ export default function FichaTecnicaEditorModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  // ✅ acepta submit o click sin pelear con TS
   const guardarFichaCompleta = async (e?: SyntheticEvent) => {
     e?.preventDefault();
     if (!detalleForm || !token) return;
 
+    const equipoIdAntes = detalleForm.equipoId;
+    const method = detalleForm.id ? "PUT" : "POST";
+    const url = detalleForm.id ? `${FICHAS_API_BASE}/${detalleForm.id}` : FICHAS_API_BASE;
+
     try {
       setGuardando(true);
-      const res = await fetch(`${FICHAS_API_BASE}/${detalleForm.id}`, {
-        method: "PUT",
+      const res = await fetch(url, {
+        method: method,
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -501,16 +675,25 @@ export default function FichaTecnicaEditorModal({
         body: JSON.stringify(detalleForm),
       });
 
-      if (!res.ok) throw new Error("Error al guardar ficha técnica");
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(`Error al guardar (HTTP ${res.status}): ${errorText}`);
+      }
 
       const actualizada: FichaTecnicaDTO = await res.json();
-      setDetalle(actualizada);
-      setDetalleForm(actualizada);
+      const fichaActualizada = {
+        ...actualizada,
+        equipoId: actualizada.equipoId ?? equipoIdAntes,
+      };
+
+      setDetalle(fichaActualizada);
+      setDetalleForm(fichaActualizada);
 
       alert("✅ Ficha técnica guardada correctamente");
       onSaved?.();
     } catch (e: any) {
-      alert("❌ " + e.message);
+      console.error("❌ Error al guardar:", e);
+      alert("❌ " + (e.message || "Error desconocido"));
     } finally {
       setGuardando(false);
     }
@@ -536,10 +719,9 @@ export default function FichaTecnicaEditorModal({
 
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
-
       const a = document.createElement("a");
       a.href = url;
-      a.download = `ficha-${detalleForm.id}.pdf`;
+      a.download = `ficha-${detalleForm.id || 'nueva'}.pdf`;
       a.click();
       window.URL.revokeObjectURL(url);
     } catch (e) {
@@ -562,14 +744,12 @@ export default function FichaTecnicaEditorModal({
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="text-base font-semibold text-white">
-                {loading ? "Cargando..." : `Ficha Técnica #${detalleForm?.id ?? "-"}`}
+                {loading ? "Cargando..." : esModoEdicion ? `Ficha Técnica #${detalleForm?.id}` : "Nueva Ficha Técnica"}
               </h2>
               <p className="text-[11px] text-slate-300">
-                {detalleForm?.fechaCreacion
+                {esModoEdicion && detalleForm?.fechaCreacion
                   ? `Creada el ${new Date(detalleForm.fechaCreacion).toLocaleString()}`
-                  : ""}
-                {detalleForm?.equipoId ? ` · Equipo ID: ${detalleForm.equipoId}` : ""}
-                {detalleForm?.ordenTrabajoId ? ` · OT: ${detalleForm.ordenTrabajoId}` : ""}
+                  : "Formulario de ingreso"}
               </p>
             </div>
 
@@ -579,7 +759,7 @@ export default function FichaTecnicaEditorModal({
                 size="sm"
                 className="flex items-center gap-2 border border-white/40 bg-white/10 px-3 text-[11px] text-white hover:bg-white/20"
                 onClick={descargarPdf}
-                disabled={!detalleForm}
+                disabled={!detalleForm || !detalleForm.id}
               >
                 <FileUp className="h-4 w-4" />
                 Descargar PDF
@@ -609,7 +789,7 @@ export default function FichaTecnicaEditorModal({
             </div>
           ) : !detalleForm ? (
             <div className="rounded-xl border border-slate-200 bg-slate-100 p-4 text-sm text-slate-600">
-              No se encontró la ficha técnica.
+              Iniciando formulario...
             </div>
           ) : (
             <form onSubmit={guardarFichaCompleta} className="space-y-4">
@@ -618,7 +798,7 @@ export default function FichaTecnicaEditorModal({
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                   <div>
                     <label className="text-[11px] font-semibold text-slate-600">ID ficha</label>
-                    <Input className="h-8 bg-slate-100 text-xs" value={detalleForm.id} disabled />
+                    <Input className="h-8 bg-slate-100 text-xs" value={detalleForm.id ?? "(Nuevo)"} disabled />
                   </div>
 
                   <div>
@@ -628,7 +808,7 @@ export default function FichaTecnicaEditorModal({
                       value={
                         detalleForm.fechaCreacion
                           ? new Date(detalleForm.fechaCreacion).toLocaleString()
-                          : ""
+                          : new Date().toLocaleString()
                       }
                       disabled
                     />
@@ -636,14 +816,29 @@ export default function FichaTecnicaEditorModal({
 
                   {/* ✅ EQUIPO COMBOBOX */}
                   <div>
-                    <label className="text-[11px] font-semibold text-slate-600">Equipo</label>
+                    <label className="text-[11px] font-semibold text-slate-600">
+                      Equipo
+                      {esModoEdicion ? (
+                        <span className="ml-1 text-[10px] text-slate-400">(Bloqueado en edición)</span>
+                      ) : (
+                        <span className="ml-1 text-[10px] text-amber-600">(Selecciona para autollenar)</span>
+                      )}
+                    </label>
+
                     <EquipoCombobox
                       value={detalleForm.equipoId}
-                      onChange={(equipoId) => updateField("equipoId", equipoId)}
+                      onChange={handleEquipoChange}
+                      isLoading={cargandoEquipo}
+                      disabled={esModoEdicion}
+                      initialDisplay={
+                        esModoEdicion && detalleForm.equipoId
+                          ? `${detalleForm.equipoMarca || ''} ${detalleForm.equipoModelo || ''} ${detalleForm.equipoSerie ? `(S/N: ${detalleForm.equipoSerie})` : ''} ${detalleForm.equipoNombre ? `[${detalleForm.equipoNombre}]` : ''}`.trim()
+                          : null
+                      }
                     />
                   </div>
 
-                  {/* ✅ OT SOLO LECTURA */}
+                  {/* OT SOLO LECTURA */}
                   <div>
                     <label className="text-[11px] font-semibold text-slate-600">
                       Orden Trabajo ID{" "}
@@ -658,18 +853,31 @@ export default function FichaTecnicaEditorModal({
                     />
                   </div>
 
-                  <div className="md:col-span-2">
+                  {/* TÉCNICO */}
+                  <div>
                     <label className="text-[11px] font-semibold text-slate-600">Técnico (cédula)</label>
                     <Input
                       className="h-8 text-xs"
+                      placeholder="Ej: 1234567890"
                       value={detalleForm.tecnicoId ?? ""}
-                      onChange={(e) => updateField("tecnicoId", e.target.value)}
+                      onChange={(e) => updateField("tecnicoId", e.target.value || null)}
+                    />
+                  </div>
+
+                  {/* CLIENTE */}
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-600">Cliente (cédula)</label>
+                    <Input
+                      className="h-8 text-xs"
+                      placeholder="Ej: 1234567890"
+                      value={detalleForm.clienteId ?? ""}
+                      onChange={(e) => updateField("clienteId", e.target.value || null)}
                     />
                   </div>
                 </div>
               </Section>
 
-              {/* OBSERVACIONES GENERALES */}
+              {/* ... RESTO DE SECCIONES COMPLETAS ... */}
               <Section title="Observaciones generales">
                 <textarea
                   className="w-full border rounded-md px-2 py-1 text-xs min-h-[70px] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-400"
@@ -729,7 +937,7 @@ export default function FichaTecnicaEditorModal({
                 </div>
               </Section>
 
-              {/* RAM (hardware) */}
+              {/* RAM */}
               <Section title="RAM (hardware)">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                   <div>
@@ -792,7 +1000,7 @@ export default function FichaTecnicaEditorModal({
                 </div>
               </Section>
 
-              {/* DISCO (hardware) */}
+              {/* DISCO */}
               <Section title="Disco (hardware)">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div>
@@ -957,7 +1165,7 @@ export default function FichaTecnicaEditorModal({
                 </div>
               </Section>
 
-              {/* BIOS / UEFI */}
+              {/* BIOS */}
               <Section title="BIOS / UEFI / Sistema Operativo">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div>
@@ -1057,7 +1265,7 @@ export default function FichaTecnicaEditorModal({
                 </div>
               </Section>
 
-              {/* CARCASA / TECLADO / TOUCHPAD */}
+              {/* CARCASA */}
               <Section title="Carcasa / Teclado / Touchpad">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div>
@@ -1123,7 +1331,7 @@ export default function FichaTecnicaEditorModal({
                 </div>
               </Section>
 
-              {/* PANTALLA / CÁMARA */}
+              {/* PANTALLA */}
               <Section title="Pantalla / Cámara">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div>
@@ -1232,7 +1440,7 @@ export default function FichaTecnicaEditorModal({
                 </div>
               </Section>
 
-              {/* BATERÍA / CARGADOR */}
+              {/* BATERÍA */}
               <Section title="Batería / Cargador">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div>
@@ -1278,7 +1486,7 @@ export default function FichaTecnicaEditorModal({
                 </div>
               </Section>
 
-              {/* SOFTWARE */}
+              {/* SOFTWARE / LICENCIAS */}
               <Section title="Software / Licencias">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div>
@@ -1407,7 +1615,7 @@ export default function FichaTecnicaEditorModal({
         {detalleForm && !loading && !error && (
           <footer className="sticky bottom-0 z-20 border-t border-slate-200 bg-white px-5 py-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-[11px] text-slate-500">Los cambios se guardarán en la ficha #{detalleForm.id}</p>
+              <p className="text-[11px] text-slate-500">Los cambios se guardarán en la ficha #{detalleForm.id ?? "(Nueva)"}</p>
 
               <div className="flex gap-2">
                 <Button
@@ -1430,7 +1638,6 @@ export default function FichaTecnicaEditorModal({
                   <Save className="h-4 w-4" />
                   Guardar ficha
                 </Button>
-
               </div>
             </div>
           </footer>
