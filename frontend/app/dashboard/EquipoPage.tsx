@@ -16,8 +16,16 @@ import {
     X,
     Search,
     FileUp,
+    ChevronLeft,
+    ChevronRight,
 } from "lucide-react";
 import XmlUploader from "./XmlUploader";
+import { API_BASE_URL } from "../lib/api";
+
+// --- CONSTANTES ---
+const ITEMS_PER_PAGE = 6;
+// Asegurarse de que no haya doble slash al concatenar
+const API_BASE = `${API_BASE_URL}/api/equipos`;
 
 /* ============================
    INTERFACES
@@ -51,15 +59,6 @@ interface Equipo {
 }
 
 /* ============================
-   CONSTANTES
-=============================== */
-
-import { API_BASE_URL } from "../lib/api";
-
-// Asegurarse de que no haya doble slash al concatenar
-const API_BASE = `${API_BASE_URL}/api/equipos`;
-
-/* ============================
    COMPONENTE PRINCIPAL
 =============================== */
 
@@ -87,6 +86,9 @@ export default function EquipoPage(): JSX.Element {
 
     const [listaSearch, setListaSearch] = useState("");
     const [hardwareSearch, setHardwareSearch] = useState("");
+
+    // === PAGINACIÓN ===
+    const [currentPage, setCurrentPage] = useState(1);
 
     /* ============================
        TOKEN
@@ -262,13 +264,10 @@ export default function EquipoPage(): JSX.Element {
     };
 
     /* ============================
-       FILTRO LISTA
-    =============================== */
-
-    /* ============================
-          FILTRO LISTA
+         FILTRO LISTA & PAGINACIÓN
        =============================== */
 
+    // 1. Filtrar
     const filteredEquipos = useMemo(() => {
         if (!Array.isArray(equipos)) return [];
 
@@ -286,6 +285,16 @@ export default function EquipoPage(): JSX.Element {
             );
         });
     }, [equipos, listaSearch]);
+
+    // 2. Resetear página al buscar
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [listaSearch]);
+
+    // 3. Calcular datos de la página actual
+    const totalPages = Math.ceil(filteredEquipos.length / ITEMS_PER_PAGE);
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const currentEquipos = filteredEquipos.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
     /* ============================
        UI COMPLETA
@@ -346,52 +355,81 @@ export default function EquipoPage(): JSX.Element {
                                 : "No hay equipos registrados."}
                         </div>
                     ) : (
-
-                        < div className="overflow-x-auto rounded-lg border border-gray-200">
-                            <table className="w-full border-collapse text-sm">
-                                <thead className="bg-gray-100">
-                                    <tr>
-                                        <th className="px-4 py-2 text-left">ID</th>
-                                        <th className="px-4 py-2 text-left">Serie / Hostname</th>
-                                        <th className="px-4 py-2 text-left">Equipo</th>
-                                        <th className="px-4 py-2 text-left">Propietario</th>
-                                    </tr>
-                                </thead>
-
-                                <tbody>
-                                    {filteredEquipos.map((eq, index) => (
-                                        <tr
-                                            // Usamos idEquipo como key principal
-                                            key={eq.idEquipo ?? `fallback-key-${index}`}
-                                            className="hover:bg-gray-50 cursor-pointer"
-                                            // Al hacer click, pasamos el idEquipo
-                                            onClick={() => verDetalles(eq.idEquipo)}
-                                        >
-                                            <td className="px-4 py-2 font-mono text-xs text-gray-500">
-                                                {eq.idEquipo}
-                                            </td>
-
-                                            <td className="px-4 py-2">
-                                                <div className="flex flex-col">
-                                                    <span className="font-medium">{eq.numeroSerie}</span>
-                                                    <span className="text-xs text-gray-500">{eq.hostname}</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-2">
-                                                <div className="flex flex-col">
-                                                    <span>{eq.marca} / {eq.modelo}</span>
-                                                    <span className="text-xs text-gray-500">{eq.sistemaOperativo}</span>
-                                                </div>
-                                            </td>
-                                            {/* AQUÍ SE MUESTRA EL PROPIETARIO */}
-                                            <td className="px-4 py-2 font-medium text-blue-600">
-                                                {eq.propietario ?? "Sin asignar"}
-                                            </td>
+                        <>
+                            <div className="overflow-x-auto rounded-lg border border-gray-200">
+                                <table className="w-full border-collapse text-sm">
+                                    <thead className="bg-gray-100">
+                                        <tr>
+                                            <th className="px-4 py-2 text-left">ID</th>
+                                            <th className="px-4 py-2 text-left">Serie / Hostname</th>
+                                            <th className="px-4 py-2 text-left">Equipo</th>
+                                            <th className="px-4 py-2 text-left">Propietario</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                                    </thead>
+
+                                    <tbody>
+                                        {currentEquipos.map((eq, index) => (
+                                            <tr
+                                                // Usamos idEquipo como key principal
+                                                key={eq.idEquipo ?? `fallback-key-${index}`}
+                                                className="hover:bg-gray-50 cursor-pointer"
+                                                // Al hacer click, pasamos el idEquipo
+                                                onClick={() => verDetalles(eq.idEquipo)}
+                                            >
+                                                <td className="px-4 py-2 font-mono text-xs text-gray-500">
+                                                    {eq.idEquipo}
+                                                </td>
+
+                                                <td className="px-4 py-2">
+                                                    <div className="flex flex-col">
+                                                        <span className="font-medium">{eq.numeroSerie}</span>
+                                                        <span className="text-xs text-gray-500">{eq.hostname}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-2">
+                                                    <div className="flex flex-col">
+                                                        <span>{eq.marca} / {eq.modelo}</span>
+                                                        <span className="text-xs text-gray-500">{eq.sistemaOperativo}</span>
+                                                    </div>
+                                                </td>
+                                                {/* AQUÍ SE MUESTRA EL PROPIETARIO */}
+                                                <td className="px-4 py-2 font-medium text-blue-600">
+                                                    {eq.propietario ?? "Sin asignar"}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            {/* --- PAGINACIÓN --- */}
+                            {filteredEquipos.length > ITEMS_PER_PAGE && (
+                                <div className="mt-6 flex items-center justify-center gap-4">
+                                    <Button
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-8 w-8 border-slate-300"
+                                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                                        disabled={currentPage === 1}
+                                    >
+                                        <ChevronLeft className="h-4 w-4" />
+                                    </Button>
+                                    <span className="text-xs text-slate-500">
+                                        Página <span className="font-semibold text-slate-900">{currentPage}</span> de{" "}
+                                        <span className="font-semibold text-slate-900">{totalPages}</span>
+                                    </span>
+                                    <Button
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-8 w-8 border-slate-300"
+                                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                                        disabled={currentPage === totalPages}
+                                    >
+                                        <ChevronRight className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            )}
+                        </>
                     )}
                 </CardContent>
             </Card>
@@ -493,7 +531,7 @@ export default function EquipoPage(): JSX.Element {
                             </button>
 
                             <h2 className="text-2xl font-semibold mb-4">
-                                Detalles del Equipo #{detalle.id ?? detalle.equipoId}
+                                Detalles del Equipo #{detalle.idEquipo}
                             </h2>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 mb-8">
@@ -596,7 +634,7 @@ export default function EquipoPage(): JSX.Element {
                                             ✕
                                         </button>
                                         <XmlUploader
-                                            equipoId={(detalle.id ?? detalle.equipoId) as number}
+                                            equipoId={detalle.idEquipo}
                                         />
                                     </div>
                                 </div>

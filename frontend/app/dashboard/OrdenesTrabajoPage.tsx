@@ -16,6 +16,8 @@ import {
     Search,
     Check,
     ChevronsUpDown,
+    ChevronLeft,
+    ChevronRight,
 } from "lucide-react";
 
 import ModalNotificacion from "../components/ModalNotificacion";
@@ -33,6 +35,9 @@ const FICHAS_API_BASE = `${API_BASE_URL}/api/fichas`;
 const API_BASE = `${API_BASE_URL}/api/ordenes`;
 const OTP_API_BASE = `${API_BASE_URL}/api/otp`;
 const buildUrl = (p: string = "") => `${API_BASE}${p}`;
+
+// --- CONSTANTES ---
+const ITEMS_PER_PAGE = 6;
 
 /* =========================
    DTOs / Interfaces base
@@ -821,6 +826,9 @@ export default function OrdenesTrabajoPage() {
 
     const [guardando, setGuardando] = useState(false);
 
+    // === PAGINACIÓN ===
+    const [currentPage, setCurrentPage] = useState(1);
+
     // === CREAR OT ===
     const [showCrear, setShowCrear] = useState(false);
     const [listaClientes, setListaClientes] = useState<Usuario[]>([]);
@@ -941,6 +949,16 @@ export default function OrdenesTrabajoPage() {
             return matchesText && matchDate;
         });
     }, [ordenes, searchTerm, dateStart, dateEnd]);
+
+    // Resetear página cuando cambian los filtros
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, dateStart, dateEnd]);
+
+    // Calcular datos de la página actual
+    const totalPages = Math.ceil(ordenesFiltradas.length / ITEMS_PER_PAGE);
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const currentOrdenes = ordenesFiltradas.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
     /* ===== GET lista ===== */
     const fetchOrdenes = useCallback(async () => {
@@ -1772,6 +1790,25 @@ export default function OrdenesTrabajoPage() {
         }
     };
 
+    const abrirHistorialFichas = (cedula: string, otId: number, eqId: number) => {
+        setHistorialCedula(cedula);
+        setHistorialOtId(otId);
+        setHistorialEquipoId(eqId);
+        setShowHistorialFichas(true);
+    };
+
+    const onCrearNuevaFichaDesdeHistorial = () => {
+        if (!historialOtId || !historialEquipoId) return;
+        // Simplemente cerramos el historial y cargamos la OT.
+        // O si ya estamos en la OT (desde donde abrimos historial),
+        // podríamos llamar la función de crear directo.
+        // Pero esta función es para el modal.
+        // Lo ideal: Cerrar modal historial -> Abrir detalle -> Disparar crear.
+        // Como simplificación, cerramos modal historial y alertamos al usuario.
+        setShowHistorialFichas(false);
+        // Si ya estás en la vista de detalle de OT, usa el botón de "Nueva ficha" ahí.
+        alert("Por favor, crea la nueva ficha desde la sección 'Diagnóstico' dentro del detalle de la Orden.");
+    };
 
 
     /* =========================
@@ -2035,7 +2072,7 @@ export default function OrdenesTrabajoPage() {
                     </div>
                 )}
 
-                {/* LISTA FILTRADA */}
+                {/* LISTA FILTRADA Y PAGINADA */}
                 {loading ? (
                     <div className="flex justify-center py-10">
                         <Loader2 className="h-6 w-6 animate-spin text-slate-500" />
@@ -2064,90 +2101,120 @@ export default function OrdenesTrabajoPage() {
                         )}
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                        {ordenesFiltradas.map((ot) => (
-                            <Card
-                                key={ot.id}
-                                onDoubleClick={() => abrirDetalle(ot.id)}
-                                className="cursor-pointer border border-slate-200 bg-white shadow-sm transition hover:-translate-y-[1px] hover:shadow-md"
-                            >
-                                <CardHeader className="pb-3">
-                                    <CardTitle className="flex items-start justify-between gap-2 text-sm">
-                                        <div className="space-y-1">
-                                            <span className="block font-semibold text-slate-900">{ot.numeroOrden}</span>
-                                            <span className="text-[11px] text-slate-500">
-                                                {fmt(ot.equipoModelo)} {ot.equipoHostname ? `(${ot.equipoHostname})` : ""}
-                                            </span>
-                                        </div>
-
-                                        <div className="flex flex-col items-end gap-1">
-                                            {ot.estado && (
-                                                <span
-                                                    className={`rounded-full px-2 py-[2px] text-[10px] font-semibold uppercase ${estadoBadgeClasses(
-                                                        ot.estado
-                                                    )}`}
-                                                >
-                                                    {ot.estado}
+                    <>
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                            {currentOrdenes.map((ot) => (
+                                <Card
+                                    key={ot.id}
+                                    onDoubleClick={() => abrirDetalle(ot.id)}
+                                    className="cursor-pointer border border-slate-200 bg-white shadow-sm transition hover:-translate-y-[1px] hover:shadow-md"
+                                >
+                                    <CardHeader className="pb-3">
+                                        <CardTitle className="flex items-start justify-between gap-2 text-sm">
+                                            <div className="space-y-1">
+                                                <span className="block font-semibold text-slate-900">{ot.numeroOrden}</span>
+                                                <span className="text-[11px] text-slate-500">
+                                                    {fmt(ot.equipoModelo)} {ot.equipoHostname ? `(${ot.equipoHostname})` : ""}
                                                 </span>
-                                            )}
-                                            <div className="flex gap-1">
-                                                {ot.tipoServicio && (
-                                                    <span className="rounded-full bg-slate-50 px-2 py-[2px] text-[10px] uppercase text-slate-700">
-                                                        {ot.tipoServicio}
+                                            </div>
+
+                                            <div className="flex flex-col items-end gap-1">
+                                                {ot.estado && (
+                                                    <span
+                                                        className={`rounded-full px-2 py-[2px] text-[10px] font-semibold uppercase ${estadoBadgeClasses(
+                                                            ot.estado
+                                                        )}`}
+                                                    >
+                                                        {ot.estado}
                                                     </span>
                                                 )}
-                                                {ot.prioridad && (
-                                                    <span className="rounded-full bg-emerald-50 px-2 py-[2px] text-[10px] uppercase text-emerald-700">
-                                                        {ot.prioridad}
-                                                    </span>
-                                                )}
+                                                <div className="flex gap-1">
+                                                    {ot.tipoServicio && (
+                                                        <span className="rounded-full bg-slate-50 px-2 py-[2px] text-[10px] uppercase text-slate-700">
+                                                            {ot.tipoServicio}
+                                                        </span>
+                                                    )}
+                                                    {ot.prioridad && (
+                                                        <span className="rounded-full bg-emerald-50 px-2 py-[2px] text-[10px] uppercase text-emerald-700">
+                                                            {ot.prioridad}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
+                                        </CardTitle>
+
+                                        <CardDescription>
+                                            <div className="mt-1 flex flex-col gap-1 text-xs text-slate-600">
+                                                <div>
+                                                    <span className="font-semibold text-slate-700">Cliente: </span>
+                                                    {fmt(ot.clienteNombre)} {ot.clienteCedula ? `(${ot.clienteCedula})` : ""}
+                                                </div>
+                                                <div>
+                                                    <span className="font-semibold text-slate-700">Técnico: </span>
+                                                    {fmt(ot.tecnicoNombre) || fmt(ot.tecnicoCedula)}
+                                                </div>
+                                                <div className="mt-1 flex items-center gap-1 text-[11px] text-slate-500">
+                                                    <CalendarDays className="h-3 w-3" />
+                                                    {fmtFecha(ot.fechaHoraIngreso)}
+                                                </div>
+                                            </div>
+                                        </CardDescription>
+                                    </CardHeader>
+
+                                    <CardContent className="space-y-3 pt-0">
+                                        <div className="text-xs text-slate-600 line-clamp-3">
+                                            <span className="font-semibold text-slate-700">Problema: </span>
+                                            {fmt(ot.problemaReportado)}
                                         </div>
-                                    </CardTitle>
 
-                                    <CardDescription>
-                                        <div className="mt-1 flex flex-col gap-1 text-xs text-slate-600">
-                                            <div>
-                                                <span className="font-semibold text-slate-700">Cliente: </span>
-                                                {fmt(ot.clienteNombre)} {ot.clienteCedula ? `(${ot.clienteCedula})` : ""}
-                                            </div>
-                                            <div>
-                                                <span className="font-semibold text-slate-700">Técnico: </span>
-                                                {fmt(ot.tecnicoNombre) || fmt(ot.tecnicoCedula)}
-                                            </div>
-                                            <div className="mt-1 flex items-center gap-1 text-[11px] text-slate-500">
-                                                <CalendarDays className="h-3 w-3" />
-                                                {fmtFecha(ot.fechaHoraIngreso)}
-                                            </div>
+                                        <div className="flex items-center justify-between pt-1">
+                                            <span className="text-[11px] text-slate-500">Doble clic para ver detalle</span>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="flex items-center gap-2 border-slate-300 text-xs"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    abrirHistorialFichas(ot.clienteCedula || "", ot.id, ot.equipoId);
+                                                }}
+                                            >
+                                                <History className="h-4 w-4" />
+                                                Fichas
+                                            </Button>
                                         </div>
-                                    </CardDescription>
-                                </CardHeader>
+                                    </CardContent>
+                                </Card>
+                            ))}
+                        </div>
 
-                                <CardContent className="space-y-3 pt-0">
-                                    <div className="text-xs text-slate-600 line-clamp-3">
-                                        <span className="font-semibold text-slate-700">Problema: </span>
-                                        {fmt(ot.problemaReportado)}
-                                    </div>
-
-                                    <div className="flex items-center justify-between pt-1">
-                                        <span className="text-[11px] text-slate-500">Doble clic para ver detalle</span>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="flex items-center gap-2 border-slate-300 text-xs"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                abrirHistorialFichas(ot.clienteCedula, ot.id, ot.equipoId);
-                                            }}
-                                        >
-                                            <History className="h-4 w-4" />
-                                            Fichas
-                                        </Button>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        ))}
-                    </div>
+                        {/* --- PAGINACIÓN --- */}
+                        {ordenesFiltradas.length > ITEMS_PER_PAGE && (
+                            <div className="mt-6 flex items-center justify-center gap-4">
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-8 w-8 border-slate-300"
+                                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                                    disabled={currentPage === 1}
+                                >
+                                    <ChevronLeft className="h-4 w-4" />
+                                </Button>
+                                <span className="text-xs text-slate-500">
+                                    Página <span className="font-semibold text-slate-900">{currentPage}</span> de{" "}
+                                    <span className="font-semibold text-slate-900">{totalPages}</span>
+                                </span>
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-8 w-8 border-slate-300"
+                                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                                    disabled={currentPage === totalPages}
+                                >
+                                    <ChevronRight className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        )}
+                    </>
                 )}
 
                 {/* ===== MODAL DETALLE OT ===== */}
@@ -2476,7 +2543,6 @@ export default function OrdenesTrabajoPage() {
                                                                                 </div>
                                                                             </div>
                                                                         ))}
-
                                                                     </div>
                                                                 )}
                                                             </div>

@@ -1,8 +1,10 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* Variante para modo oscuro en Tailwind v4 */
 @custom-variant dark (&:is(.dark *));
 
+/* Configuración del Tema */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -41,8 +43,32 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  --sidebar-width: 16rem;
+  /* Definimos ancho estándar de sidebar */
 }
 
+/* REGLAS GLOBALES CRÍTICAS PARA EL LAYOUT 
+   Esto arregla que "todo se salga del marco"
+*/
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100vh !important;
+  /* Fuerza altura de pantalla exacta */
+  width: 100vw !important;
+  /* Fuerza ancho de pantalla exacto */
+  overflow: hidden !important;
+  /* PROHIBE el scroll general */
+  overscroll-behavior: none;
+  /* Evita el "rebote" en Mac/Móviles */
+  margin: 0;
+  padding: 0;
+}
+
+/* Variables de Colores (Shadcn UI) */
 :root {
   --radius: 0.625rem;
   --background: oklch(1 0 0);
@@ -94,9 +120,9 @@
   --accent: oklch(0.269 0 0);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  --border: oklch(0.269 0 0);
+  --input: oklch(0.269 0 0);
+  --ring: oklch(0.439 0 0);
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
@@ -108,15 +134,25 @@
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-accent: oklch(0.269 0 0);
   --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --sidebar-border: oklch(0.269 0 0);
+  --sidebar-ring: oklch(0.439 0 0);
 }
 
+/* Aplicar estilos base usando capas de Tailwind */
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Opcional: Para asegurar que el contenedor raíz de Next.js también respete esto */
+#root,
+#__next {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
 }
