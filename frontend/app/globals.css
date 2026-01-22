@@ -56,16 +56,14 @@
 
 html,
 body {
-  height: 100vh !important;
-  /* Fuerza altura de pantalla exacta */
-  width: 100vw !important;
-  /* Fuerza ancho de pantalla exacto */
-  overflow: hidden !important;
-  /* PROHIBE el scroll general */
-  overscroll-behavior: none;
-  /* Evita el "rebote" en Mac/Móviles */
+  height: 100%;
+  width: 100%;
   margin: 0;
   padding: 0;
+  overflow: hidden;
+  /* IMPORTANTE: Evita el doble scroll en la ventana */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* Variables de Colores (Shadcn UI) */
@@ -149,10 +147,6 @@ body {
   }
 }
 
-/* Opcional: Para asegurar que el contenedor raíz de Next.js también respete esto */
-#root,
-#__next {
-  height: 100%;
-  width: 100%;
-  overflow: hidden;
+* {
+  outline: 1px solid red !important;
 }
