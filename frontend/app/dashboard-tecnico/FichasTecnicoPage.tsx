@@ -1,20 +1,34 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import React, {
+    useEffect,
+    useState,
+    useCallback,
+    type FormEvent,
+} from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import {
+    Card,
+    CardHeader,
+    CardTitle,
+    CardDescription,
+    CardContent,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Loader2, Plus, CalendarDays, FileUp } from "lucide-react";
+import {
+    Loader2,
+    Plus,
+    CalendarDays,
+    FileUp,
+} from "lucide-react";
 
-import FichaModal from "./FichaModal";
-import FichaTecnicaForm from "./FichaTecnicaForm";
-import XmlUploader from "./XmlUploader"; // si lo tienes en el mismo folder. Si no, comenta esta línea.
-import { useRouter } from "next/navigation";
-import { API_BASE_URL } from "../lib/api";
-const API_BASE = `${API_BASE_URL}/api/fichas`;
+// Asegúrate de que estos imports existan en tu proyecto, si no, coméntalos o ajústalos
+// import FichaTecnicaForm from "./FichaTecnicaForm";
+import XmlUploader from "./XmlUploader";
+import { API_BASE_URL } from "../lib/api"; // <-- Import
+
+const API_BASE = `${API_BASE_URL}/api/fichas`; // <-- Use variable
 const buildUrl = (p: string = "") => `${API_BASE}${p}`;
-
-type ModalMode = "none" | "crear" | "editar";
 
 interface FichaTecnicaDTO {
     id: number;
@@ -193,227 +207,101 @@ interface FichaTecnicaDTO {
     trabajoRealizado: string | null;
 }
 
-const AUTO_FROM_XML_FIELDS: (keyof FichaTecnicaDTO)[] = [
-    "cpuNombre",
-    "cpuNucleos",
-    "cpuLogicos",
-    "cpuPaquetesFisicos",
-    "cpuFrecuenciaOriginalMhz",
+// ✅ CORRECCIÓN: El componente Section se define FUERA del componente principal
+const Section: React.FC<{
+    title: string;
+    subtitle?: string;
+    children: React.ReactNode;
+}> = ({ title, subtitle, children }) => (
+    <section className="rounded-xl border bg-white/80 dark:bg-slate-900/50 shadow-sm px-4 py-3 space-y-3">
+        <div className="flex items-center justify-between gap-2 border-b pb-1.5">
+            <h3 className="text-xs font-semibold tracking-wide text-slate-700 dark:text-slate-100 uppercase">
+                {title}
+            </h3>
+            {subtitle && (
+                <span className="text-[10px] text-slate-400">{subtitle}</span>
+            )}
+        </div>
+        {children}
+    </section>
+);
 
-    "ramCapacidadGb",
-    "ramFrecuenciaMhz",
-    "ramTecnologiaModulo",
-    "ramTipo",
-    "ramNumeroModulo",
-    "ramSerieModulo",
-    "ramFechaFabricacion",
-    "ramLugarFabricacion",
-
-    "discoModelo",
-    "discoNumeroSerie",
-    "discoTipo",
-    "discoCapacidadMb",
-    "discoCapacidadStr",
-    "discoRpm",
-    "discoLetras",
-    "discoWwn",
-    "discoTemperatura",
-    "discoHorasEncendido",
-    "discoSectoresReasignados",
-    "discoSectoresPendientes",
-    "discoErroresLectura",
-    "discoErrorCrc",
-
-    "mainboardModelo",
-    "chipset",
-    "gpuNombre",
-
-    "adaptadorRed",
-    "macAddress",
-    "wifiLinkSpeedActual",
-    "wifiLinkSpeedMax",
-
-    "biosFabricante",
-    "biosVersion",
-    "biosFechaStr",
-    "biosEsUefiCapaz",
-    "arranqueUefiPresente",
-    "secureBootActivo",
-
-    "tpmPresente",
-    "tpmVersion",
-    "hvciEstado",
-
-    "monitorNombre",
-    "monitorModelo",
-
-    "audioAdaptador",
-    "audioCodec",
-    "audioHardwareId",
-];
-
-function getCookie(name: string): string | null {
-    if (typeof document === "undefined") return null;
-    return (
-        document.cookie
-            .split("; ")
-            .find((row) => row.startsWith(name + "="))
-            ?.split("=")[1] || null
-    );
-}
-
-export default function FichasTecnicoPage() {
-    const token = useMemo(() => getCookie("token"), []);
-    const cedulaTecnico = useMemo(() => getCookie("cedula"), []);
-
+export default function FichasTecnicasPage() {
     const [fichas, setFichas] = useState<FichaTecnicaDTO[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [showForm, setShowForm] = useState(false);
-    const router = useRouter();
 
-    // Modal state
-    const [modalMode, setModalMode] = useState<ModalMode>("none");
-    const [selectedId, setSelectedId] = useState<number | null>(null);
-
-    // detalle (editar)
     const [detalle, setDetalle] = useState<FichaTecnicaDTO | null>(null);
     const [detalleForm, setDetalleForm] = useState<FichaTecnicaDTO | null>(null);
 
-    // extras
     const [showXml, setShowXml] = useState(false);
+    const [showUpload, setShowUpload] = useState(false);
 
-    // ===== helpers =====
-    const fmtBoolSelect = (v: boolean | null): string => (v === null ? "" : v ? "true" : "false");
-    const parseBoolInput = (value: string): boolean | null => {
-        if (value === "") return null;
-        if (value === "true") return true;
-        if (value === "false") return false;
-        return null;
-    };
+    const token =
+        typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
-    const updateField = <K extends keyof FichaTecnicaDTO>(field: K, value: FichaTecnicaDTO[K]) => {
-        setDetalleForm((prev) => (prev ? { ...prev, [field]: value } : prev));
-    }
+    // helpers para selects booleanos
+    const fmtBoolSelect = (v: boolean | null): string =>
+        v === null ? "" : v ? "true" : "false";
 
-    const isAutoFromXml = (field: keyof FichaTecnicaDTO) =>
-        AUTO_FROM_XML_FIELDS.includes(field) &&
-        !!detalle &&
-        detalle[field] !== null;
+    const AUTO_FROM_XML_FIELDS: (keyof FichaTecnicaDTO)[] = [
+        "cpuNombre",
+        "cpuNucleos",
+        "cpuLogicos",
+        "cpuPaquetesFisicos",
+        "cpuFrecuenciaOriginalMhz",
+        "ramCapacidadGb",
+        "ramFrecuenciaMhz",
+        "ramTecnologiaModulo",
+        "ramTipo",
+        "ramNumeroModulo",
+        "ramSerieModulo",
+        "ramFechaFabricacion",
+        "ramLugarFabricacion",
+        "discoModelo",
+        "discoNumeroSerie",
+        "discoTipo",
+        "discoCapacidadMb",
+        "discoCapacidadStr",
+        "discoRpm",
+        "discoLetras",
+        "discoWwn",
+        "discoTemperatura",
+        "discoHorasEncendido",
+        "discoSectoresReasignados",
+        "discoSectoresPendientes",
+        "discoErroresLectura",
+        "discoErrorCrc",
+        "mainboardModelo",
+        "chipset",
+        "gpuNombre",
+        "adaptadorRed",
+        "macAddress",
+        "wifiLinkSpeedActual",
+        "wifiLinkSpeedMax",
+        "biosFabricante",
+        "biosVersion",
+        "biosFechaStr",
+        "biosEsUefiCapaz",
+        "arranqueUefiPresente",
+        "secureBootActivo",
+        "tpmPresente",
+        "tpmVersion",
+        "hvciEstado",
+        "monitorNombre",
+        "monitorModelo",
+        "audioAdaptador",
+        "audioCodec",
+        "audioHardwareId",
+    ];
 
-    const Section: React.FC<{ title: string; subtitle?: string; children: React.ReactNode }> = ({
-        title,
-        subtitle,
-        children,
-    }) => (
-        <section className="rounded-xl border bg-white/80 shadow-sm px-4 py-3 space-y-3">
-            <div className="flex items-center justify-between gap-2 border-b pb-1.5">
-                <h3 className="text-xs font-semibold tracking-wide text-slate-700 uppercase">{title}</h3>
-                {subtitle && <span className="text-[10px] text-slate-400">{subtitle}</span>}
-            </div>
-            {children}
-        </section>
-    );
-
-    // ===== fetch lista SOLO DEL TÉCNICO =====
-    const fetchFichas = useCallback(async () => {
-        if (!token || !cedulaTecnico) {
-            setError("No autenticado (token/cedula faltante).");
-            setLoading(false);
-            return;
-        }
-
-        setLoading(true);
-        setError(null);
-        try {
-            const res = await fetch(`${API_BASE}/tecnico/${cedulaTecnico}`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            if (!res.ok) throw new Error(`Error cargando fichas (HTTP ${res.status})`);
-            const data: FichaTecnicaDTO[] = await res.json();
-            setFichas(data);
-        } catch (e: any) {
-            setError(e.message || "Error cargando fichas");
-        } finally {
-            setLoading(false);
-        }
-    }, [token, cedulaTecnico]);
-
-    useEffect(() => {
-        fetchFichas();
-    }, [fetchFichas]);
-
-    // ===== abrir detalle (ver/editar) =====
-    const abrirDetalle = async (id: number) => {
-        if (!token) return;
-
-        setError(null);
-        try {
-            const res = await fetch(buildUrl(`/${id}`), {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            if (!res.ok) throw new Error(`Error al cargar detalles (HTTP ${res.status})`);
-            const data: FichaTecnicaDTO = await res.json();
-
-            // Seguridad extra frontend: si por algo llega una ficha de otro técnico, no la muestres
-            if (cedulaTecnico && data.tecnicoId && data.tecnicoId !== cedulaTecnico) {
-                throw new Error("No tienes acceso a esta ficha.");
-            }
-
-            setDetalle(data);
-            setDetalleForm(data);
-            setSelectedId(id);
-            setModalMode("editar");
-            setShowXml(false);
-        } catch (e: any) {
-            setError(e.message || "Error al abrir la ficha");
-        }
-    };
-
-    // ===== guardar ficha completa (PUT) =====
-    const guardarFichaCompleta = async (e: FormEvent) => {
-        e.preventDefault();
-        if (!detalleForm || !token) return;
-
-        // Forzamos que el técnico NO pueda reasignar: siempre queda su cédula
-        const payload: FichaTecnicaDTO = {
-            ...detalleForm,
-            tecnicoId: cedulaTecnico ?? detalleForm.tecnicoId,
-        };
-
-        try {
-            const res = await fetch(buildUrl(`/${payload.id}`), {
-                method: "PUT",
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify(payload),
-            });
-
-            if (!res.ok) throw new Error(`Error al guardar (HTTP ${res.status})`);
-
-            const actualizada: FichaTecnicaDTO = await res.json();
-            setDetalle(actualizada);
-            setDetalleForm(actualizada);
-            await fetchFichas();
-            alert("✅ Ficha guardada correctamente");
-        } catch (e: any) {
-            alert("❌ " + (e.message || "Error guardando ficha"));
-        }
-    };
-
-    // ===== cerrar modal =====
-    const closeModal = () => {
-        setModalMode("none");
-        setSelectedId(null);
-        setDetalle(null);
-        setDetalleForm(null);
-        setShowXml(false);
-    };
     const descargarPdf = async () => {
         try {
-            if (!token || !detalleForm) return;
+            if (!token) {
+                console.error("No hay token, usuario no autenticado");
+                return;
+            }
 
             const res = await fetch(`${API_BASE_URL}/api/pdf/ficha`, {
                 method: "POST",
@@ -434,11 +322,96 @@ export default function FichasTecnicoPage() {
 
             const a = document.createElement("a");
             a.href = url;
-            a.download = `ficha_${detalleForm.id}.pdf`;
+            a.download = "ficha.pdf";
             a.click();
             window.URL.revokeObjectURL(url);
         } catch (e) {
             console.error(e);
+        }
+    };
+
+    const isAutoFromXml = (field: keyof FichaTecnicaDTO) =>
+        AUTO_FROM_XML_FIELDS.includes(field) &&
+        !!detalle &&
+        detalle[field] !== null;
+
+    const parseBoolInput = (value: string): boolean | null => {
+        if (value === "") return null;
+        if (value === "true") return true;
+        if (value === "false") return false;
+        return null;
+    };
+
+    const updateField = <K extends keyof FichaTecnicaDTO>(
+        field: K,
+        value: FichaTecnicaDTO[K]
+    ) => {
+        setDetalleForm((prev) => (prev ? { ...prev, [field]: value } : prev));
+    };
+
+    // ===== fetch =====
+    const fetchFichas = useCallback(async () => {
+        setLoading(true);
+        try {
+            const res = await fetch(buildUrl(""), {
+                headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+            });
+            if (!res.ok) throw new Error("Error al cargar fichas técnicas");
+            const data: FichaTecnicaDTO[] = await res.json();
+            setFichas(data);
+        } catch (e: any) {
+            setError(e.message);
+        } finally {
+            setLoading(false);
+        }
+    }, [token]);
+
+    useEffect(() => {
+        fetchFichas();
+    }, [fetchFichas]);
+
+    // ===== abrir detalle =====
+    const abrirDetalle = async (id: number) => {
+        try {
+            const res = await fetch(buildUrl(`/${id}`), {
+                headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+            });
+            if (!res.ok) throw new Error("Error al cargar detalles");
+            const data: FichaTecnicaDTO = await res.json();
+            setDetalle(data);
+            setDetalleForm(data);
+            setShowForm(false);
+            setShowXml(false);
+            setShowUpload(false);
+        } catch (e: any) {
+            setError(e.message);
+        }
+    };
+
+    // ===== guardar ficha completa =====
+    const guardarFichaCompleta = async (e: FormEvent) => {
+        e.preventDefault();
+        if (!detalleForm) return;
+
+        try {
+            const res = await fetch(buildUrl(`/${detalleForm.id}`), {
+                method: "PUT",
+                headers: {
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(detalleForm),
+            });
+
+            if (!res.ok) throw new Error("Error al guardar ficha técnica");
+
+            const actualizada: FichaTecnicaDTO = await res.json();
+            setDetalle(actualizada);
+            setDetalleForm(actualizada);
+            await fetchFichas();
+            alert("✅ Ficha técnica guardada correctamente");
+        } catch (e: any) {
+            alert("❌ " + e.message);
         }
     };
 
@@ -454,139 +427,133 @@ export default function FichasTecnicoPage() {
                 </Button>
             </div>
 
-            {/* ===== HEADER ===== */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold">Mis Fichas Técnicas</h1>
-                    <p className="text-sm text-slate-500">
-                        Gestión técnica de tus fichas asignadas
-                    </p>
-                </div>
-
-                <Button onClick={() => setModalMode("crear")} className="flex items-center gap-2">
-                    <Plus className="h-4 w-4" /> Nueva ficha
-                </Button>
-            </div>
-
-            {/* ===== LISTADO ===== */}
+            {/* === LISTA === */}
             {error && <div className="text-red-600 text-sm">{error}</div>}
             {loading ? (
                 <div className="flex justify-center py-10">
-                    <Loader2 className="h-6 w-6 animate-spin" />
+                    <Loader2 className="h-6 w-6 animate-spin text-gray-600" />
                 </div>
             ) : fichas.length === 0 ? (
-                <div className="text-center text-gray-500 py-10">
-                    No tienes fichas técnicas registradas.
+                <div className="text-gray-500 text-center py-8">
+                    No hay fichas técnicas registradas.
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {fichas.map((f) => (
+                    {fichas.map((ficha) => (
                         <Card
-                            key={f.id}
-                            onClick={() => abrirDetalle(f.id)}
-                            className="cursor-pointer hover:shadow-md transition"
+                            key={ficha.id}
+                            onClick={() => abrirDetalle(ficha.id)}
+                            className="transition hover:shadow-md cursor-pointer"
                         >
                             <CardHeader>
-                                <CardTitle>Ficha #{f.id}</CardTitle>
-                                <CardDescription className="text-xs space-y-1 mt-2">
-                                    <div><b>Equipo:</b> {f.equipoId ?? "-"}</div>
-                                    <div><b>OT:</b> {f.ordenTrabajoId ?? "-"}</div>
-                                    <div className="flex items-center gap-1 text-gray-500">
-                                        <CalendarDays className="h-4 w-4" />
-                                        {new Date(f.fechaCreacion).toLocaleString()}
+                                <CardTitle>Ficha #{ficha.id}</CardTitle>
+                                <CardDescription>
+                                    <div className="text-sm flex flex-col gap-1 mt-1 text-gray-700">
+                                        <div>
+                                            <span className="font-semibold">Técnico: </span>
+                                            {ficha.tecnicoId ?? "-"}
+                                        </div>
+                                        <div>
+                                            <span className="font-semibold">Equipo ID: </span>
+                                            {ficha.equipoId ?? "-"}
+                                        </div>
+                                        <div>
+                                            <span className="font-semibold">Orden de trabajo: </span>
+                                            {ficha.ordenTrabajoId ?? "-"}
+                                        </div>
+                                        <div className="flex items-center gap-1 text-gray-500 text-xs mt-1">
+                                            <CalendarDays className="h-4 w-4" />
+                                            {ficha.fechaCreacion
+                                                ? new Date(ficha.fechaCreacion).toLocaleString()
+                                                : ""}
+                                        </div>
                                     </div>
                                 </CardDescription>
                             </CardHeader>
-                            <CardContent className="text-xs text-gray-600 line-clamp-3">
-                                {f.observaciones || "Sin observaciones"}
+                            <CardContent>
+                                <div className="text-xs text-gray-600 line-clamp-3">
+                                    {ficha.observaciones || "Sin observaciones"}
+                                </div>
                             </CardContent>
                         </Card>
                     ))}
                 </div>
             )}
 
-            {/* ===== MODAL CREAR ===== */}
-            <FichaModal
-                open={modalMode === "crear"}
-                title="Nueva Ficha Técnica"
-                onClose={closeModal}
-                widthClassName="max-w-2xl"
-            >
-                <FichaTecnicaForm
-                    tecnicoCedulaFixed={cedulaTecnico ?? ""}
-                    onCreated={async () => {
-                        await fetchFichas();
-                        closeModal();
-                    }}
-                />
-            </FichaModal>
+            {/* === MODAL CREAR === */}
+            {showForm && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-xl p-6 w-full max-w-2xl relative shadow-xl">
+                        <button
+                            onClick={() => setShowForm(false)}
+                            className="absolute top-2 right-3 text-gray-500 hover:text-gray-800 text-xl"
+                        >
+                            ✕
+                        </button>
+                        {/* <FichaTecnicaForm /> */}
+                        <p className="text-gray-500">Formulario de ficha técnica - Por implementar</p>
+                    </div>
+                </div>
+            )}
 
-            {/* ===== MODAL EDITAR ===== */}
-            <FichaModal
-                open={modalMode === "editar" && !!detalleForm}
-                title={`Ficha #${detalleForm?.id ?? ""}`}
-                onClose={closeModal}
-                widthClassName="max-w-6xl"
-            >
-                {detalleForm && (
-                    <>
-                        {/* ===== ACCIONES ===== */}
-                        <div className="flex justify-between items-center mb-4">
-                            <div className="text-xs text-gray-500">
-                                Técnico: <b>{detalleForm.tecnicoId}</b> · OT:{" "}
-                                <b>{detalleForm.ordenTrabajoId ?? "-"}</b>
+            {/* === MODAL DETALLE === */}
+            {detalle && detalleForm && (
+                <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-xl w-[90vw] max-w-6xl max-h-[90vh] p-6 relative flex flex-col overflow-y-auto">
+                        <button
+                            onClick={() => setDetalle(null)}
+                            className="absolute top-3 right-3 text-gray-500 hover:text-gray-800 text-xl"
+                        >
+                            ✕
+                        </button>
+
+                        {/* ENCABEZADO */}
+                        <div className="flex justify-between items-start mb-4 pr-10">
+                            <div>
+                                <h2 className="text-xl font-bold">
+                                    Ficha #{detalleForm.id} – Equipo {detalleForm.equipoId ?? "-"}
+                                </h2>
+                                <p className="text-xs text-gray-500 mt-1">
+                                    Técnico:{" "}
+                                    <span className="font-semibold">
+                                        {detalleForm.tecnicoId ?? "-"}
+                                    </span>{" "}
+                                    · OT: {detalleForm.ordenTrabajoId ?? "-"}
+                                    <br />
+                                    Creada el{" "}
+                                    {detalleForm.fechaCreacion
+                                        ? new Date(detalleForm.fechaCreacion).toLocaleString()
+                                        : "-"}
+                                </p>
                             </div>
 
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => setShowXml(true)}
-                                className="flex items-center gap-2"
-                            >
-                                <FileUp className="h-4 w-4" /> Cargar XML
-                            </Button>
+                            <div className="flex gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setShowXml(true)}
+                                    className="flex items-center gap-2"
+                                >
+                                    <FileUp className="h-4 w-4" /> Cargar XML del equipo
+                                </Button>
+                            </div>
+                            <div className="flex gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="flex items-center gap-2"
+                                    onClick={descargarPdf}
+                                >
+                                    <FileUp className="h-4 w-4" /> Descargar PDF
+                                </Button>
+                            </div>
                         </div>
 
-                        {/* ===== FORM ===== */}
-                        <form onSubmit={guardarFichaCompleta} className="space-y-3 text-sm">
-                            {/* ===== HEADER FICHA ===== */}
-                            <div className="flex justify-between items-start mb-4 pr-10">
-                                <div>
-                                    <h2 className="text-xl font-bold">
-                                        Ficha #{detalleForm.id} – Equipo{" "}
-                                        {detalleForm.equipoId ?? "-"}
-                                    </h2>
-                                    <p className="text-xs text-gray-500 mt-1">
-                                        Técnico: {detalleForm.tecnicoId} · OT: {detalleForm.ordenTrabajoId}
-                                    </p>
-                                    <p className="text-xs text-slate-400">
-                                        Creada el{" "}
-                                        {detalleForm.fechaCreacion
-                                            ? new Date(
-                                                detalleForm.fechaCreacion
-                                            ).toLocaleString()
-                                            : "-"}
-                                    </p>
-                                </div>
-
-                                <div className="flex gap-2">
-
-
-
-                                </div>
-                                <div className="flex gap-2">
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="flex items-center gap-2"
-                                        onClick={descargarPdf}
-                                    >
-                                        <FileUp className="h-4 w-4" /> Descargar PDF
-                                    </Button>
-                                </div>
-                            </div>
-
-
+                        <form
+                            onSubmit={guardarFichaCompleta}
+                            className="space-y-3 text-sm max-h-[75vh] overflow-y-auto pr-1"
+                        >
+                            {/* CABECERA ESTILIZADA */}
                             <div className="sticky top-0 z-10 mb-1 rounded-xl bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 px-4 py-3 shadow-md flex flex-wrap items-center justify-between gap-3 text-xs text-white">
                                 <div className="flex items-center gap-2">
                                     <div className="h-8 w-8 rounded-full bg-white/10 flex items-center justify-center text-[11px] font-semibold">
@@ -644,9 +611,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 bg-slate-100 text-xs"
                                             value={
                                                 detalleForm.fechaCreacion
-                                                    ? new Date(
-                                                        detalleForm.fechaCreacion
-                                                    ).toLocaleString()
+                                                    ? new Date(detalleForm.fechaCreacion).toLocaleString()
                                                     : ""
                                             }
                                             disabled
@@ -663,9 +628,7 @@ export default function FichasTecnicoPage() {
                                             onChange={(e) =>
                                                 updateField(
                                                     "equipoId",
-                                                    e.target.value === ""
-                                                        ? null
-                                                        : Number(e.target.value)
+                                                    e.target.value === "" ? null : Number(e.target.value)
                                                 )
                                             }
                                         />
@@ -681,9 +644,7 @@ export default function FichasTecnicoPage() {
                                             onChange={(e) =>
                                                 updateField(
                                                     "ordenTrabajoId",
-                                                    e.target.value === ""
-                                                        ? null
-                                                        : Number(e.target.value)
+                                                    e.target.value === "" ? null : Number(e.target.value)
                                                 )
                                             }
                                         />
@@ -695,9 +656,7 @@ export default function FichasTecnicoPage() {
                                         <Input
                                             className="h-8 text-xs"
                                             value={detalleForm.tecnicoId ?? ""}
-                                            onChange={(e) =>
-                                                updateField("tecnicoId", e.target.value)
-                                            }
+                                            onChange={(e) => updateField("tecnicoId", e.target.value)}
                                         />
                                     </div>
                                 </div>
@@ -708,12 +667,11 @@ export default function FichasTecnicoPage() {
                                 <textarea
                                     className="w-full border rounded-md px-2 py-1 text-xs min-h-[70px] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-400"
                                     value={detalleForm.observaciones ?? ""}
-                                    onChange={(e) =>
-                                        updateField("observaciones", e.target.value)
-                                    }
+                                    onChange={(e) => updateField("observaciones", e.target.value)}
                                     placeholder="Estado general del equipo, comentarios del cliente, síntomas iniciales, etc."
                                 />
                             </Section>
+
                             {/* CPU */}
                             <Section title="CPU" subtitle="Información lógica del procesador">
                                 <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
@@ -724,9 +682,7 @@ export default function FichasTecnicoPage() {
                                         <Input
                                             className="h-8 text-xs"
                                             value={detalleForm.cpuNombre ?? ""}
-                                            onChange={(e) =>
-                                                updateField("cpuNombre", e.target.value)
-                                            }
+                                            onChange={(e) => updateField("cpuNombre", e.target.value)}
                                         />
                                     </div>
                                     <div>
@@ -740,9 +696,7 @@ export default function FichasTecnicoPage() {
                                             onChange={(e) =>
                                                 updateField(
                                                     "cpuNucleos",
-                                                    e.target.value === ""
-                                                        ? null
-                                                        : Number(e.target.value)
+                                                    e.target.value === "" ? null : Number(e.target.value)
                                                 )
                                             }
                                         />
@@ -758,9 +712,7 @@ export default function FichasTecnicoPage() {
                                             onChange={(e) =>
                                                 updateField(
                                                     "cpuLogicos",
-                                                    e.target.value === ""
-                                                        ? null
-                                                        : Number(e.target.value)
+                                                    e.target.value === "" ? null : Number(e.target.value)
                                                 )
                                             }
                                         />
@@ -776,9 +728,7 @@ export default function FichasTecnicoPage() {
                                             onChange={(e) =>
                                                 updateField(
                                                     "cpuPaquetesFisicos",
-                                                    e.target.value === ""
-                                                        ? null
-                                                        : Number(e.target.value)
+                                                    e.target.value === "" ? null : Number(e.target.value)
                                                 )
                                             }
                                         />
@@ -794,15 +744,14 @@ export default function FichasTecnicoPage() {
                                             onChange={(e) =>
                                                 updateField(
                                                     "cpuFrecuenciaOriginalMhz",
-                                                    e.target.value === ""
-                                                        ? null
-                                                        : Number(e.target.value)
+                                                    e.target.value === "" ? null : Number(e.target.value)
                                                 )
                                             }
                                         />
                                     </div>
                                 </div>
                             </Section>
+
                             {/* RAM (hardware) */}
                             <Section title="RAM (hardware)">
                                 <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
@@ -817,9 +766,7 @@ export default function FichasTecnicoPage() {
                                             onChange={(e) =>
                                                 updateField(
                                                     "ramCapacidadGb",
-                                                    e.target.value === ""
-                                                        ? null
-                                                        : Number(e.target.value)
+                                                    e.target.value === "" ? null : Number(e.target.value)
                                                 )
                                             }
                                         />
@@ -835,9 +782,7 @@ export default function FichasTecnicoPage() {
                                             onChange={(e) =>
                                                 updateField(
                                                     "ramFrecuenciaMhz",
-                                                    e.target.value === ""
-                                                        ? null
-                                                        : Number(e.target.value)
+                                                    e.target.value === "" ? null : Number(e.target.value)
                                                 )
                                             }
                                         />
@@ -850,10 +795,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.ramTecnologiaModulo ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "ramTecnologiaModulo",
-                                                    e.target.value
-                                                )
+                                                updateField("ramTecnologiaModulo", e.target.value)
                                             }
                                         />
                                     </div>
@@ -864,9 +806,7 @@ export default function FichasTecnicoPage() {
                                         <Input
                                             className="h-8 text-xs"
                                             value={detalleForm.ramTipo ?? ""}
-                                            onChange={(e) =>
-                                                updateField("ramTipo", e.target.value)
-                                            }
+                                            onChange={(e) => updateField("ramTipo", e.target.value)}
                                         />
                                     </div>
                                     <div>
@@ -880,9 +820,7 @@ export default function FichasTecnicoPage() {
                                             onChange={(e) =>
                                                 updateField(
                                                     "ramNumeroModulo",
-                                                    e.target.value === ""
-                                                        ? null
-                                                        : Number(e.target.value)
+                                                    e.target.value === "" ? null : Number(e.target.value)
                                                 )
                                             }
                                         />
@@ -895,10 +833,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.ramSerieModulo ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "ramSerieModulo",
-                                                    e.target.value
-                                                )
+                                                updateField("ramSerieModulo", e.target.value)
                                             }
                                         />
                                     </div>
@@ -910,10 +845,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.ramFechaFabricacion ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "ramFechaFabricacion",
-                                                    e.target.value
-                                                )
+                                                updateField("ramFechaFabricacion", e.target.value)
                                             }
                                         />
                                     </div>
@@ -925,15 +857,13 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.ramLugarFabricacion ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "ramLugarFabricacion",
-                                                    e.target.value
-                                                )
+                                                updateField("ramLugarFabricacion", e.target.value)
                                             }
                                         />
                                     </div>
                                 </div>
                             </Section>
+
                             {/* DISCO (hardware) */}
                             <Section title="Disco (hardware)">
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -957,10 +887,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.discoNumeroSerie ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "discoNumeroSerie",
-                                                    e.target.value
-                                                )
+                                                updateField("discoNumeroSerie", e.target.value)
                                             }
                                         />
                                     </div>
@@ -971,9 +898,7 @@ export default function FichasTecnicoPage() {
                                         <Input
                                             className="h-8 text-xs"
                                             value={detalleForm.discoTipo ?? ""}
-                                            onChange={(e) =>
-                                                updateField("discoTipo", e.target.value)
-                                            }
+                                            onChange={(e) => updateField("discoTipo", e.target.value)}
                                         />
                                     </div>
                                     <div>
@@ -987,9 +912,7 @@ export default function FichasTecnicoPage() {
                                             onChange={(e) =>
                                                 updateField(
                                                     "discoCapacidadMb",
-                                                    e.target.value === ""
-                                                        ? null
-                                                        : Number(e.target.value)
+                                                    e.target.value === "" ? null : Number(e.target.value)
                                                 )
                                             }
                                         />
@@ -1002,10 +925,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.discoCapacidadStr ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "discoCapacidadStr",
-                                                    e.target.value
-                                                )
+                                                updateField("discoCapacidadStr", e.target.value)
                                             }
                                         />
                                     </div>
@@ -1020,9 +940,7 @@ export default function FichasTecnicoPage() {
                                             onChange={(e) =>
                                                 updateField(
                                                     "discoRpm",
-                                                    e.target.value === ""
-                                                        ? null
-                                                        : Number(e.target.value)
+                                                    e.target.value === "" ? null : Number(e.target.value)
                                                 )
                                             }
                                         />
@@ -1046,9 +964,7 @@ export default function FichasTecnicoPage() {
                                         <Input
                                             className="h-8 text-xs"
                                             value={detalleForm.discoWwn ?? ""}
-                                            onChange={(e) =>
-                                                updateField("discoWwn", e.target.value)
-                                            }
+                                            onChange={(e) => updateField("discoWwn", e.target.value)}
                                         />
                                     </div>
                                     <div>
@@ -1059,10 +975,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.discoTemperatura ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "discoTemperatura",
-                                                    e.target.value
-                                                )
+                                                updateField("discoTemperatura", e.target.value)
                                             }
                                         />
                                     </div>
@@ -1074,10 +987,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.discoHorasEncendido ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "discoHorasEncendido",
-                                                    e.target.value
-                                                )
+                                                updateField("discoHorasEncendido", e.target.value)
                                             }
                                         />
                                     </div>
@@ -1089,10 +999,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.discoSectoresReasignados ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "discoSectoresReasignados",
-                                                    e.target.value
-                                                )
+                                                updateField("discoSectoresReasignados", e.target.value)
                                             }
                                         />
                                     </div>
@@ -1104,10 +1011,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.discoSectoresPendientes ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "discoSectoresPendientes",
-                                                    e.target.value
-                                                )
+                                                updateField("discoSectoresPendientes", e.target.value)
                                             }
                                         />
                                     </div>
@@ -1119,10 +1023,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.discoErroresLectura ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "discoErroresLectura",
-                                                    e.target.value
-                                                )
+                                                updateField("discoErroresLectura", e.target.value)
                                             }
                                         />
                                     </div>
@@ -1140,6 +1041,7 @@ export default function FichasTecnicoPage() {
                                     </div>
                                 </div>
                             </Section>
+
                             {/* PLACA / GPU / BUS / TPM */}
                             <Section title="Placa base / GPU / Buses / TPM">
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -1151,10 +1053,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.mainboardModelo ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "mainboardModelo",
-                                                    e.target.value
-                                                )
+                                                updateField("mainboardModelo", e.target.value)
                                             }
                                         />
                                     </div>
@@ -1165,9 +1064,7 @@ export default function FichasTecnicoPage() {
                                         <Input
                                             className="h-8 text-xs"
                                             value={detalleForm.chipset ?? ""}
-                                            onChange={(e) =>
-                                                updateField("chipset", e.target.value)
-                                            }
+                                            onChange={(e) => updateField("chipset", e.target.value)}
                                         />
                                     </div>
                                     <div>
@@ -1177,9 +1074,7 @@ export default function FichasTecnicoPage() {
                                         <Input
                                             className="h-8 text-xs"
                                             value={detalleForm.gpuNombre ?? ""}
-                                            onChange={(e) =>
-                                                updateField("gpuNombre", e.target.value)
-                                            }
+                                            onChange={(e) => updateField("gpuNombre", e.target.value)}
                                         />
                                     </div>
                                     <div>
@@ -1190,10 +1085,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.pciExpressVersion ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "pciExpressVersion",
-                                                    e.target.value
-                                                )
+                                                updateField("pciExpressVersion", e.target.value)
                                             }
                                         />
                                     </div>
@@ -1266,10 +1158,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.adaptadorRed ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "adaptadorRed",
-                                                    e.target.value
-                                                )
+                                                updateField("adaptadorRed", e.target.value)
                                             }
                                         />
                                     </div>
@@ -1280,9 +1169,7 @@ export default function FichasTecnicoPage() {
                                         <Input
                                             className="h-8 text-xs"
                                             value={detalleForm.macAddress ?? ""}
-                                            onChange={(e) =>
-                                                updateField("macAddress", e.target.value)
-                                            }
+                                            onChange={(e) => updateField("macAddress", e.target.value)}
                                         />
                                     </div>
                                     <div>
@@ -1293,10 +1180,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.wifiLinkSpeedActual ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "wifiLinkSpeedActual",
-                                                    e.target.value
-                                                )
+                                                updateField("wifiLinkSpeedActual", e.target.value)
                                             }
                                         />
                                     </div>
@@ -1308,10 +1192,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.wifiLinkSpeedMax ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "wifiLinkSpeedMax",
-                                                    e.target.value
-                                                )
+                                                updateField("wifiLinkSpeedMax", e.target.value)
                                             }
                                         />
                                     </div>
@@ -1323,10 +1204,7 @@ export default function FichasTecnicoPage() {
                                             className="border rounded-md px-2 h-8 w-full text-[11px]"
                                             value={fmtBoolSelect(detalleForm.wifiFunciona)}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "wifiFunciona",
-                                                    parseBoolInput(e.target.value)
-                                                )
+                                                updateField("wifiFunciona", parseBoolInput(e.target.value))
                                             }
                                         >
                                             <option value="">-</option>
@@ -1342,10 +1220,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.wifiObservaciones ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "wifiObservaciones",
-                                                    e.target.value
-                                                )
+                                                updateField("wifiObservaciones", e.target.value)
                                             }
                                         />
                                     </div>
@@ -1363,10 +1238,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.biosFabricante ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "biosFabricante",
-                                                    e.target.value
-                                                )
+                                                updateField("biosFabricante", e.target.value)
                                             }
                                         />
                                     </div>
@@ -1390,10 +1262,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.biosFechaStr ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "biosFechaStr",
-                                                    e.target.value
-                                                )
+                                                updateField("biosFechaStr", e.target.value)
                                             }
                                         />
                                     </div>
@@ -1422,9 +1291,7 @@ export default function FichasTecnicoPage() {
                                         </label>
                                         <select
                                             className="border rounded-md px-2 h-8 w-full text-[11px]"
-                                            value={fmtBoolSelect(
-                                                detalleForm.arranqueUefiPresente
-                                            )}
+                                            value={fmtBoolSelect(detalleForm.arranqueUefiPresente)}
                                             onChange={(e) =>
                                                 updateField(
                                                     "arranqueUefiPresente",
@@ -1443,9 +1310,7 @@ export default function FichasTecnicoPage() {
                                         </label>
                                         <select
                                             className="border rounded-md px-2 h-8 w-full text-[11px]"
-                                            value={fmtBoolSelect(
-                                                detalleForm.secureBootActivo
-                                            )}
+                                            value={fmtBoolSelect(detalleForm.secureBootActivo)}
                                             onChange={(e) =>
                                                 updateField(
                                                     "secureBootActivo",
@@ -1472,6 +1337,7 @@ export default function FichasTecnicoPage() {
                                     </div>
                                 </div>
                             </Section>
+
                             {/* EQUIPO FÍSICO */}
                             <Section title="Equipo (identificación física)">
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -1483,10 +1349,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.equipoNombre ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "equipoNombre",
-                                                    e.target.value
-                                                )
+                                                updateField("equipoNombre", e.target.value)
                                             }
                                         />
                                     </div>
@@ -1546,10 +1409,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.equipoRoturas ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "equipoRoturas",
-                                                    e.target.value
-                                                )
+                                                updateField("equipoRoturas", e.target.value)
                                             }
                                         />
                                     </div>
@@ -1561,10 +1421,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.equipoMarcasDesgaste ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "equipoMarcasDesgaste",
-                                                    e.target.value
-                                                )
+                                                updateField("equipoMarcasDesgaste", e.target.value)
                                             }
                                         />
                                     </div>
@@ -1574,9 +1431,7 @@ export default function FichasTecnicoPage() {
                                         </label>
                                         <select
                                             className="border rounded-md px-2 h-8 w-full text-[11px]"
-                                            value={fmtBoolSelect(
-                                                detalleForm.tornillosFaltantes
-                                            )}
+                                            value={fmtBoolSelect(detalleForm.tornillosFaltantes)}
                                             onChange={(e) =>
                                                 updateField(
                                                     "tornillosFaltantes",
@@ -1603,10 +1458,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.carcasaEstado ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "carcasaEstado",
-                                                    e.target.value
-                                                )
+                                                updateField("carcasaEstado", e.target.value)
                                             }
                                         />
                                     </div>
@@ -1618,10 +1470,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.carcasaObservaciones ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "carcasaObservaciones",
-                                                    e.target.value
-                                                )
+                                                updateField("carcasaObservaciones", e.target.value)
                                             }
                                         />
                                     </div>
@@ -1634,10 +1483,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.tecladoEstado ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "tecladoEstado",
-                                                    e.target.value
-                                                )
+                                                updateField("tecladoEstado", e.target.value)
                                             }
                                         />
                                     </div>
@@ -1647,9 +1493,7 @@ export default function FichasTecnicoPage() {
                                         </label>
                                         <select
                                             className="border rounded-md px-2 h-8 w-full text-[11px]"
-                                            value={fmtBoolSelect(
-                                                detalleForm.tecladoTeclasDanadas
-                                            )}
+                                            value={fmtBoolSelect(detalleForm.tecladoTeclasDanadas)}
                                             onChange={(e) =>
                                                 updateField(
                                                     "tecladoTeclasDanadas",
@@ -1668,9 +1512,7 @@ export default function FichasTecnicoPage() {
                                         </label>
                                         <select
                                             className="border rounded-md px-2 h-8 w-full text-[11px]"
-                                            value={fmtBoolSelect(
-                                                detalleForm.tecladoTeclasFaltantes
-                                            )}
+                                            value={fmtBoolSelect(detalleForm.tecladoTeclasFaltantes)}
                                             onChange={(e) =>
                                                 updateField(
                                                     "tecladoTeclasFaltantes",
@@ -1689,9 +1531,7 @@ export default function FichasTecnicoPage() {
                                         </label>
                                         <select
                                             className="border rounded-md px-2 h-8 w-full text-[11px]"
-                                            value={fmtBoolSelect(
-                                                detalleForm.tecladoRetroiluminacion
-                                            )}
+                                            value={fmtBoolSelect(detalleForm.tecladoRetroiluminacion)}
                                             onChange={(e) =>
                                                 updateField(
                                                     "tecladoRetroiluminacion",
@@ -1712,10 +1552,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.tecladoObservaciones ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "tecladoObservaciones",
-                                                    e.target.value
-                                                )
+                                                updateField("tecladoObservaciones", e.target.value)
                                             }
                                         />
                                     </div>
@@ -1728,10 +1565,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.touchpadEstado ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "touchpadEstado",
-                                                    e.target.value
-                                                )
+                                                updateField("touchpadEstado", e.target.value)
                                             }
                                         />
                                     </div>
@@ -1741,9 +1575,7 @@ export default function FichasTecnicoPage() {
                                         </label>
                                         <select
                                             className="border rounded-md px-2 h-8 w-full text-[11px]"
-                                            value={fmtBoolSelect(
-                                                detalleForm.touchpadFunciona
-                                            )}
+                                            value={fmtBoolSelect(detalleForm.touchpadFunciona)}
                                             onChange={(e) =>
                                                 updateField(
                                                     "touchpadFunciona",
@@ -1762,9 +1594,7 @@ export default function FichasTecnicoPage() {
                                         </label>
                                         <select
                                             className="border rounded-md px-2 h-8 w-full text-[11px]"
-                                            value={fmtBoolSelect(
-                                                detalleForm.touchpadBotonIzq
-                                            )}
+                                            value={fmtBoolSelect(detalleForm.touchpadBotonIzq)}
                                             onChange={(e) =>
                                                 updateField(
                                                     "touchpadBotonIzq",
@@ -1783,9 +1613,7 @@ export default function FichasTecnicoPage() {
                                         </label>
                                         <select
                                             className="border rounded-md px-2 h-8 w-full text-[11px]"
-                                            value={fmtBoolSelect(
-                                                detalleForm.touchpadBotonDer
-                                            )}
+                                            value={fmtBoolSelect(detalleForm.touchpadBotonDer)}
                                             onChange={(e) =>
                                                 updateField(
                                                     "touchpadBotonDer",
@@ -1804,9 +1632,7 @@ export default function FichasTecnicoPage() {
                                         </label>
                                         <select
                                             className="border rounded-md px-2 h-8 w-full text-[11px]"
-                                            value={fmtBoolSelect(
-                                                detalleForm.touchpadTactil
-                                            )}
+                                            value={fmtBoolSelect(detalleForm.touchpadTactil)}
                                             onChange={(e) =>
                                                 updateField(
                                                     "touchpadTactil",
@@ -1827,10 +1653,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.touchpadObservaciones ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "touchpadObservaciones",
-                                                    e.target.value
-                                                )
+                                                updateField("touchpadObservaciones", e.target.value)
                                             }
                                         />
                                     </div>
@@ -1848,10 +1671,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.monitorNombre ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "monitorNombre",
-                                                    e.target.value
-                                                )
+                                                updateField("monitorNombre", e.target.value)
                                             }
                                         />
                                     </div>
@@ -1863,10 +1683,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.monitorModelo ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "monitorModelo",
-                                                    e.target.value
-                                                )
+                                                updateField("monitorModelo", e.target.value)
                                             }
                                         />
                                     </div>
@@ -1877,9 +1694,7 @@ export default function FichasTecnicoPage() {
                                         </label>
                                         <select
                                             className="border rounded-md px-2 h-8 w-full text-[11px]"
-                                            value={fmtBoolSelect(
-                                                detalleForm.pantallaRayones
-                                            )}
+                                            value={fmtBoolSelect(detalleForm.pantallaRayones)}
                                             onChange={(e) =>
                                                 updateField(
                                                     "pantallaRayones",
@@ -1898,9 +1713,7 @@ export default function FichasTecnicoPage() {
                                         </label>
                                         <select
                                             className="border rounded-md px-2 h-8 w-full text-[11px]"
-                                            value={fmtBoolSelect(
-                                                detalleForm.pantallaTrizaduras
-                                            )}
+                                            value={fmtBoolSelect(detalleForm.pantallaTrizaduras)}
                                             onChange={(e) =>
                                                 updateField(
                                                     "pantallaTrizaduras",
@@ -1919,9 +1732,7 @@ export default function FichasTecnicoPage() {
                                         </label>
                                         <select
                                             className="border rounded-md px-2 h-8 w-full text-[11px]"
-                                            value={fmtBoolSelect(
-                                                detalleForm.pantallaPixelesMuertos
-                                            )}
+                                            value={fmtBoolSelect(detalleForm.pantallaPixelesMuertos)}
                                             onChange={(e) =>
                                                 updateField(
                                                     "pantallaPixelesMuertos",
@@ -1940,9 +1751,7 @@ export default function FichasTecnicoPage() {
                                         </label>
                                         <select
                                             className="border rounded-md px-2 h-8 w-full text-[11px]"
-                                            value={fmtBoolSelect(
-                                                detalleForm.pantallaManchas
-                                            )}
+                                            value={fmtBoolSelect(detalleForm.pantallaManchas)}
                                             onChange={(e) =>
                                                 updateField(
                                                     "pantallaManchas",
@@ -1961,9 +1770,7 @@ export default function FichasTecnicoPage() {
                                         </label>
                                         <select
                                             className="border rounded-md px-2 h-8 w-full text-[11px]"
-                                            value={fmtBoolSelect(
-                                                detalleForm.pantallaTactil
-                                            )}
+                                            value={fmtBoolSelect(detalleForm.pantallaTactil)}
                                             onChange={(e) =>
                                                 updateField(
                                                     "pantallaTactil",
@@ -1984,10 +1791,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.pantallaObservaciones ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "pantallaObservaciones",
-                                                    e.target.value
-                                                )
+                                                updateField("pantallaObservaciones", e.target.value)
                                             }
                                         />
                                     </div>
@@ -1998,9 +1802,7 @@ export default function FichasTecnicoPage() {
                                         </label>
                                         <select
                                             className="border rounded-md px-2 h-8 w-full text-[11px]"
-                                            value={fmtBoolSelect(
-                                                detalleForm.camaraFunciona
-                                            )}
+                                            value={fmtBoolSelect(detalleForm.camaraFunciona)}
                                             onChange={(e) =>
                                                 updateField(
                                                     "camaraFunciona",
@@ -2021,10 +1823,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.camaraObservaciones ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "camaraObservaciones",
-                                                    e.target.value
-                                                )
+                                                updateField("camaraObservaciones", e.target.value)
                                             }
                                         />
                                     </div>
@@ -2051,9 +1850,9 @@ export default function FichasTecnicoPage() {
                                             <select
                                                 className="border rounded-md px-2 h-8 w-full text-[11px]"
                                                 value={fmtBoolSelect(
-                                                    detalleForm[
-                                                    field as keyof FichaTecnicaDTO
-                                                    ] as boolean | null
+                                                    detalleForm[field as keyof FichaTecnicaDTO] as
+                                                    | boolean
+                                                    | null
                                                 )}
                                                 onChange={(e) =>
                                                     updateField(
@@ -2076,10 +1875,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.puertosObservaciones ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "puertosObservaciones",
-                                                    e.target.value
-                                                )
+                                                updateField("puertosObservaciones", e.target.value)
                                             }
                                         />
                                     </div>
@@ -2097,10 +1893,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.audioAdaptador ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "audioAdaptador",
-                                                    e.target.value
-                                                )
+                                                updateField("audioAdaptador", e.target.value)
                                             }
                                         />
                                     </div>
@@ -2124,10 +1917,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.audioHardwareId ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "audioHardwareId",
-                                                    e.target.value
-                                                )
+                                                updateField("audioHardwareId", e.target.value)
                                             }
                                         />
                                     </div>
@@ -2157,10 +1947,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.discoTipoFicha ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "discoTipoFicha",
-                                                    e.target.value
-                                                )
+                                                updateField("discoTipoFicha", e.target.value)
                                             }
                                         />
                                     </div>
@@ -2172,10 +1959,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.discoMarcaFicha ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "discoMarcaFicha",
-                                                    e.target.value
-                                                )
+                                                updateField("discoMarcaFicha", e.target.value)
                                             }
                                         />
                                     </div>
@@ -2187,10 +1971,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.discoCapacidadFicha ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "discoCapacidadFicha",
-                                                    e.target.value
-                                                )
+                                                updateField("discoCapacidadFicha", e.target.value)
                                             }
                                         />
                                     </div>
@@ -2202,10 +1983,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.discoSerieFicha ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "discoSerieFicha",
-                                                    e.target.value
-                                                )
+                                                updateField("discoSerieFicha", e.target.value)
                                             }
                                         />
                                     </div>
@@ -2215,14 +1993,9 @@ export default function FichasTecnicoPage() {
                                         </label>
                                         <Input
                                             className="h-8 text-xs"
-                                            value={
-                                                detalleForm.discoObservacionesFicha ?? ""
-                                            }
+                                            value={detalleForm.discoObservacionesFicha ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "discoObservacionesFicha",
-                                                    e.target.value
-                                                )
+                                                updateField("discoObservacionesFicha", e.target.value)
                                             }
                                         />
                                     </div>
@@ -2240,10 +2013,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.ramTipoEquipo ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "ramTipoEquipo",
-                                                    e.target.value
-                                                )
+                                                updateField("ramTipoEquipo", e.target.value)
                                             }
                                         />
                                     </div>
@@ -2258,9 +2028,7 @@ export default function FichasTecnicoPage() {
                                             onChange={(e) =>
                                                 updateField(
                                                     "ramCantidadModulos",
-                                                    e.target.value === ""
-                                                        ? null
-                                                        : Number(e.target.value)
+                                                    e.target.value === "" ? null : Number(e.target.value)
                                                 )
                                             }
                                         />
@@ -2273,10 +2041,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.ramMarcaFicha ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "ramMarcaFicha",
-                                                    e.target.value
-                                                )
+                                                updateField("ramMarcaFicha", e.target.value)
                                             }
                                         />
                                     </div>
@@ -2288,10 +2053,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.ramTecnologiaFicha ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "ramTecnologiaFicha",
-                                                    e.target.value
-                                                )
+                                                updateField("ramTecnologiaFicha", e.target.value)
                                             }
                                         />
                                     </div>
@@ -2303,10 +2065,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.ramCapacidadFicha ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "ramCapacidadFicha",
-                                                    e.target.value
-                                                )
+                                                updateField("ramCapacidadFicha", e.target.value)
                                             }
                                         />
                                     </div>
@@ -2318,10 +2077,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.ramFrecuenciaFicha ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "ramFrecuenciaFicha",
-                                                    e.target.value
-                                                )
+                                                updateField("ramFrecuenciaFicha", e.target.value)
                                             }
                                         />
                                     </div>
@@ -2333,10 +2089,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.ramObservacionesFicha ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "ramObservacionesFicha",
-                                                    e.target.value
-                                                )
+                                                updateField("ramObservacionesFicha", e.target.value)
                                             }
                                         />
                                     </div>
@@ -2352,14 +2105,9 @@ export default function FichasTecnicoPage() {
                                         </label>
                                         <Input
                                             className="h-8 text-xs"
-                                            value={
-                                                detalleForm.mainboardModeloFicha ?? ""
-                                            }
+                                            value={detalleForm.mainboardModeloFicha ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "mainboardModeloFicha",
-                                                    e.target.value
-                                                )
+                                                updateField("mainboardModeloFicha", e.target.value)
                                             }
                                         />
                                     </div>
@@ -2369,14 +2117,9 @@ export default function FichasTecnicoPage() {
                                         </label>
                                         <Input
                                             className="h-8 text-xs"
-                                            value={
-                                                detalleForm.mainboardObservaciones ?? ""
-                                            }
+                                            value={detalleForm.mainboardObservaciones ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "mainboardObservaciones",
-                                                    e.target.value
-                                                )
+                                                updateField("mainboardObservaciones", e.target.value)
                                             }
                                         />
                                     </div>
@@ -2389,10 +2132,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.procesadorMarca ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "procesadorMarca",
-                                                    e.target.value
-                                                )
+                                                updateField("procesadorMarca", e.target.value)
                                             }
                                         />
                                     </div>
@@ -2404,10 +2144,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.procesadorModelo ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "procesadorModelo",
-                                                    e.target.value
-                                                )
+                                                updateField("procesadorModelo", e.target.value)
                                             }
                                         />
                                     </div>
@@ -2419,10 +2156,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.graficaTipo ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "graficaTipo",
-                                                    e.target.value
-                                                )
+                                                updateField("graficaTipo", e.target.value)
                                             }
                                         />
                                     </div>
@@ -2433,14 +2167,9 @@ export default function FichasTecnicoPage() {
                                         </label>
                                         <Input
                                             className="h-8 text-xs"
-                                            value={
-                                                detalleForm.fuenteVentiladorEstado ?? ""
-                                            }
+                                            value={detalleForm.fuenteVentiladorEstado ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "fuenteVentiladorEstado",
-                                                    e.target.value
-                                                )
+                                                updateField("fuenteVentiladorEstado", e.target.value)
                                             }
                                         />
                                     </div>
@@ -2452,10 +2181,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.fuenteRuido ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "fuenteRuido",
-                                                    e.target.value
-                                                )
+                                                updateField("fuenteRuido", e.target.value)
                                             }
                                         />
                                     </div>
@@ -2465,14 +2191,9 @@ export default function FichasTecnicoPage() {
                                         </label>
                                         <Input
                                             className="h-8 text-xs"
-                                            value={
-                                                detalleForm.fuenteMedicionVoltaje ?? ""
-                                            }
+                                            value={detalleForm.fuenteMedicionVoltaje ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "fuenteMedicionVoltaje",
-                                                    e.target.value
-                                                )
+                                                updateField("fuenteMedicionVoltaje", e.target.value)
                                             }
                                         />
                                     </div>
@@ -2482,14 +2203,9 @@ export default function FichasTecnicoPage() {
                                         </label>
                                         <Input
                                             className="h-8 text-xs"
-                                            value={
-                                                detalleForm.fuenteObservaciones ?? ""
-                                            }
+                                            value={detalleForm.fuenteObservaciones ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "fuenteObservaciones",
-                                                    e.target.value
-                                                )
+                                                updateField("fuenteObservaciones", e.target.value)
                                             }
                                         />
                                     </div>
@@ -2499,15 +2215,9 @@ export default function FichasTecnicoPage() {
                                         </label>
                                         <Input
                                             className="h-8 text-xs"
-                                            value={
-                                                detalleForm.ventiladorCpuObservaciones ??
-                                                ""
-                                            }
+                                            value={detalleForm.ventiladorCpuObservaciones ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "ventiladorCpuObservaciones",
-                                                    e.target.value
-                                                )
+                                                updateField("ventiladorCpuObservaciones", e.target.value)
                                             }
                                         />
                                     </div>
@@ -2525,10 +2235,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.bateriaCodigo ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "bateriaCodigo",
-                                                    e.target.value
-                                                )
+                                                updateField("bateriaCodigo", e.target.value)
                                             }
                                         />
                                     </div>
@@ -2538,14 +2245,9 @@ export default function FichasTecnicoPage() {
                                         </label>
                                         <Input
                                             className="h-8 text-xs"
-                                            value={
-                                                detalleForm.bateriaObservaciones ?? ""
-                                            }
+                                            value={detalleForm.bateriaObservaciones ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "bateriaObservaciones",
-                                                    e.target.value
-                                                )
+                                                updateField("bateriaObservaciones", e.target.value)
                                             }
                                         />
                                     </div>
@@ -2558,10 +2260,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.cargadorCodigo ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "cargadorCodigo",
-                                                    e.target.value
-                                                )
+                                                updateField("cargadorCodigo", e.target.value)
                                             }
                                         />
                                     </div>
@@ -2571,14 +2270,9 @@ export default function FichasTecnicoPage() {
                                         </label>
                                         <Input
                                             className="h-8 text-xs"
-                                            value={
-                                                detalleForm.cargadorEstadoCable ?? ""
-                                            }
+                                            value={detalleForm.cargadorEstadoCable ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "cargadorEstadoCable",
-                                                    e.target.value
-                                                )
+                                                updateField("cargadorEstadoCable", e.target.value)
                                             }
                                         />
                                     </div>
@@ -2590,15 +2284,13 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.cargadorVoltajes ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "cargadorVoltajes",
-                                                    e.target.value
-                                                )
+                                                updateField("cargadorVoltajes", e.target.value)
                                             }
                                         />
                                     </div>
                                 </div>
                             </Section>
+
                             {/* BIOS / SEGURIDAD (FICHA) / SO / SOFTWARE */}
                             <Section title="BIOS (ficha) / SO / Software">
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -2608,9 +2300,7 @@ export default function FichasTecnicoPage() {
                                         </label>
                                         <select
                                             className="border rounded-md px-2 h-8 w-full text-[11px]"
-                                            value={fmtBoolSelect(
-                                                detalleForm.biosContrasena
-                                            )}
+                                            value={fmtBoolSelect(detalleForm.biosContrasena)}
                                             onChange={(e) =>
                                                 updateField(
                                                     "biosContrasena",
@@ -2631,10 +2321,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.biosTipoArranque ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "biosTipoArranque",
-                                                    e.target.value
-                                                )
+                                                updateField("biosTipoArranque", e.target.value)
                                             }
                                         />
                                     </div>
@@ -2644,9 +2331,7 @@ export default function FichasTecnicoPage() {
                                         </label>
                                         <select
                                             className="border rounded-md px-2 h-8 w-full text-[11px]"
-                                            value={fmtBoolSelect(
-                                                detalleForm.biosSecureBoot
-                                            )}
+                                            value={fmtBoolSelect(detalleForm.biosSecureBoot)}
                                             onChange={(e) =>
                                                 updateField(
                                                     "biosSecureBoot",
@@ -2665,14 +2350,9 @@ export default function FichasTecnicoPage() {
                                         </label>
                                         <Input
                                             className="h-8 text-xs"
-                                            value={
-                                                detalleForm.biosObservacionesFicha ?? ""
-                                            }
+                                            value={detalleForm.biosObservacionesFicha ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "biosObservacionesFicha",
-                                                    e.target.value
-                                                )
+                                                updateField("biosObservacionesFicha", e.target.value)
                                             }
                                         />
                                     </div>
@@ -2684,9 +2364,7 @@ export default function FichasTecnicoPage() {
                                         <Input
                                             className="h-8 text-xs"
                                             value={detalleForm.soTipo ?? ""}
-                                            onChange={(e) =>
-                                                updateField("soTipo", e.target.value)
-                                            }
+                                            onChange={(e) => updateField("soTipo", e.target.value)}
                                         />
                                     </div>
                                     <div>
@@ -2696,12 +2374,7 @@ export default function FichasTecnicoPage() {
                                         <Input
                                             className="h-8 text-xs"
                                             value={detalleForm.soVersion ?? ""}
-                                            onChange={(e) =>
-                                                updateField(
-                                                    "soVersion",
-                                                    e.target.value
-                                                )
-                                            }
+                                            onChange={(e) => updateField("soVersion", e.target.value)}
                                         />
                                     </div>
                                     <div>
@@ -2712,10 +2385,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.soProveedor ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "soProveedor",
-                                                    e.target.value
-                                                )
+                                                updateField("soProveedor", e.target.value)
                                             }
                                         />
                                     </div>
@@ -2725,9 +2395,7 @@ export default function FichasTecnicoPage() {
                                         </label>
                                         <select
                                             className="border rounded-md px-2 h-8 w-full text-[11px]"
-                                            value={fmtBoolSelect(
-                                                detalleForm.soLicenciaActiva
-                                            )}
+                                            value={fmtBoolSelect(detalleForm.soLicenciaActiva)}
                                             onChange={(e) =>
                                                 updateField(
                                                     "soLicenciaActiva",
@@ -2749,10 +2417,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.antivirusMarca ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "antivirusMarca",
-                                                    e.target.value
-                                                )
+                                                updateField("antivirusMarca", e.target.value)
                                             }
                                         />
                                     </div>
@@ -2762,9 +2427,7 @@ export default function FichasTecnicoPage() {
                                         </label>
                                         <select
                                             className="border rounded-md px-2 h-8 w-full text-[11px]"
-                                            value={fmtBoolSelect(
-                                                detalleForm.antivirusLicenciaActiva
-                                            )}
+                                            value={fmtBoolSelect(detalleForm.antivirusLicenciaActiva)}
                                             onChange={(e) =>
                                                 updateField(
                                                     "antivirusLicenciaActiva",
@@ -2783,14 +2446,9 @@ export default function FichasTecnicoPage() {
                                         </label>
                                         <Input
                                             className="h-8 text-xs"
-                                            value={
-                                                detalleForm.antivirusObservaciones ?? ""
-                                            }
+                                            value={detalleForm.antivirusObservaciones ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "antivirusObservaciones",
-                                                    e.target.value
-                                                )
+                                                updateField("antivirusObservaciones", e.target.value)
                                             }
                                         />
                                     </div>
@@ -2801,9 +2459,7 @@ export default function FichasTecnicoPage() {
                                         </label>
                                         <select
                                             className="border rounded-md px-2 h-8 w-full text-[11px]"
-                                            value={fmtBoolSelect(
-                                                detalleForm.officeLicenciaActiva
-                                            )}
+                                            value={fmtBoolSelect(detalleForm.officeLicenciaActiva)}
                                             onChange={(e) =>
                                                 updateField(
                                                     "officeLicenciaActiva",
@@ -2824,10 +2480,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.officeVersion ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "officeVersion",
-                                                    e.target.value
-                                                )
+                                                updateField("officeVersion", e.target.value)
                                             }
                                         />
                                     </div>
@@ -2845,10 +2498,7 @@ export default function FichasTecnicoPage() {
                                             className="h-8 text-xs"
                                             value={detalleForm.informacionCantidad ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "informacionCantidad",
-                                                    e.target.value
-                                                )
+                                                updateField("informacionCantidad", e.target.value)
                                             }
                                         />
                                     </div>
@@ -2879,14 +2529,9 @@ export default function FichasTecnicoPage() {
                                         </label>
                                         <Input
                                             className="h-8 text-xs"
-                                            value={
-                                                detalleForm.informacionOtrosProgramas ?? ""
-                                            }
+                                            value={detalleForm.informacionOtrosProgramas ?? ""}
                                             onChange={(e) =>
-                                                updateField(
-                                                    "informacionOtrosProgramas",
-                                                    e.target.value
-                                                )
+                                                updateField("informacionOtrosProgramas", e.target.value)
                                             }
                                         />
                                     </div>
@@ -2899,10 +2544,7 @@ export default function FichasTecnicoPage() {
                                     className="w-full border rounded-md px-2 py-1 text-xs min-h-[70px] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-400"
                                     value={detalleForm.trabajoRealizado ?? ""}
                                     onChange={(e) =>
-                                        updateField(
-                                            "trabajoRealizado",
-                                            e.target.value
-                                        )
+                                        updateField("trabajoRealizado", e.target.value)
                                     }
                                     placeholder="Describe las acciones realizadas, repuestos cambiados, diagnósticos finales, etc."
                                 />
@@ -2935,18 +2577,14 @@ export default function FichasTecnicoPage() {
                                         ✕
                                     </button>
                                     <XmlUploader
-                                        equipoId={
-                                            detalleForm.equipoId ??
-                                            detalleForm.id
-                                        }
+                                        equipoId={detalleForm.equipoId ?? detalleForm.id}
                                     />
                                 </div>
                             </div>
                         )}
-                    </>
-                )}
-            </FichaModal>
+                    </div>
+                </div>
+            )}
         </div>
     );
-
 }

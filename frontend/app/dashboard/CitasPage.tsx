@@ -15,18 +15,16 @@ import {
     ChevronDown,
     Wrench,
     Loader2,
+    Menu,
 } from "lucide-react";
+import { API_BASE_URL } from "../lib/api";
 
-/* =========================
-   API + Tipos
-========================= */
-import { API_BASE_URL } from "../lib/api"; // <--- AGREGAR ESTA LÍNEA
 const CITAS_API_BASE = `${API_BASE_URL}/api/citas`;
 const USUARIOS_API = `${API_BASE_URL}/api/usuarios`;
 
 type CitasScope = "TODAS" | "CLIENTE" | "TECNICO";
 
-// --- TIPOS / INTERFACES ---
+// --- TIPOS ---
 interface UsuarioDTO {
     cedula: string;
     nombre: string;
@@ -45,7 +43,7 @@ interface CitaAdminDTO {
     fechaCreacion: string;
 }
 
-/** ✅ Normalizador robusto (soporta nombres viejos y nuevos) */
+// --- UTILIDADES ---
 const normalizeCita = (c: any): CitaAdminDTO => ({
     id: Number(c.id),
     cliente: (c.cliente ?? c.usuario) as UsuarioDTO,
@@ -56,7 +54,6 @@ const normalizeCita = (c: any): CitaAdminDTO => ({
     fechaCreacion: String(c.fechaCreacion ?? ""),
 });
 
-/** ✅ Construye endpoint según scope */
 const buildCitasEndpoint = (scope: CitasScope, id?: string) => {
     if (scope === "TODAS") return `${CITAS_API_BASE}/todas`;
     if (scope === "CLIENTE") return `${CITAS_API_BASE}/cliente/${encodeURIComponent(id ?? "")}`;
@@ -66,49 +63,31 @@ const buildCitasEndpoint = (scope: CitasScope, id?: string) => {
 export default function CitasPage() {
     const [citas, setCitas] = useState<CitaAdminDTO[]>([]);
     const [loading, setLoading] = useState(true);
-
     const [estadoFiltro, setEstadoFiltro] = useState("TODOS");
     const [fechaActual, setFechaActual] = useState(new Date());
-
     const [scope, setScope] = useState<CitasScope>("TODAS");
     const [scopeId, setScopeId] = useState<string>("");
-
     const [citaSeleccionada, setCitaSeleccionada] = useState<CitaAdminDTO | null>(null);
-
-    // ✅ Modal crear cita (integrado)
     const [openCrear, setOpenCrear] = useState(false);
 
-    /* =========================
-       1) CARGA DE DATOS
-    ========================= */
+    // --- CARGA DE DATOS ---
     const fetchCitas = async () => {
         setLoading(true);
-
         try {
             const token = localStorage.getItem("token");
-
             if ((scope === "CLIENTE" || scope === "TECNICO") && !scopeId.trim()) {
                 setCitas([]);
                 return;
             }
-
             const url = buildCitasEndpoint(scope, scopeId.trim());
-
             const response = await fetch(url, {
                 headers: { Authorization: `Bearer ${token}` },
             });
-
-            if (!response.ok) {
-                console.error("Error HTTP", response.status);
-                setCitas([]);
-                return;
-            }
-
+            if (!response.ok) throw new Error("Error HTTP");
             const data = await response.json();
-            const arr = Array.isArray(data) ? data : [];
-            setCitas(arr.map(normalizeCita));
+            setCitas(Array.isArray(data) ? data.map(normalizeCita) : []);
         } catch (error) {
-            console.error("Error conexión", error);
+            console.error(error);
             setCitas([]);
         } finally {
             setLoading(false);
@@ -117,33 +96,26 @@ export default function CitasPage() {
 
     useEffect(() => {
         fetchCitas();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [scope, scopeId]);
 
-    /* =========================
-       2) LÓGICA DE CALENDARIO
-    ========================= */
-    const getDaysInWeek = (date: Date) => {
-        const days: Date[] = [];
+    // --- LÓGICA CALENDARIO ---
+    const diasSemana = useMemo(() => {
+        const date = new Date(fechaActual);
         const dayOfWeek = date.getDay();
         const diff = date.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
         const monday = new Date(new Date(date).setDate(diff));
-
-        for (let i = 0; i < 7; i++) {
+        return Array.from({ length: 7 }, (_, i) => {
             const nextDay = new Date(monday);
             nextDay.setDate(monday.getDate() + i);
-            days.push(nextDay);
-        }
-        return days;
-    };
+            return nextDay;
+        });
+    }, [fechaActual]);
 
-    const diasSemana = useMemo(() => getDaysInWeek(new Date(fechaActual)), [fechaActual]);
     const horas = Array.from({ length: 13 }, (_, i) => i + 7);
 
     const getCitasForSlot = (day: Date, hour: number) => {
         return citas.filter((cita) => {
             if (estadoFiltro !== "TODOS" && cita.estado !== estadoFiltro) return false;
-
             const d = new Date(cita.fechaHoraInicio);
             return (
                 d.getDate() === day.getDate() &&
@@ -155,393 +127,186 @@ export default function CitasPage() {
     };
 
     const cambiarSemana = (days: number) => {
-        const nuevaFecha = new Date(fechaActual);
-        nuevaFecha.setDate(nuevaFecha.getDate() + days);
-        setFechaActual(nuevaFecha);
+        const nueva = new Date(fechaActual);
+        nueva.setDate(nueva.getDate() + days);
+        setFechaActual(nueva);
     };
 
-    const getStatusColor = (estado: string) => {
+    const getStatusClasses = (estado: string) => {
         switch (estado) {
-            case "PENDIENTE":
-                return "bg-amber-50 border-amber-300 text-amber-800";
-            case "CONFIRMADA":
-                return "bg-blue-50 border-blue-300 text-blue-800";
-            case "FINALIZADA":
-                return "bg-emerald-50 border-emerald-300 text-emerald-800";
-            case "CANCELADA":
-                return "bg-red-50 border-red-200 text-red-800 opacity-60";
-            default:
-                return "bg-slate-100 border-slate-200";
+            case "PENDIENTE": return "bg-amber-50 border-amber-400 text-amber-900";
+            case "CONFIRMADA": return "bg-blue-50 border-blue-400 text-blue-900";
+            case "FINALIZADA": return "bg-emerald-50 border-emerald-400 text-emerald-900";
+            case "CANCELADA": return "bg-red-50 border-red-300 text-red-900 opacity-75";
+            default: return "bg-slate-50 border-slate-300 text-slate-700";
         }
     };
 
     return (
-        <div
-            style={{
-                height: "calc(100vh - 120px)",
-                minHeight: "600px",
-                display: "flex",
-                flexDirection: "column",
-                gap: "1rem",
-                fontFamily: "'Inter', sans-serif",
-            }}
-        >
+        <div className="flex flex-col h-[calc(100vh-80px)] min-h-[600px] bg-white font-sans text-slate-900 p-4 gap-4">
+
             {/* --- HEADER --- */}
-            <div
-                style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    paddingBottom: "1rem",
-                    borderBottom: "1px solid #e2e8f0",
-                }}
-            >
-                {/* Lado Izquierdo */}
-                <div style={{ display: "flex", gap: "1.5rem", alignItems: "center" }}>
-                    <h2
-                        style={{
-                            fontSize: "1.2rem",
-                            fontWeight: 700,
-                            color: "#0f172a",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "0.5rem",
-                        }}
-                    >
-                        <Calendar size={20} /> AGENDA
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-4 border-b border-slate-200">
+
+                {/* Izquierda: Título y Navegación */}
+                <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
+                    <h2 className="text-xl font-bold flex items-center gap-2 text-slate-800">
+                        <Calendar className="w-6 h-6 text-blue-600" />
+                        <span>Agenda</span>
                     </h2>
 
-                    <div
-                        style={{
-                            display: "flex",
-                            alignItems: "center",
-                            border: "1px solid #cbd5e1",
-                            backgroundColor: "#fff",
-                        }}
-                    >
-                        <button
-                            onClick={() => cambiarSemana(-7)}
-                            style={{
-                                padding: "0.3rem 0.6rem",
-                                cursor: "pointer",
-                                background: "none",
-                                border: "none",
-                                borderRight: "1px solid #cbd5e1",
-                                display: "flex",
-                                alignItems: "center",
-                            }}
-                        >
-                            <ChevronLeft size={16} />
+                    <div className="flex items-center bg-white border border-slate-300 rounded-lg overflow-hidden shadow-sm">
+                        <button onClick={() => cambiarSemana(-7)} className="p-2 hover:bg-slate-100 transition-colors border-r border-slate-200">
+                            <ChevronLeft size={18} />
                         </button>
-
                         <button
                             onClick={() => setFechaActual(new Date())}
-                            style={{
-                                padding: "0.3rem 1rem",
-                                cursor: "pointer",
-                                background: "#f8fafc",
-                                fontWeight: 600,
-                                fontSize: "0.75rem",
-                                border: "none",
-                                fontFamily: "monospace",
-                            }}
+                            className="px-4 py-2 text-sm font-semibold bg-slate-50 hover:bg-slate-100 transition-colors"
                         >
                             HOY
                         </button>
-
-                        <button
-                            onClick={() => cambiarSemana(7)}
-                            style={{
-                                padding: "0.3rem 0.6rem",
-                                cursor: "pointer",
-                                background: "none",
-                                border: "none",
-                                borderLeft: "1px solid #cbd5e1",
-                                display: "flex",
-                                alignItems: "center",
-                            }}
-                        >
-                            <ChevronRight size={16} />
+                        <button onClick={() => cambiarSemana(7)} className="p-2 hover:bg-slate-100 transition-colors border-l border-slate-200">
+                            <ChevronRight size={18} />
                         </button>
                     </div>
 
-                    <span
-                        style={{
-                            fontSize: "0.85rem",
-                            fontFamily: "monospace",
-                            color: "#64748b",
-                            fontWeight: 500,
-                        }}
-                    >
+                    <span className="hidden sm:flex items-center text-sm font-medium text-slate-500 font-mono">
                         {diasSemana[0].toLocaleDateString("es-ES", { month: "short", day: "numeric" })} —{" "}
                         {diasSemana[6].toLocaleDateString("es-ES", { month: "short", day: "numeric" })}
                     </span>
                 </div>
 
-                {/* Lado Derecho */}
-                <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
-                    {/* Selector scope */}
-                    <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                {/* Derecha: Filtros y Botones */}
+                <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                    <div className="flex gap-2">
                         <select
                             value={scope}
                             onChange={(e) => setScope(e.target.value as CitasScope)}
-                            style={{
-                                padding: "0.5rem 0.7rem",
-                                border: "1px solid #cbd5e1",
-                                fontSize: "0.75rem",
-                                fontFamily: "monospace",
-                                fontWeight: 700,
-                                backgroundColor: "#fff",
-                                cursor: "pointer",
-                            }}
+                            className="h-10 px-3 py-2 border border-slate-300 rounded-lg text-xs font-bold bg-white focus:ring-2 focus:ring-blue-500 outline-none"
                         >
                             <option value="TODAS">TODAS</option>
-                            <option value="CLIENTE">POR CLIENTE</option>
-                            <option value="TECNICO">POR TÉCNICO</option>
+                            <option value="CLIENTE">CLIENTE</option>
+                            <option value="TECNICO">TÉCNICO</option>
                         </select>
 
                         {(scope === "CLIENTE" || scope === "TECNICO") && (
                             <input
                                 value={scopeId}
                                 onChange={(e) => setScopeId(e.target.value)}
-                                placeholder={scope === "CLIENTE" ? "Cédula cliente" : "Cédula técnico"}
-                                style={{
-                                    padding: "0.5rem 0.7rem",
-                                    border: "1px solid #cbd5e1",
-                                    fontSize: "0.75rem",
-                                    fontFamily: "monospace",
-                                    fontWeight: 600,
-                                    backgroundColor: "#fff",
-                                    minWidth: "160px",
-                                }}
+                                placeholder="Cédula..."
+                                className="h-10 w-32 px-3 py-2 border border-slate-300 rounded-lg text-xs font-mono font-semibold focus:ring-2 focus:ring-blue-500 outline-none"
                             />
                         )}
                     </div>
 
-                    {/* Filtro Estado */}
-                    <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-                        <Filter size={14} style={{ position: "absolute", left: "10px", color: "#64748b" }} />
-                        <select
-                            value={estadoFiltro}
-                            onChange={(e) => setEstadoFiltro(e.target.value)}
-                            style={{
-                                padding: "0.5rem 1rem 0.5rem 2.2rem",
-                                border: "1px solid #cbd5e1",
-                                fontSize: "0.75rem",
-                                fontFamily: "monospace",
-                                fontWeight: 600,
-                                appearance: "none",
-                                backgroundColor: "#fff",
-                                cursor: "pointer",
-                                minWidth: "140px",
-                            }}
-                        >
-                            <option value="TODOS">ESTADO: TODOS</option>
-                            <option value="PENDIENTE">PENDIENTES</option>
-                            <option value="CONFIRMADA">CONFIRMADOS</option>
-                            <option value="FINALIZADA">FINALIZADOS</option>
-                            <option value="CANCELADA">CANCELADOS</option>
-                        </select>
-                    </div>
 
-                    {/* ✅ Botón abre modal (integrado) */}
                     <button
                         onClick={() => setOpenCrear(true)}
-                        style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: "0.5rem",
-                            padding: "0.55rem 0.9rem",
-                            border: "1px solid #0f172a",
-                            background: "#0f172a",
-                            color: "#fff",
-                            fontWeight: 800,
-                            fontSize: "0.8rem",
-                            cursor: "pointer",
-                            borderRadius: 0,
-                        }}
+                        className="h-10 px-4 bg-slate-900 text-white text-xs font-bold rounded-lg flex items-center justify-center gap-2 hover:bg-slate-800 transition-colors shadow-md"
                     >
-                        <Calendar size={16} />
-                        Nueva Cita
+                        <Calendar size={14} />
+                        <span>NUEVA</span>
                     </button>
                 </div>
             </div>
 
             {/* --- CALENDARIO GRID --- */}
-            <div
-                style={{
-                    flex: 1,
-                    overflow: "auto",
-                    border: "1px solid #e2e8f0",
-                    backgroundColor: "#fff",
-                    display: "flex",
-                    flexDirection: "column",
-                    position: "relative",
-                }}
-            >
-                {/* Header Días (Sticky) */}
-                <div
-                    style={{
-                        display: "grid",
-                        gridTemplateColumns: "60px repeat(7, 1fr)",
-                        borderBottom: "1px solid #e2e8f0",
-                        position: "sticky",
-                        top: 0,
-                        background: "#fff",
-                        zIndex: 5, // ✅ IMPORTANTE: bajo, para que cualquier modal fixed lo tape
-                        boxShadow: "0 2px 4px rgba(0,0,0,0.02)",
-                    }}
-                >
-                    <div style={{ padding: "0.5rem", borderRight: "1px solid #e2e8f0", background: "#f8fafc" }} />
-                    {diasSemana.map((day, i) => {
-                        const isToday = new Date().toDateString() === day.toDateString();
-                        return (
-                            <div
-                                key={i}
-                                style={{
-                                    padding: "0.6rem",
-                                    borderRight: "1px solid #e2e8f0",
-                                    textAlign: "center",
-                                    background: isToday ? "#eff6ff" : "#fff",
-                                    borderBottom: isToday ? "2px solid #2563eb" : "none",
-                                }}
-                            >
+            <div className="flex-1 overflow-auto border border-slate-200 rounded-xl bg-white shadow-sm relative">
+                {/* Contenedor con scroll horizontal para móviles */}
+                <div className="min-w-[800px]">
+
+                    {/* Header Días */}
+                    <div className="grid grid-cols-[60px_repeat(7,1fr)] sticky top-0 bg-white z-10 border-b border-slate-200 shadow-sm">
+                        <div className="bg-slate-50 border-r border-slate-200"></div>
+                        {diasSemana.map((day, i) => {
+                            const isToday = new Date().toDateString() === day.toDateString();
+                            return (
                                 <div
-                                    style={{
-                                        fontSize: "0.7rem",
-                                        fontWeight: 700,
-                                        color: isToday ? "#2563eb" : "#94a3b8",
-                                        textTransform: "uppercase",
-                                        letterSpacing: "1px",
-                                    }}
+                                    key={i}
+                                    className={`p-2 text-center border-r border-slate-100 last:border-0 ${isToday ? "bg-blue-50/50" : ""
+                                        }`}
                                 >
-                                    {day.toLocaleDateString("es-ES", { weekday: "short" })}
+                                    <div className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${isToday ? "text-blue-600" : "text-slate-400"
+                                        }`}>
+                                        {day.toLocaleDateString("es-ES", { weekday: "short" })}
+                                    </div>
+                                    <div className={`text-lg font-bold font-mono ${isToday ? "text-blue-700 bg-blue-100 w-8 h-8 rounded-full flex items-center justify-center mx-auto" : "text-slate-700"
+                                        }`}>
+                                        {day.getDate()}
+                                    </div>
                                 </div>
-                                <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "#0f172a", fontFamily: "monospace" }}>
-                                    {day.getDate()}
-                                </div>
+                            );
+                        })}
+                    </div>
+
+                    {/* Cuerpo Horas */}
+                    <div className="divide-y divide-slate-100">
+                        {loading ? (
+                            <div className="p-8 text-center text-slate-400 flex flex-col items-center gap-2">
+                                <Loader2 className="animate-spin" /> Cargando agenda...
                             </div>
-                        );
-                    })}
-                </div>
+                        ) : (
+                            horas.map((hour) => (
+                                <div key={hour} className="grid grid-cols-[60px_repeat(7,1fr)] min-h-[100px]">
+                                    {/* Columna Hora */}
+                                    <div className="p-2 text-[11px] text-slate-400 font-mono text-right bg-slate-50/50 border-r border-slate-200">
+                                        {hour}:00
+                                    </div>
 
-                {/* Body Horas */}
-                <div style={{ flex: 1, minHeight: 0 }}>
-                    {loading ? (
-                        <div style={{ padding: "1.5rem", color: "#64748b", fontFamily: "monospace" }}>Cargando...</div>
-                    ) : (
-                        horas.map((hour) => (
-                            <div key={hour} style={{ display: "grid", gridTemplateColumns: "60px repeat(7, 1fr)", minHeight: "100px" }}>
-                                {/* Columna Hora */}
-                                <div
-                                    style={{
-                                        borderRight: "1px solid #e2e8f0",
-                                        borderBottom: "1px solid #f1f5f9",
-                                        padding: "0.5rem",
-                                        fontSize: "0.7rem",
-                                        color: "#94a3b8",
-                                        fontFamily: "monospace",
-                                        textAlign: "right",
-                                        backgroundColor: "#fafafa",
-                                    }}
-                                >
-                                    {hour}:00
-                                </div>
-
-                                {/* Celdas Días */}
-                                {diasSemana.map((day, i) => {
-                                    const slots = getCitasForSlot(day, hour);
-                                    const isToday = new Date().toDateString() === day.toDateString();
-
-                                    return (
-                                        <div
-                                            key={i}
-                                            style={{
-                                                borderRight: "1px solid #f1f5f9",
-                                                borderBottom: "1px solid #f1f5f9",
-                                                padding: "4px",
-                                                position: "relative",
-                                                backgroundColor: isToday ? "#f8fafc" : "transparent",
-                                            }}
-                                        >
-                                            {slots.map((cita) => (
-                                                <div
-                                                    key={cita.id}
-                                                    onDoubleClick={() => setCitaSeleccionada(cita)}
-                                                    title="Doble click para ver detalles"
-                                                    className={`p-2 mb-1 border-l-2 cursor-pointer transition-all hover:translate-y-[-1px] hover:shadow-sm ${getStatusColor(
-                                                        cita.estado
-                                                    )}`}
-                                                    style={{
-                                                        fontSize: "0.75rem",
-                                                        overflow: "hidden",
-                                                        borderRadius: "0px",
-                                                        display: "flex",
-                                                        flexDirection: "column",
-                                                        gap: "4px",
-                                                    }}
-                                                >
-                                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                                        <span
-                                                            style={{
-                                                                fontWeight: 700,
-                                                                fontSize: "0.7rem",
-                                                                color: "#000",
-                                                                overflow: "hidden",
-                                                                textOverflow: "ellipsis",
-                                                                whiteSpace: "nowrap",
-                                                                maxWidth: "75%",
-                                                            }}
-                                                        >
-                                                            {cita.cliente?.nombre?.split(" ")[0] ?? "Cliente"}{" "}
-                                                            {cita.cliente?.apellido ? cita.cliente.apellido.charAt(0) + "." : ""}
-                                                        </span>
-
-                                                        <span style={{ fontSize: "0.65rem", fontFamily: "monospace", opacity: 0.7 }}>
-                                                            {new Date(cita.fechaHoraInicio).getMinutes().toString().padStart(2, "0")}m
-                                                        </span>
-                                                    </div>
-
+                                    {/* Celdas Días */}
+                                    {diasSemana.map((day, i) => {
+                                        const slots = getCitasForSlot(day, hour);
+                                        const isToday = new Date().toDateString() === day.toDateString();
+                                        return (
+                                            <div
+                                                key={i}
+                                                className={`p-1 border-r border-slate-100 last:border-0 relative group transition-colors hover:bg-slate-50 ${isToday ? "bg-blue-50/30" : ""
+                                                    }`}
+                                            >
+                                                {slots.map((cita) => (
                                                     <div
-                                                        style={{
-                                                            fontSize: "0.7rem",
-                                                            opacity: 0.8,
-                                                            whiteSpace: "nowrap",
-                                                            overflow: "hidden",
-                                                            textOverflow: "ellipsis",
-                                                        }}
+                                                        key={cita.id}
+                                                        onClick={() => setCitaSeleccionada(cita)}
+                                                        className={`
+                              p-2 mb-1 border-l-4 rounded-r-md shadow-sm cursor-pointer 
+                              transition-all hover:-translate-y-0.5 hover:shadow-md 
+                              ${getStatusClasses(cita.estado)}
+                            `}
                                                     >
-                                                        {cita.motivo}
-                                                    </div>
-
-                                                    {cita.tecnico && (
-                                                        <div
-                                                            style={{
-                                                                display: "flex",
-                                                                alignItems: "center",
-                                                                gap: "4px",
-                                                                paddingTop: "4px",
-                                                                borderTop: "1px dashed rgba(0,0,0,0.1)",
-                                                            }}
-                                                        >
-                                                            <UserCog size={10} className="text-slate-500" />
-                                                            <span style={{ fontSize: "0.65rem", fontWeight: 600, color: "#475569" }}>
-                                                                {cita.tecnico.nombre.split(" ")[0]}
+                                                        <div className="flex justify-between items-start mb-1">
+                                                            <span className="font-bold text-[11px] truncate w-[85%]">
+                                                                {cita.cliente?.nombre?.split(" ")[0]} {cita.cliente?.apellido?.charAt(0)}.
+                                                            </span>
+                                                            <span className="text-[10px] opacity-70 font-mono">
+                                                                {new Date(cita.fechaHoraInicio).getMinutes().toString().padStart(2, "0")}m
                                                             </span>
                                                         </div>
-                                                    )}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        ))
-                    )}
+
+                                                        <div className="text-[11px] leading-tight opacity-90 line-clamp-2 mb-1">
+                                                            {cita.motivo}
+                                                        </div>
+
+                                                        {cita.tecnico && (
+                                                            <div className="flex items-center gap-1 pt-1 border-t border-black/5 mt-1">
+                                                                <UserCog size={10} className="opacity-60" />
+                                                                <span className="text-[10px] font-semibold opacity-70">
+                                                                    {cita.tecnico.nombre.split(" ")[0]}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ))
+                        )}
+                    </div>
                 </div>
             </div>
 
-            {/* ✅ MODAL CREAR CITA (FULL VIEWPORT FIXED) */}
+            {/* MODALES */}
             {openCrear && (
                 <CrearCitaModal
                     onClose={() => setOpenCrear(false)}
@@ -552,37 +317,31 @@ export default function CitasPage() {
                 />
             )}
 
-            {/* --- MODAL DE DETALLES --- */}
-            {citaSeleccionada && <CitaDetailModal cita={citaSeleccionada} onClose={() => setCitaSeleccionada(null)} />}
+            {citaSeleccionada && (
+                <CitaDetailModal
+                    cita={citaSeleccionada}
+                    onClose={() => setCitaSeleccionada(null)}
+                />
+            )}
         </div>
     );
 }
 
-/* =========================
-   MODAL: CREAR CITA (integrado)
-   ✅ FIX: overlay fixed inset-0 => tapa header sticky
-========================= */
+/* =========================================
+   COMPONENTES DE MODAL (Estilizados)
+   ========================================= */
 
-interface Rol {
-    id: number;
-    nombre: string;
-}
+// --- Crear Cita Modal ---
 interface Usuario {
     cedula: string;
     nombre: string;
     apellido?: string;
     email: string;
     telefono?: string;
-    rol?: Rol;
+    rol?: { id: number; nombre: string };
 }
 
-function CrearCitaModal({
-    onClose,
-    onCreated,
-}: {
-    onClose: () => void;
-    onCreated: () => void;
-}) {
+function CrearCitaModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
     const [loading, setLoading] = useState(false);
     const [loadingData, setLoadingData] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -603,114 +362,51 @@ function CrearCitaModal({
 
     const wrapperRef = useRef<HTMLDivElement>(null);
 
-    // ✅ Bloquear scroll del body mientras el modal está abierto
     useEffect(() => {
-        const prev = document.body.style.overflow;
         document.body.style.overflow = "hidden";
-        return () => {
-            document.body.style.overflow = prev;
-        };
+        return () => { document.body.style.overflow = "auto"; };
     }, []);
 
-    // ESC para cerrar
-    useEffect(() => {
-        const onEsc = (e: KeyboardEvent) => {
-            if (e.key === "Escape") onClose();
-        };
-        window.addEventListener("keydown", onEsc);
-        return () => window.removeEventListener("keydown", onEsc);
-    }, [onClose]);
-
-    // Cargar usuarios
     useEffect(() => {
         const fetchCombos = async () => {
             setLoadingData(true);
             try {
                 const token = localStorage.getItem("token");
-                if (!token) return;
-
                 const resUsers = await fetch(USUARIOS_API, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
-
                 if (resUsers.ok) {
                     const usuarios: Usuario[] = await resUsers.json();
                     setListaClientes(usuarios.filter((u) => u.rol?.nombre === "ROLE_CLIENTE"));
-                    setListaTecnicos(
-                        usuarios.filter((u) => u.rol?.nombre === "ROLE_TECNICO" || u.rol?.nombre === "ROLE_ADMIN")
-                    );
-                } else {
-                    setError("No se pudo cargar la lista de usuarios.");
+                    setListaTecnicos(usuarios.filter((u) => u.rol?.nombre === "ROLE_TECNICO" || u.rol?.nombre === "ROLE_ADMIN"));
                 }
             } catch (err) {
-                console.error("Error cargando usuarios:", err);
-                setError("No se pudo cargar la lista de usuarios.");
+                console.error(err);
             } finally {
                 setLoadingData(false);
             }
         };
-
         fetchCombos();
     }, []);
 
-    // Click afuera dropdowns
+    // Cierra dropdowns al hacer clic fuera
     useEffect(() => {
-        function handleClickOutside(event: MouseEvent) {
-            if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+        const handleClick = (e: MouseEvent) => {
+            if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
                 setShowDropCliente(false);
                 setShowDropTecnico(false);
             }
         }
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
+        document.addEventListener("mousedown", handleClick);
+        return () => document.removeEventListener("mousedown", handleClick);
     }, []);
 
     const filtrarUsuarios = (lista: Usuario[], busqueda: string) => {
         const termino = busqueda.toLowerCase();
-        return lista.filter((u) => {
-            const nombreCompleto = `${u.nombre || ""} ${u.apellido || ""}`.toLowerCase();
-            return nombreCompleto.includes(termino) || u.cedula.includes(termino);
-        });
+        return lista.filter((u) =>
+            `${u.nombre} ${u.apellido}`.toLowerCase().includes(termino) || u.cedula.includes(termino)
+        );
     };
-
-    const renderDropdownItem = (u: Usuario, onSelect: (u: Usuario) => void) => (
-        <div
-            key={u.cedula}
-            onClick={() => onSelect(u)}
-            style={{
-                padding: "0.7rem 1rem",
-                cursor: "pointer",
-                borderBottom: "1px solid #f1f5f9",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-            }}
-            onMouseEnter={(e) => ((e.currentTarget.style.backgroundColor = "#f8fafc"))}
-            onMouseLeave={(e) => ((e.currentTarget.style.backgroundColor = "#fff"))}
-        >
-            <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                <span style={{ fontSize: "0.85rem", fontWeight: 800, color: "#0f172a" }}>
-                    {u.nombre} {u.apellido || ""}
-                </span>
-                <span style={{ fontSize: "0.75rem", color: "#64748b", display: "flex", alignItems: "center", gap: "6px" }}>
-                    <User size={12} /> {u.email}
-                </span>
-            </div>
-
-            <span
-                style={{
-                    fontSize: "0.75rem",
-                    fontFamily: "monospace",
-                    background: "#f1f5f9",
-                    color: "#334155",
-                    padding: "0.25rem 0.5rem",
-                    border: "1px solid #e2e8f0",
-                }}
-            >
-                {u.cedula}
-            </span>
-        </div>
-    );
 
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
@@ -718,400 +414,188 @@ function CrearCitaModal({
         setError(null);
 
         if (!clienteSeleccionado || !fecha || !hora || !motivo) {
-            setError("Todos los campos son obligatorios.");
+            setError("Complete todos los campos obligatorios.");
             setLoading(false);
             return;
         }
 
         try {
             const token = localStorage.getItem("token");
-            const fechaHoraInicio = `${fecha}T${hora}:00`;
+            const res = await fetch(`${CITAS_API_BASE}/agendar`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                body: JSON.stringify({
+                    usuarioId: clienteSeleccionado.cedula,
+                    fechaHoraInicio: `${fecha}T${hora}:00`,
+                    motivo,
+                    tecnicoId: tecnicoSeleccionado?.cedula || null,
+                }),
+            });
 
-            const response = await fetch(
-                `${CITAS_API_BASE}/agendar`, // <--- Usamos la constante que ya definimos arriba
-                {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${token}`,
-                    },
-                    body: JSON.stringify({
-                        usuarioId: clienteSeleccionado.cedula,
-                        fechaHoraInicio,
-                        motivo,
-                        tecnicoId: tecnicoSeleccionado ? tecnicoSeleccionado.cedula : null,
-                    }),
-                }
-            );
-
-            if (response.ok) {
-                onCreated();
-            } else {
-                const txt = await response.text();
-                console.error("Error del servidor:", txt);
-                setError("Error al agendar. Verifique los datos.");
-            }
-        } catch (err) {
-            console.error(err);
-            setError("Error de conexión con el servidor");
+            if (res.ok) onCreated();
+            else setError("Error al agendar. Verifique disponibilidad.");
+        } catch {
+            setError("Error de conexión.");
         } finally {
             setLoading(false);
         }
     };
 
-    return (
-        <div
-            role="dialog"
-            aria-modal="true"
-            onClick={onClose}
-            style={{
-                position: "fixed",
-                inset: 0,
-                width: "100vw",
-                height: "100vh",
-                background: "rgba(2, 6, 23, 0.55)",
-                backdropFilter: "blur(6px)",
-                zIndex: 2000, // ✅ MÁS ALTO que cualquier sticky header
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: "1rem",
-            }}
-        >
-            <div
-                onClick={(e) => e.stopPropagation()}
-                ref={wrapperRef}
-                style={{
-                    width: "100%",
-                    maxWidth: "520px",
-                    background: "#fff",
-                    border: "1px solid #e2e8f0",
-                    boxShadow: "0 30px 60px rgba(2,6,23,0.35)",
-                    borderRadius: 0,
-                    overflow: "hidden",
-                }}
-            >
-                {/* Header */}
-                <div
-                    style={{
-                        padding: "1rem 1.25rem",
-                        background: "#f8fafc",
-                        borderBottom: "1px solid #e2e8f0",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        gap: "1rem",
-                    }}
-                >
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-                        <Calendar size={18} />
+    const renderDropdown = (
+        lista: Usuario[],
+        busqueda: string,
+        onSelect: (u: Usuario) => void
+    ) => {
+        const filtrados = filtrarUsuarios(lista, busqueda);
+        return (
+            <div className="absolute top-full left-0 right-0 bg-white border border-slate-200 shadow-xl max-h-48 overflow-y-auto z-50 mt-1 rounded-md">
+                {filtrados.length > 0 ? filtrados.map(u => (
+                    <div
+                        key={u.cedula}
+                        onClick={() => onSelect(u)}
+                        className="p-3 border-b border-slate-50 hover:bg-slate-50 cursor-pointer flex justify-between items-center group"
+                    >
                         <div>
-                            <div style={{ fontSize: "0.8rem", fontWeight: 900, color: "#0f172a", letterSpacing: "0.06em" }}>
-                                AGENDAR SERVICIO TÉCNICO
-                            </div>
-                            <div style={{ fontSize: "0.75rem", color: "#64748b" }}>
-                                Selecciona cliente, fecha/hora y detalle.
-                            </div>
+                            <div className="text-sm font-bold text-slate-800">{u.nombre} {u.apellido}</div>
+                            <div className="text-xs text-slate-500 flex items-center gap-1"><User size={10} /> {u.email}</div>
+                        </div>
+                        <span className="text-[10px] font-mono bg-slate-100 px-2 py-1 rounded text-slate-600 group-hover:bg-white">{u.cedula}</span>
+                    </div>
+                )) : (
+                    <div className="p-3 text-center text-xs text-slate-400">Sin resultados</div>
+                )}
+            </div>
+        );
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 sm:p-6 bg-slate-900/60 backdrop-blur-sm">
+            <div
+                ref={wrapperRef}
+                className="w-full max-w-lg bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+                onClick={e => e.stopPropagation()}
+            >
+                <div className="p-5 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-white rounded-lg border border-slate-200 shadow-sm">
+                            <Calendar size={20} className="text-slate-800" />
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-slate-800 text-sm tracking-wide">AGENDAR SERVICIO</h3>
+                            <p className="text-xs text-slate-500">Complete los detalles de la nueva cita</p>
                         </div>
                     </div>
-
-                    <button
-                        onClick={onClose}
-                        style={{
-                            width: 36,
-                            height: 36,
-                            display: "grid",
-                            placeItems: "center",
-                            background: "#fff",
-                            border: "1px solid #e2e8f0",
-                            cursor: "pointer",
-                        }}
-                        title="Cerrar"
-                    >
-                        <X size={18} />
+                    <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-500">
+                        <X size={20} />
                     </button>
                 </div>
 
-                {/* Body */}
-                <form onSubmit={handleSubmit} style={{ padding: "1.25rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
+                <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-5 overflow-y-auto">
                     {error && (
-                        <div
-                            style={{
-                                background: "#fef2f2",
-                                border: "1px solid #fecaca",
-                                color: "#b91c1c",
-                                padding: "0.75rem",
-                                fontSize: "0.85rem",
-                                fontWeight: 700,
-                            }}
-                        >
-                            {error}
+                        <div className="p-3 bg-red-50 text-red-700 text-xs font-bold rounded-lg border border-red-200 flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span> {error}
                         </div>
                     )}
 
-                    {/* Cliente */}
-                    <div style={{ position: "relative" }}>
-                        <label style={{ fontSize: "0.7rem", fontWeight: 900, color: "#64748b", letterSpacing: "0.12em" }}>
-                            <span style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
-                                <User size={12} /> CLIENTE *
-                            </span>
-                        </label>
-
-                        <div
-                            style={{
-                                marginTop: 6,
-                                position: "relative",
-                                display: "flex",
-                                alignItems: "center",
-                                border: showDropCliente ? "1px solid #2563eb" : "1px solid #cbd5e1",
-                                background: "#fff",
-                            }}
-                        >
-                            <Search size={16} style={{ position: "absolute", left: 10, color: "#94a3b8" }} />
+                    {/* Cliente Autocomplete */}
+                    <div className="relative">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">Cliente *</label>
+                        <div className={`flex items-center border rounded-lg bg-white transition-all ${showDropCliente ? 'ring-2 ring-blue-500 border-transparent' : 'border-slate-300'}`}>
+                            <Search size={16} className="ml-3 text-slate-400" />
                             <input
-                                type="text"
+                                className="w-full p-2.5 text-sm outline-none bg-transparent"
                                 placeholder={loadingData ? "Cargando..." : "Buscar cliente..."}
                                 value={busquedaCliente}
-                                onChange={(e) => {
+                                onChange={e => {
                                     setBusquedaCliente(e.target.value);
                                     setShowDropCliente(true);
                                     setShowDropTecnico(false);
                                     if (e.target.value === "") setClienteSeleccionado(null);
                                 }}
-                                onFocus={() => {
-                                    setShowDropCliente(true);
-                                    setShowDropTecnico(false);
-                                }}
-                                style={{
-                                    width: "100%",
-                                    padding: "0.7rem 2.2rem 0.7rem 2.2rem",
-                                    fontSize: "0.9rem",
-                                    outline: "none",
-                                    border: "none",
-                                }}
+                                onFocus={() => { setShowDropCliente(true); setShowDropTecnico(false); }}
                             />
-
-                            <div style={{ position: "absolute", right: 10, color: "#94a3b8" }}>
-                                {clienteSeleccionado ? <Check size={16} color="#059669" /> : <ChevronDown size={16} />}
+                            <div className="mr-3 text-slate-400">
+                                {clienteSeleccionado ? <Check size={16} className="text-emerald-500" /> : <ChevronDown size={16} />}
                             </div>
                         </div>
-
-                        {showDropCliente && (
-                            <div
-                                style={{
-                                    position: "absolute",
-                                    top: "100%",
-                                    left: 0,
-                                    right: 0,
-                                    background: "#fff",
-                                    border: "1px solid #cbd5e1",
-                                    boxShadow: "0 12px 24px rgba(2,6,23,0.12)",
-                                    maxHeight: 190,
-                                    overflowY: "auto",
-                                    zIndex: 2100,
-                                    marginTop: 6,
-                                }}
-                            >
-                                {filtrarUsuarios(listaClientes, busquedaCliente).length > 0 ? (
-                                    filtrarUsuarios(listaClientes, busquedaCliente).map((u) =>
-                                        renderDropdownItem(u, (sel) => {
-                                            setClienteSeleccionado(sel);
-                                            setBusquedaCliente(`${sel.nombre} ${sel.apellido || ""} - ${sel.cedula}`);
-                                            setShowDropCliente(false);
-                                        })
-                                    )
-                                ) : (
-                                    <div style={{ padding: "0.9rem", textAlign: "center", fontSize: "0.8rem", color: "#64748b" }}>
-                                        Sin resultados
-                                    </div>
-                                )}
-                            </div>
-                        )}
+                        {showDropCliente && renderDropdown(listaClientes, busquedaCliente, (u) => {
+                            setClienteSeleccionado(u);
+                            setBusquedaCliente(`${u.nombre} ${u.apellido || ""} - ${u.cedula}`);
+                            setShowDropCliente(false);
+                        })}
                     </div>
 
-                    {/* Técnico */}
-                    <div style={{ position: "relative" }}>
-                        <label style={{ fontSize: "0.7rem", fontWeight: 900, color: "#64748b", letterSpacing: "0.12em" }}>
-                            <span style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
-                                <Wrench size={12} /> TÉCNICO (Opcional)
-                            </span>
-                        </label>
-
-                        <div
-                            style={{
-                                marginTop: 6,
-                                position: "relative",
-                                display: "flex",
-                                alignItems: "center",
-                                border: showDropTecnico ? "1px solid #2563eb" : "1px solid #cbd5e1",
-                                background: "#fff",
-                            }}
-                        >
-                            <Search size={16} style={{ position: "absolute", left: 10, color: "#94a3b8" }} />
+                    {/* Técnico Autocomplete */}
+                    <div className="relative">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">Técnico (Opcional)</label>
+                        <div className={`flex items-center border rounded-lg bg-white transition-all ${showDropTecnico ? 'ring-2 ring-blue-500 border-transparent' : 'border-slate-300'}`}>
+                            <Search size={16} className="ml-3 text-slate-400" />
                             <input
-                                type="text"
-                                placeholder={loadingData ? "Cargando..." : "Buscar técnico..."}
+                                className="w-full p-2.5 text-sm outline-none bg-transparent"
+                                placeholder="Buscar técnico..."
                                 value={busquedaTecnico}
-                                onChange={(e) => {
+                                onChange={e => {
                                     setBusquedaTecnico(e.target.value);
                                     setShowDropTecnico(true);
                                     setShowDropCliente(false);
                                     if (e.target.value === "") setTecnicoSeleccionado(null);
                                 }}
-                                onFocus={() => {
-                                    setShowDropTecnico(true);
-                                    setShowDropCliente(false);
-                                }}
-                                style={{
-                                    width: "100%",
-                                    padding: "0.7rem 2.2rem 0.7rem 2.2rem",
-                                    fontSize: "0.9rem",
-                                    outline: "none",
-                                    border: "none",
-                                }}
+                                onFocus={() => { setShowDropTecnico(true); setShowDropCliente(false); }}
                             />
-
-                            <div style={{ position: "absolute", right: 10, color: "#94a3b8" }}>
-                                {tecnicoSeleccionado ? <Check size={16} color="#059669" /> : <ChevronDown size={16} />}
+                            <div className="mr-3 text-slate-400">
+                                {tecnicoSeleccionado ? <Check size={16} className="text-emerald-500" /> : <ChevronDown size={16} />}
                             </div>
                         </div>
-
-                        {showDropTecnico && (
-                            <div
-                                style={{
-                                    position: "absolute",
-                                    top: "100%",
-                                    left: 0,
-                                    right: 0,
-                                    background: "#fff",
-                                    border: "1px solid #cbd5e1",
-                                    boxShadow: "0 12px 24px rgba(2,6,23,0.12)",
-                                    maxHeight: 190,
-                                    overflowY: "auto",
-                                    zIndex: 2100,
-                                    marginTop: 6,
-                                }}
-                            >
-                                {filtrarUsuarios(listaTecnicos, busquedaTecnico).length > 0 ? (
-                                    filtrarUsuarios(listaTecnicos, busquedaTecnico).map((u) =>
-                                        renderDropdownItem(u, (sel) => {
-                                            setTecnicoSeleccionado(sel);
-                                            setBusquedaTecnico(`${sel.nombre} ${sel.apellido || ""} - ${sel.cedula}`);
-                                            setShowDropTecnico(false);
-                                        })
-                                    )
-                                ) : (
-                                    <div style={{ padding: "0.9rem", textAlign: "center", fontSize: "0.8rem", color: "#64748b" }}>
-                                        Sin resultados
-                                    </div>
-                                )}
-                            </div>
-                        )}
+                        {showDropTecnico && renderDropdown(listaTecnicos, busquedaTecnico, (u) => {
+                            setTecnicoSeleccionado(u);
+                            setBusquedaTecnico(`${u.nombre} ${u.apellido || ""} - ${u.cedula}`);
+                            setShowDropTecnico(false);
+                        })}
                     </div>
 
-                    {/* Fecha/Hora */}
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.8rem" }}>
+                    <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label style={{ fontSize: "0.7rem", fontWeight: 900, color: "#64748b", letterSpacing: "0.12em" }}>
-                                FECHA *
-                            </label>
+                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">Fecha *</label>
                             <input
                                 type="date"
                                 value={fecha}
-                                onChange={(e) => setFecha(e.target.value)}
+                                onChange={e => setFecha(e.target.value)}
                                 min={new Date().toISOString().split("T")[0]}
-                                style={{
-                                    width: "100%",
-                                    marginTop: 6,
-                                    padding: "0.65rem 0.7rem",
-                                    border: "1px solid #cbd5e1",
-                                    outline: "none",
-                                }}
+                                className="w-full p-2.5 text-sm border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
                             />
                         </div>
-
                         <div>
-                            <label style={{ fontSize: "0.7rem", fontWeight: 900, color: "#64748b", letterSpacing: "0.12em" }}>
-                                HORA *
-                            </label>
+                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">Hora *</label>
                             <input
                                 type="time"
                                 value={hora}
-                                onChange={(e) => setHora(e.target.value)}
-                                style={{
-                                    width: "100%",
-                                    marginTop: 6,
-                                    padding: "0.65rem 0.7rem",
-                                    border: "1px solid #cbd5e1",
-                                    outline: "none",
-                                }}
+                                onChange={e => setHora(e.target.value)}
+                                className="w-full p-2.5 text-sm border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
                             />
                         </div>
                     </div>
 
-                    {/* Motivo */}
                     <div>
-                        <label style={{ fontSize: "0.7rem", fontWeight: 900, color: "#64748b", letterSpacing: "0.12em" }}>
-                            DETALLE DEL SERVICIO *
-                        </label>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">Detalle del servicio *</label>
                         <textarea
                             value={motivo}
-                            onChange={(e) => setMotivo(e.target.value)}
-                            placeholder="Describa el problema técnico..."
-                            style={{
-                                width: "100%",
-                                marginTop: 6,
-                                minHeight: 110,
-                                padding: "0.75rem",
-                                border: "1px solid #cbd5e1",
-                                outline: "none",
-                                fontFamily: "monospace",
-                                fontSize: "0.85rem",
-                                resize: "vertical",
-                            }}
+                            onChange={e => setMotivo(e.target.value)}
+                            placeholder="Describa el problema..."
+                            className="w-full p-3 text-sm border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px] resize-none"
                         />
                     </div>
 
-                    {/* Footer */}
-                    <div style={{ display: "flex", gap: "0.6rem", justifyContent: "flex-end", paddingTop: "0.9rem", borderTop: "1px solid #f1f5f9" }}>
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            style={{
-                                padding: "0.6rem 0.9rem",
-                                border: "1px solid #cbd5e1",
-                                background: "#fff",
-                                fontWeight: 900,
-                                cursor: "pointer",
-                            }}
-                        >
+                    <div className="pt-4 border-t border-slate-100 flex justify-end gap-3">
+                        <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-bold text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
                             Cancelar
                         </button>
-
                         <button
                             type="submit"
                             disabled={loading || !clienteSeleccionado}
-                            style={{
-                                padding: "0.6rem 0.9rem",
-                                border: "1px solid #0f172a",
-                                background: "#0f172a",
-                                color: "#fff",
-                                fontWeight: 900,
-                                cursor: loading ? "not-allowed" : "pointer",
-                                opacity: loading || !clienteSeleccionado ? 0.7 : 1,
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: "0.5rem",
-                            }}
+                            className="px-4 py-2 text-sm font-bold text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                         >
-                            {loading ? (
-                                <>
-                                    <Loader2 size={16} className="animate-spin" />
-                                    Asignando...
-                                </>
-                            ) : (
-                                "Confirmar Asignación"
-                            )}
+                            {loading && <Loader2 size={16} className="animate-spin" />}
+                            Confirmar Cita
                         </button>
                     </div>
                 </form>
@@ -1120,200 +604,87 @@ function CrearCitaModal({
     );
 }
 
-/* =========================
-   MODAL DETALLES (el tuyo)
-========================= */
+// --- Detalle Modal ---
 function CitaDetailModal({ cita, onClose }: { cita: CitaAdminDTO; onClose: () => void }) {
     useEffect(() => {
-        const handleEsc = (e: KeyboardEvent) => {
-            if (e.key === "Escape") onClose();
-        };
-        window.addEventListener("keydown", handleEsc);
-        return () => window.removeEventListener("keydown", handleEsc);
-    }, [onClose]);
+        document.body.style.overflow = "hidden";
+        return () => { document.body.style.overflow = "auto"; };
+    }, []);
 
-    const estado = (cita.estado ?? "").toUpperCase();
-
-    const estadoStyles = (() => {
-        if (estado.includes("COMPLET")) return { bg: "#dcfce7", border: "#86efac", text: "#166534" };
-        if (estado.includes("CANCEL")) return { bg: "#fee2e2", border: "#fecaca", text: "#991b1b" };
-        if (estado.includes("REPRO") || estado.includes("NO")) return { bg: "#ffedd5", border: "#fed7aa", text: "#9a3412" };
-        return { bg: "#e0e7ff", border: "#c7d2fe", text: "#3730a3" };
-    })();
-
-    const fechaLabel = (() => {
-        try {
-            return new Date(cita.fechaHoraInicio).toLocaleString("es-ES", { dateStyle: "full", timeStyle: "short" });
-        } catch {
-            return String(cita.fechaHoraInicio ?? "Sin fecha");
-        }
-    })();
-
-    const clienteNombre = `${cita.cliente?.nombre ?? ""} ${cita.cliente?.apellido ?? ""}`.trim() || "—";
-    const tecnicoNombre = cita.tecnico ? `${cita.tecnico?.nombre ?? ""} ${cita.tecnico?.apellido ?? ""}`.trim() || "—" : null;
+    const estadoStyles = {
+        PENDIENTE: "bg-amber-100 text-amber-800 border-amber-200",
+        CONFIRMADA: "bg-blue-100 text-blue-800 border-blue-200",
+        FINALIZADA: "bg-emerald-100 text-emerald-800 border-emerald-200",
+        CANCELADA: "bg-red-100 text-red-800 border-red-200",
+    }[cita.estado] || "bg-slate-100 text-slate-800";
 
     return (
-        <div
-            role="dialog"
-            aria-modal="true"
-            aria-label={`Detalle de cita ${cita.id}`}
-            onClick={onClose}
-            style={{
-                position: "fixed",
-                inset: 0,
-                width: "100vw",
-                height: "100vh",
-                background: "rgba(2, 6, 23, 0.55)",
-                backdropFilter: "blur(6px)",
-                zIndex: 3000,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: "1rem",
-            }}
-        >
-            <div
-                onClick={(e) => e.stopPropagation()}
-                style={{
-                    width: "100%",
-                    maxWidth: "720px",
-                    borderRadius: "16px",
-                    backgroundColor: "#fff",
-                    boxShadow: "0 0 0 1px rgba(148,163,184,0.35), 0 24px 50px -12px rgba(2,6,23,0.45)",
-                    overflow: "hidden",
-                }}
-            >
-                <div
-                    style={{
-                        padding: "1rem 1.25rem",
-                        background: "linear-gradient(90deg, #0f172a, #111827)",
-                        color: "#fff",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        gap: "1rem",
-                    }}
-                >
-                    <div style={{ display: "flex", flexDirection: "column", gap: "0.15rem" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" }}>
-                            <span style={{ fontSize: "0.72rem", color: "rgba(226,232,240,0.85)", letterSpacing: "0.18em", textTransform: "uppercase", fontWeight: 700 }}>
-                                Detalle de cita
-                            </span>
-                            <span style={{ fontSize: "0.75rem", padding: "0.22rem 0.55rem", borderRadius: "999px", backgroundColor: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.18)", fontWeight: 700 }}>
-                                #{String(cita.id).padStart(6, "0")}
-                            </span>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" onClick={onClose}>
+            <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+                <div className="p-6 bg-slate-900 text-white flex justify-between items-center">
+                    <div>
+                        <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs font-bold tracking-widest text-slate-400 uppercase">Detalle de cita</span>
+                            <span className="px-2 py-0.5 rounded-full bg-white/10 border border-white/20 text-[10px] font-mono font-bold">#{String(cita.id).padStart(5, '0')}</span>
                         </div>
-
-                        <span style={{ fontSize: "0.72rem", color: "rgba(226,232,240,0.85)" }}>
-                            <span style={{ opacity: 0.8 }}>Programada:</span> <b style={{ color: "#fff" }}>{fechaLabel}</b>
-                        </span>
+                        <div className="text-lg font-bold">
+                            {new Date(cita.fechaHoraInicio).toLocaleString("es-ES", { dateStyle: "full", timeStyle: "short" })}
+                        </div>
                     </div>
-
-                    <button
-                        onClick={onClose}
-                        style={{
-                            width: "36px",
-                            height: "36px",
-                            borderRadius: "999px",
-                            background: "rgba(255,255,255,0.12)",
-                            border: "1px solid rgba(255,255,255,0.18)",
-                            color: "#fff",
-                            cursor: "pointer",
-                            display: "grid",
-                            placeItems: "center",
-                        }}
-                        title="Cerrar"
-                        aria-label="Cerrar"
-                    >
-                        <X size={18} />
-                    </button>
+                    <button onClick={onClose} className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors"><X size={18} /></button>
                 </div>
 
-                <div style={{ padding: "1.25rem" }}>
-                    <div
-                        style={{
-                            display: "grid",
-                            gridTemplateColumns: "1fr 1.2fr",
-                            gap: "1rem",
-                            padding: "0.9rem",
-                            borderRadius: "14px",
-                            border: "1px solid #e2e8f0",
-                            background: "linear-gradient(180deg, #ffffff, #f8fafc)",
-                            marginBottom: "1rem",
-                        }}
-                    >
-                        <div>
-                            <div style={{ fontSize: "0.7rem", color: "#64748b", textTransform: "uppercase", fontWeight: 800, letterSpacing: "0.12em", marginBottom: "0.35rem" }}>
-                                Estado
-                            </div>
-                            <span style={{ display: "inline-flex", alignItems: "center", gap: "0.45rem", padding: "0.3rem 0.6rem", borderRadius: "999px", background: estadoStyles.bg, border: `1px solid ${estadoStyles.border}`, color: estadoStyles.text, fontWeight: 900, fontSize: "0.75rem" }}>
-                                <span style={{ width: 8, height: 8, borderRadius: "999px", backgroundColor: estadoStyles.text, opacity: 0.9 }} />
+                <div className="p-6 space-y-6">
+                    <div className="flex gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100">
+                        <div className="flex-1">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Estado</label>
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border ${estadoStyles}`}>
                                 {cita.estado}
                             </span>
                         </div>
-
-                        <div>
-                            <div style={{ fontSize: "0.7rem", color: "#64748b", textTransform: "uppercase", fontWeight: 800, letterSpacing: "0.12em", marginBottom: "0.35rem" }}>
-                                Horario programado
-                            </div>
-                            <div style={{ fontWeight: 800, fontSize: "0.92rem", color: "#0f172a", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                                <span style={{ width: 28, height: 28, borderRadius: "10px", border: "1px solid #e2e8f0", backgroundColor: "#fff", display: "grid", placeItems: "center", boxShadow: "0 6px 14px rgba(2,6,23,0.06)" }}>
-                                    <Clock size={14} />
-                                </span>
-                                {fechaLabel}
+                        <div className="flex-1">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Horario</label>
+                            <div className="flex items-center gap-2 font-bold text-slate-800">
+                                <Clock size={16} className="text-blue-500" />
+                                {new Date(cita.fechaHoraInicio).toLocaleTimeString("es-ES", { hour: '2-digit', minute: '2-digit' })}
                             </div>
                         </div>
                     </div>
 
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
-                        <div style={{ borderRadius: "14px", border: "1px solid #e2e8f0", backgroundColor: "#ffffff", padding: "0.95rem", boxShadow: "0 10px 24px rgba(2,6,23,0.06)" }}>
-                            <h4 style={{ margin: 0, fontSize: "0.75rem", fontWeight: 900, color: "#334155", textTransform: "uppercase", letterSpacing: "0.14em", display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.85rem" }}>
-                                <span style={{ width: 28, height: 28, borderRadius: "10px", background: "#f1f5f9", border: "1px solid #e2e8f0", display: "grid", placeItems: "center" }}>
-                                    <User size={14} />
-                                </span>
-                                Datos del cliente
-                            </h4>
-                            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-                                <InfoItem label="Nombre" value={clienteNombre} />
-                                <InfoItem label="Cédula" value={cita.cliente?.cedula ?? "—"} monospace />
-                                <InfoItem label="Contacto" value={cita.cliente?.telefono || "N/A"} monospace />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="p-4 border border-slate-200 rounded-xl bg-white shadow-sm">
+                            <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-100">
+                                <div className="p-1.5 bg-slate-100 rounded-md"><User size={14} /></div>
+                                <span className="text-xs font-bold uppercase text-slate-600">Cliente</span>
                             </div>
+                            <InfoItem label="Nombre" value={`${cita.cliente.nombre} ${cita.cliente.apellido || ''}`} />
+                            <InfoItem label="Contacto" value={cita.cliente.email} monospace />
+                            <InfoItem label="Teléfono" value={cita.cliente.telefono || 'Sin teléfono'} monospace />
                         </div>
 
-                        <div style={{ borderRadius: "14px", border: "1px solid #e2e8f0", backgroundColor: "#ffffff", padding: "0.95rem", boxShadow: "0 10px 24px rgba(2,6,23,0.06)" }}>
-                            <h4 style={{ margin: 0, fontSize: "0.75rem", fontWeight: 900, color: "#334155", textTransform: "uppercase", letterSpacing: "0.14em", display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.85rem" }}>
-                                <span style={{ width: 28, height: 28, borderRadius: "10px", background: "#f1f5f9", border: "1px solid #e2e8f0", display: "grid", placeItems: "center" }}>
-                                    <UserCog size={14} />
-                                </span>
-                                Técnico asignado
-                            </h4>
-
+                        <div className="p-4 border border-slate-200 rounded-xl bg-white shadow-sm">
+                            <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-100">
+                                <div className="p-1.5 bg-slate-100 rounded-md"><UserCog size={14} /></div>
+                                <span className="text-xs font-bold uppercase text-slate-600">Técnico</span>
+                            </div>
                             {cita.tecnico ? (
-                                <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-                                    <InfoItem label="Nombre" value={tecnicoNombre ?? "—"} />
-                                </div>
+                                <InfoItem label="Asignado a" value={`${cita.tecnico.nombre} ${cita.tecnico.apellido || ''}`} />
                             ) : (
-                                <div style={{ padding: "0.75rem", borderRadius: "12px", backgroundColor: "#f8fafc", border: "1px dashed #cbd5e1", color: "#64748b", fontSize: "0.85rem", fontStyle: "italic" }}>
+                                <div className="p-3 bg-slate-50 rounded-lg text-center text-xs text-slate-400 italic border border-dashed border-slate-200">
                                     Sin asignar
                                 </div>
                             )}
                         </div>
                     </div>
 
-                    <div style={{ borderRadius: "14px", border: "1px solid #e2e8f0", background: "linear-gradient(180deg, #ffffff, #f8fafc)", padding: "0.95rem" }}>
-                        <div style={{ fontSize: "0.75rem", fontWeight: 900, color: "#334155", textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: "0.6rem", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                            <span>Detalle de solicitud</span>
-                            <span style={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 800, textTransform: "none" }}></span>
-                        </div>
-
-                        <div style={{ backgroundColor: "#ffffff", border: "1px solid #e2e8f0", borderLeft: "4px solid #0f172a", borderRadius: "12px", padding: "0.85rem 0.9rem", fontSize: "0.9rem", color: "#0f172a", lineHeight: 1.5, boxShadow: "0 10px 20px rgba(2,6,23,0.06)", whiteSpace: "pre-wrap" }}>
-                            {cita.motivo || "Sin detalle"}
-                        </div>
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Detalle de solicitud</label>
+                        <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{cita.motivo}</p>
                     </div>
                 </div>
 
-                <div style={{ padding: "0.9rem 1.25rem", borderTop: "1px solid #e2e8f0", backgroundColor: "#ffffff", display: "flex", justifyContent: "flex-end", gap: "0.6rem" }}>
-                    <button onClick={onClose} style={{ border: "1px solid #e2e8f0", backgroundColor: "#fff", color: "#0f172a", padding: "0.45rem 0.9rem", borderRadius: "12px", fontSize: "0.85rem", fontWeight: 800, cursor: "pointer" }}>
+                <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end">
+                    <button onClick={onClose} className="px-5 py-2 bg-white border border-slate-300 shadow-sm rounded-lg text-sm font-bold text-slate-700 hover:bg-slate-50">
                         Cerrar
                     </button>
                 </div>
@@ -1324,11 +695,9 @@ function CitaDetailModal({ cita, onClose }: { cita: CitaAdminDTO; onClose: () =>
 
 function InfoItem({ label, value, monospace }: { label: string; value: string; monospace?: boolean }) {
     return (
-        <div>
-            <div style={{ color: "#64748b", fontSize: "0.7rem", fontWeight: 600, marginBottom: "2px" }}>{label}</div>
-            <div style={{ color: "#0f172a", fontWeight: 500, fontSize: "0.9rem", fontFamily: monospace ? "monospace" : "inherit" }}>
-                {value}
-            </div>
+        <div className="mb-2 last:mb-0">
+            <span className="text-[10px] text-slate-400 font-bold block">{label}</span>
+            <span className={`text-sm text-slate-800 font-medium ${monospace ? 'font-mono' : ''}`}>{value}</span>
         </div>
     );
 }

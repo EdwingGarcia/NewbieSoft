@@ -224,7 +224,6 @@ export default function EquipoPage(): JSX.Element {
     /* ============================
        DETALLES DE EQUIPO
     =============================== */
-
     const verDetalles = async (id: number) => {
         const token = getToken();
 
@@ -235,6 +234,11 @@ export default function EquipoPage(): JSX.Element {
 
             if (res.ok) {
                 const data = await res.json();
+
+                // --- AGREGA ESTO ---
+                console.log("DATOS QUE LLEGAN DEL BACKEND:", data);
+                // -------------------
+
                 setDetalle(data);
                 setHardwareSearch("");
                 setShowXml(false);
@@ -245,7 +249,6 @@ export default function EquipoPage(): JSX.Element {
             alert(err.message);
         }
     };
-
     /* ============================
        HARDWARE
     =============================== */
@@ -622,7 +625,6 @@ export default function EquipoPage(): JSX.Element {
                                     Cargar XML del equipo
                                 </Button>
                             </div>
-
                             {/* MODAL XML */}
                             {showXml && (
                                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
@@ -634,7 +636,9 @@ export default function EquipoPage(): JSX.Element {
                                             ✕
                                         </button>
                                         <XmlUploader
-                                            equipoId={detalle.idEquipo}
+                                            // CORRECCIÓN AQUÍ:
+                                            // Intentamos leer idEquipo, si no existe, intentamos leer id (usando as any para burlar a TS momentáneamente)
+                                            equipoId={detalle.idEquipo || (detalle as any).id}
                                         />
                                     </div>
                                 </div>

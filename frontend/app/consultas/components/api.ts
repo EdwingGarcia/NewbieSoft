@@ -1,39 +1,51 @@
-// Importamos la URL centralizada desde tu archivo principal de configuración
+// src/lib/api.ts (o donde tengas tu archivo api.ts)
 import { API_BASE_URL } from "@/app/lib/api";
-
-// Eliminamos la definición local de BASE_URL para evitar duplicidad
-// const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
 export type OtpSendReq = {
     cedula: string;
     correo: string;
     recaptchaToken?: string;
 };
-export type OtpSendRes = { ok: boolean; message?: string };
 
 export type OtpVerifyReq = { cedula: string; codigo: string };
 export type OtpVerifyRes = {
     ok: boolean;
     message?: string;
     consultaToken?: string;
-    expiresInSeconds?: number;
 };
 
 export type HistorialReq = { consultaToken: string };
 export type ProcedimientoReq = { consultaToken: string; numeroOrden: string };
 
+// ✅ Nuevo DTO de Equipo
+export type EquipoDto = {
+    id?: number;
+    numeroSerie?: string;
+    modelo?: string;
+    marca?: string;
+};
+
+// ✅ DTO Actualizado con toda la info nueva
 export type OrdenPublicaDto = {
     numeroOrden: string;
     estado: string;
     tipoServicio?: string;
-    prioridad?: string;
     fechaHoraIngreso?: string;
     fechaHoraEntrega?: string | null;
+
+    // Objetos y detalles nuevos
+    equipo?: EquipoDto;
+    accesorios?: string;
     problemaReportado?: string;
+    observacionesIngreso?: string;
+
+    // Resultados técnicos
+    diagnosticoTrabajo?: string;
+    observacionesRecomendaciones?: string;
+    motivoCierre?: string;
 };
 
 async function postJSON<T>(path: string, body: unknown): Promise<T> {
-    // Usamos API_BASE_URL importada
     const res = await fetch(`${API_BASE_URL}${path}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

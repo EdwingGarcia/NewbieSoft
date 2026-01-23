@@ -1,11 +1,27 @@
 /* consultas.css */
+
+/* --- WRAPPER PRINCIPAL (PANTALLA FIJA) --- */
 .consulta-wrapper {
-    min-height: 100vh;
-    padding: 48px 18px;
+    /* Altura fija */
+    height: 100vh;
+    width: 100vw;
+
+    /* Configuración Flex para centrar */
     display: flex;
     justify-content: center;
+    align-items: center;
+
+    /* Padding general */
+    padding: 20px;
+
+    /* 🔥 TRUCO: Agregamos padding extra abajo. 
+       Al ocupar espacio abajo, el centro matemático "sube", 
+       haciendo que el formulario se vea más centrado visualmente. */
+    padding-bottom: 140px;
+
     position: relative;
     overflow: hidden;
+    /* Elimina scrollbar del navegador */
 
     /* Fondo oscuro animado */
     background: linear-gradient(135deg,
@@ -17,7 +33,6 @@
     animation: consultasGradientMove 16s ease infinite;
 }
 
-/* Movimiento del fondo */
 @keyframes consultasGradientMove {
     0% {
         background-position: 0% 50%;
@@ -32,21 +47,72 @@
     }
 }
 
+/* Orbes animados de fondo */
+.consulta-wrapper::before,
+.consulta-wrapper::after {
+    content: "";
+    position: absolute;
+    width: 600px;
+    height: 600px;
+    border-radius: 50%;
+    filter: blur(90px);
+    opacity: 0.45;
+    z-index: 0;
+    animation: consultasGlowFloat 14s ease-in-out infinite;
+}
+
+.consulta-wrapper::before {
+    top: -220px;
+    left: -220px;
+    background: rgba(99, 102, 241, 0.85);
+}
+
+.consulta-wrapper::after {
+    bottom: -260px;
+    right: -240px;
+    background: rgba(168, 85, 247, 0.85);
+    animation-delay: 2s;
+}
+
+@keyframes consultasGlowFloat {
+    0% {
+        transform: translate(0, 0) scale(1);
+    }
+
+    50% {
+        transform: translate(80px, 60px) scale(1.12);
+    }
+
+    100% {
+        transform: translate(0, 0) scale(1);
+    }
+}
+
 .consulta-inner {
     position: relative;
     z-index: 1;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+
+    /* 🔥 Asegura que si la pantalla es pequeña, esto no se corte
+       pero permite que se mueva hacia arriba con el wrapper */
+    max-height: 100%;
 }
 
-
-
+/* --- HEADER --- */
 .consulta-header {
     text-align: center;
     color: white;
     margin-bottom: 18px;
+    flex-shrink: 0;
+    /* Evita que el header se aplaste */
 }
 
 .consulta-header h1 {
-    font-size: clamp(28px, 4vw, 44px);
+    font-size: clamp(24px, 4vw, 40px);
+    /* Ligeramente más pequeño para pantallas chicas */
     margin: 0;
     letter-spacing: -0.02em;
 }
@@ -55,36 +121,57 @@
     margin: 10px auto 0;
     max-width: 760px;
     opacity: 0.88;
+    font-size: 0.95rem;
 }
 
+/* --- MAIN CONTAINER (TARJETA) --- */
 .consulta-container {
     margin-top: 22px;
+    width: 100%;
+    max-width: 1200px;
+
+    /* Configuración de Scroll Interno de Seguridad */
+    max-height: 85vh;
+    /* Nunca más alto que el 85% de la pantalla */
+    overflow-y: auto;
+    /* Scroll interno si el contenido es muy largo */
+    scrollbar-width: none;
+    /* Firefox: oculta scrollbar de la tarjeta */
+
     display: grid;
     grid-template-columns: 1fr;
-    gap: 18px;
+    gap: 24px;
 
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 22px;
-    padding: 22px;
-    backdrop-filter: blur(14px);
-    box-shadow: 0 20px 70px rgba(0, 0, 0, 0.35);
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 24px;
+    padding: 32px;
+    backdrop-filter: blur(16px);
+    box-shadow: 0 25px 80px rgba(0, 0, 0, 0.45);
 }
 
-@media (min-width: 920px) {
+/* Chrome/Safari: Ocultar scrollbar de la tarjeta contenedora */
+.consulta-container::-webkit-scrollbar {
+    display: none;
+}
+
+@media (min-width: 960px) {
     .consulta-container {
-        grid-template-columns: 1.05fr 0.95fr;
+        grid-template-columns: 380px 1fr;
         align-items: start;
+        overflow-y: visible;
+        /* En desktop grande, permitimos overflow normal si cabe */
+    }
+
+    /* Si en desktop la altura es pequeña, volvemos a limitar */
+    @media (max-height: 800px) {
+        .consulta-container {
+            overflow-y: auto;
+        }
     }
 }
 
-/* ✅ Responsivo: en móvil 3+3 */
-@media (max-width: 520px) {
-    .otpInputs {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-}
-
+/* --- FORM ELEMENTS --- */
 form label {
     display: block;
     color: rgba(255, 255, 255, 0.92);
@@ -148,10 +235,11 @@ form button:disabled {
     cursor: not-allowed;
 }
 
-/* Results */
+/* --- RESULTS AREA --- */
 .consulta-results {
-    padding: 8px;
+    padding: 0;
     color: white;
+    height: 100%;
 }
 
 .consulta-error {
@@ -159,6 +247,8 @@ form button:disabled {
     border-radius: 14px;
     background: rgba(239, 68, 68, 0.14);
     border: 1px solid rgba(239, 68, 68, 0.25);
+    color: #fca5a5;
+    margin-bottom: 16px;
 }
 
 .consulta-loading {
@@ -166,27 +256,54 @@ form button:disabled {
     border-radius: 14px;
     background: rgba(59, 130, 246, 0.14);
     border: 1px solid rgba(59, 130, 246, 0.25);
+    margin-bottom: 16px;
 }
 
+/* Tarjeta Principal de Resultados */
 .result-card {
-    border-radius: 18px;
-    padding: 16px;
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 20px;
+    padding: 24px;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    /* height: 100%; Quitamos height fijo para dejar que crezca natural */
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
 }
 
-.result-top {
+/* Encabezado Resultados */
+.result-header-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 12px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 8px;
 }
 
-.result-top h3 {
+.result-header-row h3 {
     margin: 0;
-    font-size: 18px;
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: #fff;
 }
 
+/* Badge Grande */
+.status-badge-lg {
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-weight: 800;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: rgba(139, 92, 246, 0.2);
+    border: 1px solid rgba(139, 92, 246, 0.4);
+    color: #c4b5fd;
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.15);
+}
+
+/* Badge Pequeño */
 .badge {
     padding: 6px 10px;
     border-radius: 999px;
@@ -196,58 +313,146 @@ form button:disabled {
     border: 1px solid rgba(168, 85, 247, 0.35);
 }
 
-.result-grid {
-    margin-top: 12px;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+/* Secciones de la tarjeta */
+.result-section {
+    display: flex;
+    flex-direction: column;
     gap: 10px;
 }
 
-.result-grid>div {
-    background: rgba(0, 0, 0, 0.18);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 14px;
-    padding: 10px 12px;
+.result-section-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    font-weight: 800;
+    color: rgba(255, 255, 255, 0.5);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.result-section-title::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* Grids de información */
+.info-grid-2 {
     display: grid;
-    gap: 4px;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
 }
 
-.result-grid span {
-    font-size: 12px;
-    opacity: 0.75;
+.info-grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
 }
 
-.result-note {
+@media (max-width: 600px) {
+    .info-grid-3 {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+.info-box {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 10px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    transition: background 0.2s;
+}
+
+.info-box:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.info-label {
+    display: block;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.6);
+    margin-bottom: 4px;
+}
+
+.info-value {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: #fff;
+    word-break: break-word;
+}
+
+/* Cajas de texto descriptivo */
+.text-box {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 12px;
+    padding: 14px;
+    border-left: 4px solid rgba(139, 92, 246, 0.5);
+    font-size: 14px;
+    line-height: 1.5;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.text-box.danger {
+    background: rgba(239, 68, 68, 0.08);
+    border-left-color: rgba(239, 68, 68, 0.6);
+    color: #fca5a5;
+}
+
+/* Detalles Técnicos */
+.result-detail-section {
     margin-top: 12px;
-    background: rgba(0, 0, 0, 0.18);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 14px;
-    padding: 10px 12px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.result-note span {
-    font-size: 12px;
-    opacity: 0.75;
+.result-detail-title {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.6);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
+    font-weight: 700;
 }
 
-.result-note p {
-    margin: 6px 0 0;
-    opacity: 0.95;
+.result-detail-text {
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: rgba(255, 255, 255, 0.9);
 }
 
-.result-list h3 {
-    margin: 0 0 10px;
+/* Lista Historial */
+.historial-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
 .result-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px 12px;
+    padding: 12px 14px;
     border-radius: 14px;
     background: rgba(255, 255, 255, 0.06);
     border: 1px solid rgba(255, 255, 255, 0.12);
     margin-bottom: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.result-item:hover {
+    background: rgba(255, 255, 255, 0.12);
+    transform: translateX(4px);
+    border-color: rgba(139, 92, 246, 0.4);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.result-item:active {
+    transform: scale(0.99);
 }
 
 .result-ord {
@@ -272,21 +477,60 @@ form button:disabled {
     padding: 12px;
     border-radius: 14px;
     border: 1px dashed rgba(255, 255, 255, 0.2);
+    text-align: center;
 }
 
-.token-hint {
-    margin-top: 12px;
-    opacity: 0.8;
-    font-size: 12px;
+/* Botón cerrar detalle */
+.btn-close-detail {
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: rgba(255, 255, 255, 0.7);
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-left: 12px;
 }
 
-.token-hint code {
-    background: rgba(0, 0, 0, 0.25);
-    padding: 2px 6px;
-    border-radius: 8px;
+.btn-close-detail:hover {
+    background: rgba(239, 68, 68, 0.2);
+    color: #fca5a5;
 }
 
-/* OTP modal */
+/* --- SCROLLBAR PERSONALIZADO (Lista Historial) --- */
+.historial-scroll-container {
+    max-height: 360px;
+    overflow-y: auto;
+    padding-right: 8px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+}
+
+.historial-scroll-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+.historial-scroll-container::-webkit-scrollbar-track {
+    background: transparent;
+    margin: 4px 0;
+}
+
+.historial-scroll-container::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+    border: 1px solid transparent;
+    transition: background-color 0.3s ease;
+}
+
+.historial-scroll-container::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(255, 255, 255, 0.5);
+}
+
+/* --- OTP MODAL --- */
 .otpOverlay {
     position: fixed;
     inset: 0;
@@ -296,14 +540,11 @@ form button:disabled {
     justify-content: center;
     padding: 16px;
     z-index: 9999;
-    /* más alto */
 }
-
 
 .otpCard {
     width: 100%;
     max-width: 520px;
-    /* ✅ asegura límite */
     border-radius: 20px;
     padding: 18px;
     background: rgba(10, 12, 25, 0.92);
@@ -313,7 +554,6 @@ form button:disabled {
     color: white;
     box-sizing: border-box;
     overflow: hidden;
-    /* ✅ evita que se salga */
 }
 
 .otpTop {
@@ -350,20 +590,21 @@ form button:disabled {
 .otpInputs {
     display: grid;
     grid-template-columns: repeat(6, minmax(0, 1fr));
-    /* ✅ evita overflow */
     gap: 10px;
     margin-top: 16px;
     width: 100%;
-    max-width: 100%;
+}
+
+@media (max-width: 520px) {
+    .otpInputs {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
 }
 
 .otpDigit {
     width: 100% !important;
-    /* ✅ dentro del grid */
     min-width: 0 !important;
-    /* ✅ clave para minmax(0,1fr) */
     box-sizing: border-box;
-
     text-align: center;
     font-size: 18px;
     padding: 12px 0;
@@ -385,6 +626,7 @@ form button:disabled {
     border-radius: 14px;
     background: rgba(239, 68, 68, 0.14);
     border: 1px solid rgba(239, 68, 68, 0.25);
+    color: #fca5a5;
 }
 
 .otpBtn {
@@ -403,47 +645,4 @@ form button:disabled {
     margin-top: 10px;
     font-size: 12px;
     opacity: 0.75;
-}
-
-/* Orbes animados (igual que login) */
-.consulta-wrapper::before,
-.consulta-wrapper::after {
-    content: "";
-    position: absolute;
-    width: 600px;
-    height: 600px;
-    border-radius: 50%;
-    filter: blur(90px);
-    opacity: 0.45;
-    z-index: 0;
-    animation: consultasGlowFloat 14s ease-in-out infinite;
-}
-
-.consulta-wrapper::before {
-    top: -220px;
-    left: -220px;
-    background: rgba(99, 102, 241, 0.85);
-    /* azul */
-}
-
-.consulta-wrapper::after {
-    bottom: -260px;
-    right: -240px;
-    background: rgba(168, 85, 247, 0.85);
-    /* morado */
-    animation-delay: 2s;
-}
-
-@keyframes consultasGlowFloat {
-    0% {
-        transform: translate(0, 0) scale(1);
-    }
-
-    50% {
-        transform: translate(80px, 60px) scale(1.12);
-    }
-
-    100% {
-        transform: translate(0, 0) scale(1);
-    }
 }

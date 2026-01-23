@@ -1,13 +1,20 @@
 package com.newbie.newbiecore.dto.Consultas;
 
+import com.newbie.newbiecore.dto.EquipoDto;
+
 import java.time.Instant;
 
 public record OrdenPublicaDto(
         String numeroOrden,
         String estado,
         String tipoServicio,
-        String prioridad,
         Instant fechaHoraIngreso,
         Instant fechaHoraEntrega,
-        String problemaReportado
+        EquipoDto equipo,
+        String accesorios,
+        String problemaReportado,
+        String observacionesIngreso,
+        String diagnosticoTrabajo,
+        String observacionesRecomendaciones,
+        String motivoCierre
 ) {}
