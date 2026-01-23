@@ -13,6 +13,8 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 import com.newbie.newbiecore.dto.OrdenTrabajo.*;
+import com.newbie.newbiecore.dto.costos.CostosTotalesDto;
+import com.newbie.newbiecore.dto.costos.OrdenTrabajoCostoDto;
 import com.newbie.newbiecore.entity.OrdenTrabajo;
 import com.newbie.newbiecore.entity.Usuario;
 import com.newbie.newbiecore.repository.EquipoRepository;
@@ -33,6 +35,10 @@ public class OrdenTrabajoService {
     private final UsuarioRepository usuarioRepository;
     private final EquipoRepository equipoRepository;
     private final FichaTecnicaRepository fichaTecnicaRepository;
+    private final OrdenTrabajoPdfService ordenTrabajoPdfService;
+    private final OrdenTrabajoCostoService ordenTrabajoCostoService;
+
+
 
     private final MailService mailService;
 
@@ -159,15 +165,6 @@ public class OrdenTrabajoService {
         if (request.tipoServicio() != null && !request.tipoServicio().isBlank()) orden.setTipoServicio(request.tipoServicio().toUpperCase());
         if (request.prioridad() != null && !request.prioridad().isBlank()) orden.setPrioridad(request.prioridad().toUpperCase());
 
-        // Costos
-        if (request.costoManoObra() != null)   orden.setCostoManoObra(bd(request.costoManoObra()));
-        if (request.costoRepuestos() != null)  orden.setCostoRepuestos(bd(request.costoRepuestos()));
-        if (request.costoOtros() != null)      orden.setCostoOtros(bd(request.costoOtros()));
-        if (request.descuento() != null)       orden.setDescuento(bd(request.descuento()));
-        if (request.subtotal() != null)        orden.setSubtotal(bd(request.subtotal()));
-        if (request.iva() != null)             orden.setIva(bd(request.iva()));
-        if (request.total() != null)           orden.setTotal(bd(request.total()));
-
         // Garantía
         if (request.esEnGarantia() != null) {
             orden.setEsEnGarantia(request.esEnGarantia());
@@ -194,6 +191,11 @@ public class OrdenTrabajoService {
         boolean seCierra = false;
 
         if (Boolean.TRUE.equals(request.cerrarOrden())) {
+
+            if ("CERRADA".equals(orden.getEstado())) {
+                throw new IllegalStateException("La orden ya está cerrada");
+            }
+
             orden.setEstado("CERRADA");
             seCierra = true;
             if (orden.getFechaHoraEntrega() == null) {
@@ -209,17 +211,52 @@ public class OrdenTrabajoService {
         }
 
         OrdenTrabajo ordenGuardada = ordenTrabajoRepository.save(orden);
-
-        // Enviar correo ZIP si se cerró
         if (seCierra) {
-            enviarArchivosCierreZip(ordenGuardada);
+
+        // 1️⃣ Calcular totales desde costos dinámicos
+        CostosTotalesDto totales = ordenTrabajoCostoService.totales(ordenGuardada.getId());
+
+        ordenGuardada.setSubtotal(totales.subtotal());
+        ordenGuardada.setIva(totales.iva());
+        ordenGuardada.setTotal(totales.total());
+
+        ordenTrabajoRepository.save(ordenGuardada);
+
+        // 2️⃣ Generar DTO completo para PDF
+        OrdenTrabajoDetalleDto dto = obtenerDetalleInterno(ordenGuardada.getId());
+
+        byte[] pdfBytes = ordenTrabajoPdfService.generarPdfOrden(dto);
+
+        // 3️⃣ Guardar PDF en /documentos
+        try {
+            Path documentosDir = Paths.get(
+                    uploadDir,
+                    ordenGuardada.getNumeroOrden(),
+                    "documentos"
+            );
+
+            Files.createDirectories(documentosDir);
+
+            Path pdfPath = documentosDir.resolve(
+                    "OT-" + ordenGuardada.getNumeroOrden() + ".pdf"
+            );
+
+            Files.write(pdfPath, pdfBytes);
+
+        } catch (IOException e) {
+            throw new RuntimeException("Error al generar/guardar el PDF de la OT", e);
         }
+
+        // 4️⃣ Enviar ZIP
+        enviarArchivosCierreZip(ordenGuardada);
     }
+
+            }
 
     /**
      * Comprime la carpeta de la orden y envía el ZIP.
      */
-    private void enviarArchivosCierreZip(OrdenTrabajo orden) {
+        private void enviarArchivosCierreZip(OrdenTrabajo orden) {
         try {
             Usuario cliente = orden.getCliente();
             if (cliente != null && cliente.getCorreo() != null && !cliente.getCorreo().isEmpty()) {
@@ -429,10 +466,6 @@ public class OrdenTrabajoService {
                 orden.isFirmaTecnicoEntrega(),
                 orden.isFirmaClienteEntrega(),
                 orden.isRecibeASatisfaccion(),
-                orden.getCostoManoObra(),
-                orden.getCostoRepuestos(),
-                orden.getCostoOtros(),
-                orden.getDescuento(),
                 orden.getSubtotal(),
                 orden.getIva(),
                 orden.getTotal(),
@@ -447,9 +480,104 @@ public class OrdenTrabajoService {
                 fechaFicha,
                 observacionesFicha,
                 tecnicoFichaCedula,
-                tecnicoFichaNombre
+                tecnicoFichaNombre,
+                null
         );
     }
+
+    private OrdenTrabajoDetalleDto obtenerDetalleInterno(Long ordenId) {
+
+    var orden = ordenTrabajoRepository.findById(ordenId)
+            .orElseThrow(() -> new RuntimeException("Orden no encontrada"));
+
+    List<OrdenTrabajoCostoDto> costos =
+        ordenTrabajoCostoService.listar(ordenId);
+
+    var cliente = orden.getCliente();
+    var tecnico = orden.getTecnicoAsignado();
+    var equipo  = orden.getEquipo();
+
+    var fichas = fichaTecnicaRepository.findByOrdenTrabajoId(ordenId);
+
+    Long fichaId = null;
+    Instant fechaFicha = null;
+    String observacionesFicha = null;
+    String tecnicoFichaCedula = null;
+    String tecnicoFichaNombre = null;
+
+    if (!fichas.isEmpty()) {
+        var ficha = fichas.get(0);
+        fichaId = ficha.getId();
+        fechaFicha = ficha.getFechaCreacion();
+        observacionesFicha = ficha.getObservaciones();
+        tecnicoFichaCedula = ficha.getTecnicoId();
+        if (tecnicoFichaCedula != null) {
+            tecnicoFichaNombre = usuarioRepository.findById(tecnicoFichaCedula)
+                    .map(Usuario::getNombre)
+                    .orElse(null);
+        }
+    }
+
+     return new OrdenTrabajoDetalleDto(
+                orden.getId(),
+                orden.getNumeroOrden(),
+                orden.getFechaHoraIngreso(),
+                orden.getMedioContacto(),
+                orden.getEstado(),
+                orden.getTipoServicio(),
+                orden.getPrioridad(),
+                tecnico != null ? tecnico.getCedula() : null,
+                tecnico != null ? tecnico.getNombre() : null,
+                tecnico != null ? tecnico.getTelefono() : null,
+                tecnico != null ? tecnico.getCorreo() : null,
+                cliente != null ? cliente.getCedula() : null,
+                cliente != null ? cliente.getNombre() : null,
+                cliente != null ? cliente.getTelefono() : null,
+                cliente != null ? cliente.getDireccion() : null,
+                cliente != null ? cliente.getCorreo() : null,
+                equipo != null ? equipo.getIdEquipo() : null,
+                equipo != null ? equipo.getTipo() : null,
+                equipo != null ? equipo.getMarca() : null,
+                equipo != null ? equipo.getModelo() : null,
+                equipo != null ? equipo.getNumeroSerie() : null,
+                equipo != null ? equipo.getHostname() : null,
+                equipo != null ? equipo.getSistemaOperativo() : null,
+                equipo != null ? equipo.getHardwareJson() : null,
+                orden.getContrasenaEquipo(),
+                orden.getAccesorios(),
+                orden.getProblemaReportado(),
+                orden.getObservacionesIngreso(),
+                orden.getFechaHoraRecepcion(),
+                orden.isFirmaTecnicoRecepcion(),
+                orden.isFirmaClienteRecepcion(),
+                orden.getDiagnosticoTrabajo(),
+                orden.getObservacionesRecomendaciones(),
+                orden.getModalidad(),
+                orden.getFechaHoraEntrega(),
+                orden.getNumeroFactura(),
+                orden.getFormaPago(),
+                orden.isFirmaTecnicoEntrega(),
+                orden.isFirmaClienteEntrega(),
+                orden.isRecibeASatisfaccion(),
+                orden.getSubtotal(),
+                orden.getIva(),
+                orden.getTotal(),
+                orden.getEsEnGarantia(),
+                orden.getReferenciaOrdenGarantia(),
+                orden.getMotivoCierre(),
+                orden.getCerradaPor(),
+                orden.getOtpCodigo(),
+                orden.getOtpValidado(),
+                orden.getOtpFechaValidacion(),
+                fichaId,
+                fechaFicha,
+                observacionesFicha,
+                tecnicoFichaCedula,
+                tecnicoFichaNombre,
+                costos
+    );
+}
+
 
     /* =============================
        LISTAR ÓRDENES
@@ -518,4 +646,8 @@ public class OrdenTrabajoService {
                 .orElseThrow(() -> new RuntimeException("Usuario autenticado no encontrado"));
         return listarOrdenesPorTecnico(usuarioAuth.getCedula());
     }
+
+    
+
+    
 }

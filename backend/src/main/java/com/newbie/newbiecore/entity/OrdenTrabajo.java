@@ -186,16 +186,8 @@ public class OrdenTrabajo {
     private String formaPago;
 
     // COSTOS
-    @Column(name = "costo_mano_obra")
-    private BigDecimal costoManoObra;
 
-    @Column(name = "costo_repuestos")
-    private BigDecimal costoRepuestos;
-
-    @Column(name = "costo_otros")
-    private BigDecimal costoOtros;
-
-    @Column(name = "descuento")
+   @Column(name = "descuento")
     private BigDecimal descuento;
 
     @Column(name = "subtotal")

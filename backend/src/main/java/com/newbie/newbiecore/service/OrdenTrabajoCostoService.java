@@ -1,6 +1,7 @@
 package com.newbie.newbiecore.service;
 
 import com.newbie.newbiecore.dto.costos.*;
+import com.newbie.newbiecore.entity.OrdenTrabajo;
 import com.newbie.newbiecore.entity.OrdenTrabajoCosto;
 import com.newbie.newbiecore.repository.CatalogoItemRepository;
 import com.newbie.newbiecore.repository.OrdenTrabajoCostoRepository;
@@ -16,10 +17,15 @@ import java.util.List;
 @RequiredArgsConstructor
 public class OrdenTrabajoCostoService {
 
+    private static final BigDecimal IVA_RATE = new BigDecimal("0.15");
+
     private final OrdenTrabajoRepository ordenRepo;
     private final CatalogoItemRepository catalogoRepo;
     private final OrdenTrabajoCostoRepository costoRepo;
 
+    /* ==========================
+       AGREGAR COSTO
+       ========================== */
     @Transactional
     public void agregar(Long ordenId, AgregarCostoRequest req) {
 
@@ -27,8 +33,10 @@ public class OrdenTrabajoCostoService {
             throw new IllegalArgumentException("La cantidad debe ser mayor a 0");
         }
 
-        var orden = ordenRepo.findById(ordenId)
+        OrdenTrabajo orden = ordenRepo.findById(ordenId)
                 .orElseThrow(() -> new RuntimeException("Orden de trabajo no encontrada"));
+
+        validarOrdenEditable(orden);
 
         var item = catalogoRepo.findById(req.catalogoItemId())
                 .orElseThrow(() -> new RuntimeException("Ítem de catálogo no encontrado"));
@@ -37,7 +45,7 @@ public class OrdenTrabajoCostoService {
             throw new IllegalStateException("El ítem del catálogo no está activo");
         }
 
-        var costo = OrdenTrabajoCosto.builder()
+        OrdenTrabajoCosto costo = OrdenTrabajoCosto.builder()
                 .ordenTrabajo(orden)
                 .tipo(item.getTipo())
                 .descripcion(item.getDescripcion())
@@ -48,9 +56,12 @@ public class OrdenTrabajoCostoService {
         costoRepo.save(costo);
     }
 
-
+    /* ==========================
+       LISTAR COSTOS
+       ========================== */
     @Transactional(readOnly = true)
     public List<OrdenTrabajoCostoDto> listar(Long ordenId) {
+
         return costoRepo.findByOrdenTrabajo_Id(ordenId)
                 .stream()
                 .map(c -> new OrdenTrabajoCostoDto(
@@ -59,45 +70,75 @@ public class OrdenTrabajoCostoService {
                         c.getDescripcion(),
                         c.getCostoUnitario(),
                         c.getCantidad(),
-                        c.getCostoUnitario().multiply(BigDecimal.valueOf(c.getCantidad()))
+                        c.getSubtotal()
                 ))
                 .toList();
     }
 
-    @Transactional
-    public void eliminar(Long costoId) {
-        costoRepo.deleteById(costoId);
-    }
-
-    @Transactional(readOnly = true)
-    public CostosTotalesDto totales(Long ordenId) {
-        var costos = costoRepo.findByOrdenTrabajo_Id(ordenId);
-
-        BigDecimal subtotal = costos.stream()
-                .map(c -> c.getCostoUnitario().multiply(BigDecimal.valueOf(c.getCantidad())))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        BigDecimal iva = subtotal.multiply(BigDecimal.valueOf(0.15));
-        BigDecimal total = subtotal.add(iva);
-
-        return new CostosTotalesDto(subtotal, iva, total);
-    }
-
+    /* ==========================
+       ACTUALIZAR CANTIDAD
+       ========================== */
     @Transactional
     public void actualizarCantidad(Long costoId, Integer cantidad) {
 
         if (cantidad == null || cantidad <= 0) {
-            throw new IllegalArgumentException("La cantidad debe ser mayor a 0");
+            throw new IllegalArgumentException("Cantidad inválida");
         }
 
-        var costo = costoRepo.findById(costoId)
+        OrdenTrabajoCosto costo = costoRepo.findById(costoId)
                 .orElseThrow(() -> new RuntimeException("Costo no encontrado"));
 
-        costo.setCantidad(cantidad);
+        validarOrdenEditable(costo.getOrdenTrabajo());
 
+        costo.setCantidad(cantidad);
         costoRepo.save(costo);
     }
 
-    
+    /* ==========================
+       ELIMINAR COSTO
+       ========================== */
+    @Transactional
+    public void eliminar(Long costoId) {
 
+        OrdenTrabajoCosto costo = costoRepo.findById(costoId)
+                .orElseThrow(() -> new RuntimeException("Costo no encontrado"));
+
+        validarOrdenEditable(costo.getOrdenTrabajo());
+
+        costoRepo.delete(costo);
+    }
+
+    /* ==========================
+       TOTALES CONSOLIDADOS
+       ========================== */
+    @Transactional(readOnly = true)
+    public CostosTotalesDto totales(Long ordenId) {
+
+        List<OrdenTrabajoCosto> costos =
+                costoRepo.findByOrdenTrabajo_Id(ordenId);
+
+        BigDecimal subtotal = costos.stream()
+                .map(OrdenTrabajoCosto::getSubtotal)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal descuento = BigDecimal.ZERO;
+        BigDecimal iva = subtotal.multiply(IVA_RATE);
+        BigDecimal total = subtotal.add(iva).subtract(descuento);
+
+        return new CostosTotalesDto(
+                subtotal,
+                descuento,
+                iva,
+                total
+        );
+    }
+
+    /* ==========================
+       VALIDACIONES
+       ========================== */
+    private void validarOrdenEditable(OrdenTrabajo orden) {
+        if ("CERRADA".equalsIgnoreCase(orden.getEstado())) {
+            throw new IllegalStateException("No se pueden modificar costos en una orden cerrada");
+        }
+    }
 }

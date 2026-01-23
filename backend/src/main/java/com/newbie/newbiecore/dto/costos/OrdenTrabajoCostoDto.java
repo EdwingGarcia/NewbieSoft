@@ -8,5 +8,5 @@ public record OrdenTrabajoCostoDto(
         String descripcion,
         BigDecimal costoUnitario,
         Integer cantidad,
-        BigDecimal totalLinea
+        BigDecimal subtotal
 ) {}
