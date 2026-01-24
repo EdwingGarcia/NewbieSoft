@@ -10,7 +10,8 @@ import {
     Wrench,
     Calendar,
     AlertTriangle,
-    X // ✅ Importamos el icono de cerrar
+    X, // ✅ Importamos el icono de cerrar
+    PenTool // ✅ Icono para firmar
 } from "lucide-react";
 
 export default function ConsultaForm() {
@@ -258,6 +259,44 @@ export default function ConsultaForm() {
                                                 {resultadoProc.motivoCierre}
                                             </div>
                                         )}
+                                    </div>
+                                )}
+
+                                {/* ✅ BOTÓN DE FIRMA DE RECIBO - Solo aparece en fase Cierre */}
+                                {resultadoProc.estado && (resultadoProc.estado.toUpperCase().includes('CIERRE') || resultadoProc.estado.toUpperCase().includes('OTP')) && (
+                                    <div className="result-section" style={{ backgroundColor: '#1f2937', borderRadius: '8px', padding: '15px', marginTop: '20px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                                            <PenTool size={16} style={{ color: '#60a5fa' }} />
+                                            <span style={{ fontSize: '13px', fontWeight: '600', color: '#d1d5db' }}>Firma de Recibo</span>
+                                        </div>
+                                        <p style={{ fontSize: '12px', color: '#9ca3af', marginBottom: '12px' }}>
+                                            El equipo está listo para ser entregado. Haz clic en el botón de abajo para firmar el recibo de conformidad.
+                                        </p>
+                                        <button
+                                            onClick={() => {
+                                                const ordenId = resultadoProc.numeroOrden?.split('-')[1] || '0';
+                                                window.open(`/firma?ordenId=${ordenId}&modo=recibo`, '_blank');
+                                            }}
+                                            style={{
+                                                backgroundColor: '#10b981',
+                                                color: 'white',
+                                                border: 'none',
+                                                padding: '10px 20px',
+                                                borderRadius: '6px',
+                                                cursor: 'pointer',
+                                                fontSize: '13px',
+                                                fontWeight: '600',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '8px',
+                                                transition: 'background-color 0.2s'
+                                            }}
+                                            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#059669')}
+                                            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#10b981')}
+                                        >
+                                            <PenTool size={14} />
+                                            Firmar Recibo de Entrega
+                                        </button>
                                     </div>
                                 )}
                             </div>

@@ -18,7 +18,8 @@ import {
     ChevronsUpDown,
     ChevronLeft,
     ChevronRight,
-    ArrowUpDown // Nuevo icono
+    ArrowUpDown, // Nuevo icono
+    PenTool // Icono para firma
 } from "lucide-react";
 
 import ModalNotificacion from "../components/ModalNotificacion";
@@ -808,6 +809,14 @@ export default function OrdenesTrabajoPage() {
     // ✅ NUEVO: Estado para el modal de crear ficha
     const [showCrearFichaTecnica, setShowCrearFichaTecnica] = useState(false);
 
+    // ✅ NUEVO: Estado para el modal de firma de conformidad
+    const [showModalFirmaConformidad, setShowModalFirmaConformidad] = useState(false);
+    const [modoFirma, setModoFirma] = useState<"conformidad" | "aceptacion">("conformidad");
+    const [firmaCanvasRef, setFirmaCanvasRef] = useState<HTMLCanvasElement | null>(null);
+    const [isDrawingFirma, setIsDrawingFirma] = useState(false);
+    const [conformidadFirmada, setConformidadFirmada] = useState(false);
+    const [reciboFirmado, setReciboFirmado] = useState(false);
+
     // === BUSCADOR Y FILTROS ===
     const [searchTerm, setSearchTerm] = useState("");
     const [dateStart, setDateStart] = useState("");
@@ -1088,6 +1097,9 @@ export default function OrdenesTrabajoPage() {
             setSelectedImg(null);
             setImgFilterCategoria("");
 
+            // Verificar estado de firmas
+            verificarEstadoFirmas(data.numeroOrden);
+
             sincronizarDetalleEditable(data);
             await fetchImagenes(id);
             await fetchFichasAnexasPorOT(id, data.equipoId);
@@ -1313,6 +1325,134 @@ export default function OrdenesTrabajoPage() {
     const irAAprobacionProcedimiento = (ordenId: number) => {
         router.push(`/firma?ordenId=${ordenId}&modo=aceptacion`);
     };
+
+    /* ===== Verificar estado de firmas ===== */
+    const verificarEstadoFirmas = async (numeroOrden: string | null | undefined) => {
+        if (!numeroOrden || !token) {
+            setConformidadFirmada(false);
+            setReciboFirmado(false);
+            return;
+        }
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/firmas/estado/${numeroOrden}`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setConformidadFirmada(data.conformidadFirmada || false);
+                setReciboFirmado(data.reciboFirmado || false);
+            } else {
+                setConformidadFirmada(false);
+                setReciboFirmado(false);
+            }
+        } catch {
+            setConformidadFirmada(false);
+            setReciboFirmado(false);
+        }
+    };
+
+    /* ===== Firma de Conformidad Modal ===== */
+    const iniciarFirmaConformidad = (modo: "conformidad" | "aceptacion" = "conformidad") => {
+        setModoFirma(modo);
+        setShowModalFirmaConformidad(true);
+        setIsDrawingFirma(false);
+        
+        // Inicializar canvas cuando se abre
+        setTimeout(() => {
+            if (firmaCanvasRef) {
+                const ctx = firmaCanvasRef.getContext("2d");
+                if (ctx) {
+                    ctx.lineWidth = 2;
+                    ctx.lineCap = "round";
+                    ctx.lineJoin = "round";
+                    ctx.strokeStyle = "#000";
+                }
+            }
+        }, 0);
+    };
+
+    const limpiarFirmaConformidad = () => {
+        if (firmaCanvasRef) {
+            const ctx = firmaCanvasRef.getContext("2d");
+            if (ctx) ctx.clearRect(0, 0, firmaCanvasRef.width, firmaCanvasRef.height);
+        }
+    };
+
+    const guardarFirmaConformidad = async () => {
+        if (!detalle || !firmaCanvasRef) return;
+
+        const token = localStorage.getItem("token");
+        if (!token) {
+            alert("Tu sesión ha expirado. Por favor inicia sesión nuevamente.");
+            return;
+        }
+
+        const firmaBase64 = firmaCanvasRef.toDataURL("image/png");
+
+        const payload = {
+            ordenId: Number(detalle?.ordenId) || 0,
+            numeroOrden: String(detalle?.numeroOrden || ""),
+            cliente: String(detalle?.clienteNombre || ""),
+            equipo: String(detalle?.equipoModelo || ""),
+            procedimiento: String(diagEdit || ""),
+            modo: String(modoFirma || ""),
+            firma: firmaBase64,
+        };
+
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/firmas/conformidad`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                body: JSON.stringify(payload),
+            });
+
+            if (!res.ok) throw new Error(`Error al guardar firma (HTTP ${res.status})`);
+
+            alert("✅ Firma guardada correctamente");
+            setShowModalFirmaConformidad(false);
+            limpiarFirmaConformidad();
+            // Actualizar estado de firmas
+            if (modoFirma === "conformidad") {
+                setConformidadFirmada(true);
+            } else {
+                setReciboFirmado(true);
+            }
+        } catch (err: any) {
+            console.error(err);
+            alert("❌ " + (err?.message ?? "Error al guardar firma"));
+        }
+    };
+
+    const startDrawingFirma = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+        if (!firmaCanvasRef) return;
+        const ctx = firmaCanvasRef.getContext("2d");
+        if (!ctx) return;
+
+        setIsDrawingFirma(true);
+        const rect = firmaCanvasRef.getBoundingClientRect();
+
+        const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
+        const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
+
+        ctx.beginPath();
+        ctx.moveTo(clientX - rect.left, clientY - rect.top);
+    };
+
+    const drawFirma = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+        if (!isDrawingFirma || !firmaCanvasRef) return;
+
+        const ctx = firmaCanvasRef.getContext("2d");
+        if (!ctx) return;
+
+        const rect = firmaCanvasRef.getBoundingClientRect();
+        const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
+        const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
+
+        ctx.lineTo(clientX - rect.left, clientY - rect.top);
+        ctx.stroke();
+    };
+
+    const stopDrawingFirma = () => setIsDrawingFirma(false);
 
     /* =========================================================
        FICHAS TÉCNICAS EN MODAL
@@ -2080,50 +2220,6 @@ export default function OrdenesTrabajoPage() {
                                     </div>
 
                                     <div className="flex flex-wrap items-center gap-2">
-                                        <Select value={tipoServicioEdit} onValueChange={setTipoServicioEdit}>
-                                            <SelectTrigger className="h-8 min-w-[150px] border-slate-500 bg-slate-900/60 text-[11px] text-slate-100">
-                                                <SelectValue placeholder="Tipo" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="DIAGNOSTICO">DIAGNOSTICO</SelectItem>
-                                                <SelectItem value="REPARACION">REPARACION</SelectItem>
-                                                <SelectItem value="MANTENIMIENTO">MANTENIMIENTO</SelectItem>
-                                                <SelectItem value="FORMATEO">FORMATEO</SelectItem>
-                                                <SelectItem value="INSTALACION_SO">INSTALACION_SO</SelectItem>
-                                                <SelectItem value="OTRO">OTRO</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-
-                                        <Select value={prioridadEdit} onValueChange={setPrioridadEdit}>
-                                            <SelectTrigger className="h-8 min-w-[120px] border-emerald-400 bg-emerald-900/40 text-[11px] text-emerald-50">
-                                                <SelectValue placeholder="Prioridad" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="BAJA">BAJA</SelectItem>
-                                                <SelectItem value="MEDIA">MEDIA</SelectItem>
-                                                <SelectItem value="ALTA">ALTA</SelectItem>
-                                                <SelectItem value="URGENTE">URGENTE</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-
-                                        <Select
-                                            value={estadoEdit}
-                                            onValueChange={(value) => {
-                                                setEstadoEdit(value);
-                                                setPasoActivo(mapEstadoToPaso(value));
-                                            }}
-                                        >
-                                            <SelectTrigger className="h-8 min-w-[150px] border-blue-400 bg-blue-900/40 text-[11px] text-blue-50">
-                                                <SelectValue placeholder="Estado" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="INGRESO">INGRESO</SelectItem>
-                                                <SelectItem value="EN_DIAGNOSTICO">EN_DIAGNOSTICO</SelectItem>
-                                                <SelectItem value="COSTOS">COSTOS</SelectItem>
-                                                <SelectItem value="LISTA_ENTREGA">LISTA_ENTREGA</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-
                                         {esEnGarantia && (
                                             <span className="inline-flex items-center rounded-full border border-amber-300/70 bg-amber-500/25 px-3 py-1 text-[11px] font-semibold text-amber-50">
                                                 Garantía
@@ -2378,6 +2474,48 @@ export default function OrdenesTrabajoPage() {
                                                                 className="min-h-[110px] w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
                                                             />
                                                         </div>
+
+                                                        {/* ✅ BOTÓN FIRMA DE CONFORMIDAD */}
+                                                        <div className={`mt-4 flex flex-col items-center gap-3 rounded-lg border-2 p-4 ${conformidadFirmada ? 'border-emerald-300 bg-emerald-50' : 'border-blue-300 bg-blue-50'}`}>
+                                                            {conformidadFirmada ? (
+                                                                <>
+                                                                    <Check className="h-6 w-6 text-emerald-600" />
+                                                                    <p className="text-center text-[12px] font-medium text-emerald-900">
+                                                                        ✅ Conformidad de Procedimiento Firmada
+                                                                    </p>
+                                                                    <p className="text-center text-[11px] text-emerald-700">
+                                                                        El cliente ya ha firmado la conformidad del procedimiento.
+                                                                    </p>
+                                                                    <Button
+                                                                        type="button"
+                                                                        variant="outline"
+                                                                        onClick={() => iniciarFirmaConformidad("conformidad")}
+                                                                        className="flex items-center gap-2 border-emerald-400 text-emerald-700 hover:bg-emerald-100"
+                                                                    >
+                                                                        <PenTool className="h-4 w-4" />
+                                                                        Firmar Nuevamente
+                                                                    </Button>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <PenTool className="h-6 w-6 text-blue-600" />
+                                                                    <p className="text-center text-[12px] font-medium text-blue-900">
+                                                                        Obtener Firma de Conformidad del Procedimiento
+                                                                    </p>
+                                                                    <p className="text-center text-[11px] text-blue-700">
+                                                                        El cliente debe firmar para confirmar que acepta el procedimiento técnico propuesto.
+                                                                    </p>
+                                                                    <Button
+                                                                        type="button"
+                                                                        onClick={() => iniciarFirmaConformidad("conformidad")}
+                                                                        className="flex items-center gap-2 bg-blue-600 text-white hover:bg-blue-700"
+                                                                    >
+                                                                        <PenTool className="h-4 w-4" />
+                                                                        Abrir Panel de Firma
+                                                                    </Button>
+                                                                </>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 )}
 
@@ -2394,102 +2532,48 @@ export default function OrdenesTrabajoPage() {
                                                     <div className="rounded-xl border border-slate-200 bg-white p-4">
                                                         <div className="flex items-center justify-between">
                                                             <h3 className="text-[11px] font-semibold uppercase tracking-wide text-slate-700">
-                                                                Cierre de la orden / OTP
+                                                                Firma de Recibo de Entrega
                                                             </h3>
                                                             <span className="text-[10px] text-slate-400">Paso 4 de 4</span>
                                                         </div>
 
                                                         <p className="mt-2 text-[11px] text-slate-600">
-                                                            Define si aplica garantía, gestiona el OTP y registra el motivo de cierre.
+                                                            El equipo está listo para ser entregado. El cliente debe firmar el recibo de conformidad.
                                                         </p>
 
-                                                        <div className="mt-3 space-y-3">
-                                                            <div className="flex items-center gap-2">
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => setEsEnGarantia((prev) => !prev)}
-                                                                    className={`flex h-4 w-4 items-center justify-center rounded border ${esEnGarantia ? "border-emerald-500 bg-emerald-500" : "border-slate-400 bg-white"
-                                                                        }`}
-                                                                >
-                                                                    {esEnGarantia && <span className="text-[10px] text-white">✓</span>}
-                                                                </button>
-                                                                <span className="text-xs font-medium text-slate-700">Orden en garantía</span>
-                                                            </div>
-
-                                                            {esEnGarantia && (
-                                                                <div className="space-y-1.5">
-                                                                    <label className="text-[11px] font-medium text-slate-700">Referencia orden de garantía</label>
-                                                                    <Input
-                                                                        value={referenciaGarantia}
-                                                                        onChange={(e) => setReferenciaGarantia(e.target.value)}
-                                                                        placeholder="ID de la orden original"
-                                                                        className="h-9 text-xs"
-                                                                    />
-                                                                </div>
-                                                            )}
-
-                                                            <div className="grid gap-3 md:grid-cols-2">
-                                                                <div className="space-y-1.5">
-                                                                    <label className="text-[11px] font-medium text-slate-700">Envío de OTP</label>
-                                                                    <Button
-                                                                        type="button"
-                                                                        onClick={handleEnviarOtp}
-                                                                        disabled={otpEnviando || otpValidado}
-                                                                        className="flex h-9 items-center gap-2 bg-slate-900 text-[11px] text-white hover:bg-slate-800"
-                                                                    >
-                                                                        {otpEnviando && <Loader2 className="h-3 w-3 animate-spin" />}
-                                                                        Enviar OTP
-                                                                    </Button>
-                                                                    <p className="text-[10px] text-slate-500">
-                                                                        Se enviará al correo:{" "}
-                                                                        <span className="font-medium">{detalle.clienteCorreo ?? "—"}</span>
+                                                        <div className={`mt-4 flex flex-col items-center justify-center rounded-lg border-2 p-6 ${reciboFirmado ? 'border-emerald-400 bg-emerald-100' : 'border-dashed border-emerald-300 bg-emerald-50'}`}>
+                                                            {reciboFirmado ? (
+                                                                <>
+                                                                    <Check className="mb-3 h-8 w-8 text-emerald-600" />
+                                                                    <p className="mb-2 text-center text-[13px] font-medium text-emerald-900">
+                                                                        ✅ Recibo de Entrega Firmado
                                                                     </p>
-                                                                </div>
-
-                                                                <div className="space-y-1.5">
-                                                                    <label className="text-[11px] font-medium text-slate-700">Validar OTP</label>
-                                                                    <div className="flex gap-2">
-                                                                        <Input
-                                                                            value={otpCodigo}
-                                                                            onChange={(e) => setOtpCodigo(e.target.value)}
-                                                                            placeholder="Código OTP"
-                                                                            className="h-9 text-xs"
-                                                                            disabled={otpValidado || otpVerificando}
-                                                                        />
-                                                                        <Button
-                                                                            type="button"
-                                                                            onClick={handleValidarOtp}
-                                                                            disabled={otpValidado || otpVerificando || !otpCodigo}
-                                                                            className="flex h-9 items-center gap-1 bg-emerald-600 text-[11px] text-white hover:bg-emerald-500"
-                                                                        >
-                                                                            {otpVerificando && <Loader2 className="h-3 w-3 animate-spin" />}
-                                                                            Validar
-                                                                        </Button>
-                                                                    </div>
-
-                                                                    {detalle.otpFechaValidacion && otpValidado && (
-                                                                        <p className="text-[10px] text-emerald-700">
-                                                                            Validado el {fmtFecha(detalle.otpFechaValidacion)}
-                                                                        </p>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-
-                                                            {otpMensaje && (
-                                                                <div className="rounded border border-slate-200 bg-slate-50 px-2 py-2 text-[11px] text-slate-700">
-                                                                    {otpMensaje}
-                                                                </div>
+                                                                    <p className="text-center text-[11px] text-emerald-700">
+                                                                        El cliente ya ha firmado el recibo de entrega del equipo.
+                                                                    </p>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <PenTool className="mb-3 h-8 w-8 text-emerald-600" />
+                                                            <p className="mb-4 text-center text-[13px] font-medium text-emerald-900">
+                                                                Compartir enlace de firma con el cliente
+                                                            </p>
+                                                            <Button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    const ordenId = detalle.numeroOrden?.split('-')[1] || '0';
+                                                                    window.open(`/firma?ordenId=${ordenId}&modo=recibo`, '_blank');
+                                                                }}
+                                                                className="flex items-center gap-2 bg-emerald-600 text-sm text-white hover:bg-emerald-700"
+                                                            >
+                                                                <PenTool className="h-4 w-4" />
+                                                                Abrir Formulario de Firma
+                                                            </Button>
+                                                            <p className="mt-3 text-center text-[10px] text-slate-600">
+                                                                Se abrirá en una nueva ventana donde el cliente podrá firmar digitalmente.
+                                                            </p>
+                                                                </>
                                                             )}
-
-                                                            <div className="space-y-1.5">
-                                                                <label className="text-[11px] font-medium text-slate-700">Motivo de cierre *</label>
-                                                                <textarea
-                                                                    value={motivoCierre}
-                                                                    onChange={(e) => setMotivoCierre(e.target.value)}
-                                                                    placeholder="Ej: Equipo entregado conforme..."
-                                                                    className="min-h-[90px] w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
-                                                                />
-                                                            </div>
                                                         </div>
                                                     </div>
                                                 )}
@@ -2810,6 +2894,90 @@ export default function OrdenesTrabajoPage() {
                             }
                         }}
                     />
+                )}
+
+                {/* ✅ MODAL FIRMA CONFORMIDAD */}
+                {showModalFirmaConformidad && (
+                    <div
+                        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm"
+                        onMouseDown={(e) => {
+                            if (e.target === e.currentTarget) setShowModalFirmaConformidad(false);
+                        }}
+                    >
+                        <div className="relative mx-3 w-full max-w-2xl rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden">
+                            {/* Header */}
+                            <div className="flex items-center justify-between border-b border-slate-100 bg-blue-50 px-6 py-4">
+                                <div className="flex items-center gap-3">
+                                    <PenTool className="h-5 w-5 text-blue-600" />
+                                    <div>
+                                        <p className="text-sm font-semibold text-slate-900">
+                                            {modoFirma === "aceptacion" ? "Firma de Aceptación" : "Firma de Conformidad del Procedimiento"}
+                                        </p>
+                                        <p className="text-xs text-slate-500">Dibuja tu firma en el área de abajo</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setShowModalFirmaConformidad(false)}
+                                    className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-slate-700 hover:bg-slate-300"
+                                    aria-label="Cerrar"
+                                >
+                                    <X className="h-4 w-4" />
+                                </button>
+                            </div>
+
+                            {/* Canvas */}
+                            <div className="p-6">
+                                <p className="mb-3 text-sm text-slate-700 font-medium">Firma</p>
+                                <canvas
+                                    ref={setFirmaCanvasRef}
+                                    width={600}
+                                    height={200}
+                                    onMouseDown={startDrawingFirma}
+                                    onMouseMove={drawFirma}
+                                    onMouseUp={stopDrawingFirma}
+                                    onMouseLeave={stopDrawingFirma}
+                                    onTouchStart={startDrawingFirma}
+                                    onTouchMove={drawFirma}
+                                    onTouchEnd={stopDrawingFirma}
+                                    style={{
+                                        border: "2px solid #e2e8f0",
+                                        borderRadius: "8px",
+                                        cursor: "crosshair",
+                                        backgroundColor: "#fff",
+                                        width: "100%",
+                                        height: "200px",
+                                    }}
+                                />
+                            </div>
+
+                            {/* Botones */}
+                            <div className="flex gap-3 border-t border-slate-100 bg-slate-50 px-6 py-4">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={limpiarFirmaConformidad}
+                                    className="flex-1"
+                                >
+                                    Limpiar
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => setShowModalFirmaConformidad(false)}
+                                    className="flex-1"
+                                >
+                                    Cancelar
+                                </Button>
+                                <Button
+                                    type="button"
+                                    onClick={guardarFirmaConformidad}
+                                    className="flex-1 bg-blue-600 text-white hover:bg-blue-700"
+                                >
+                                    Guardar Firma
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
                 )}
             </div>
         </div>

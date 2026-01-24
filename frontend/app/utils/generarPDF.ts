@@ -1,6 +1,8 @@
+import { API_BASE_URL } from "../lib/api";
 export async function generarPDF(html: string) {
+ 
   try {
-    const response = await fetch("http://localhost:8080/api/pdf/generar", {
+    const response = await fetch(`${API_BASE_URL}/api/pdf/generar`, {
       method: "POST",
       headers: {
         "Content-Type": "text/html",

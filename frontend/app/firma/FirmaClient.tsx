@@ -128,7 +128,7 @@ export default function FirmaClient() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
     };
 
-    // ====== Enviar firma ======
+    // ====== Enviar firmas ======
     const handleSubmit = async () => {
         if (!orden) return;
 
@@ -143,6 +143,8 @@ export default function FirmaClient() {
 
         const firmaBase64 = canvas.toDataURL("image/png");
 
+        const endpoint = modo === "recibo" ? "/api/firmas/recibo" : "/api/firmas/conformidad";
+
         const payload = {
             ordenId: orden.ordenId,
             numeroOrden: orden.numeroOrden,
@@ -154,7 +156,7 @@ export default function FirmaClient() {
         };
 
         try {
-            const response = await fetch(`${API_BASE_URL}/api/firmas/confirmacion`, {
+            const response = await fetch(`${API_BASE_URL}${endpoint}`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -169,7 +171,7 @@ export default function FirmaClient() {
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement("a");
             link.href = url;
-            link.download = `Confirmacion_OT_${orden.ordenId}.pdf`;
+            link.download = `${modo === "recibo" ? "Recibo" : "Conformidad"}_OT_${orden.ordenId}.pdf`;
             link.click();
             window.URL.revokeObjectURL(url);
 
@@ -196,7 +198,9 @@ export default function FirmaClient() {
 
     return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
-            <h1 className="text-3xl font-bold mb-6">Confirmación de Procedimiento</h1>
+            <h1 className="text-3xl font-bold mb-6">
+                {modo === "recibo" ? "Firma de Recibo Conforme" : "Confirmación de Procedimiento"}
+            </h1>
 
             <div className="bg-white shadow-md rounded-lg p-6 w-full max-w-md text-center">
                 <p>
@@ -210,12 +214,16 @@ export default function FirmaClient() {
                 </p>
 
                 <div className="mt-4">
-                    <label className="block mb-2">¿Está de acuerdo con el procedimiento propuesto?</label>
+                    <label className="block mb-2">
+                        {modo === "recibo"
+                            ? "Firma de recibo conforme (servicio entregado)"
+                            : "¿Está de acuerdo con el procedimiento propuesto?"}
+                    </label>
                 </div>
 
                 <div className="mt-4">
                     <p className="mb-2">
-                        <b>Firma del cliente:</b>
+                        <b>Firma digital:</b>
                     </p>
 
                     <canvas
