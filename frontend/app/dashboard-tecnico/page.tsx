@@ -125,7 +125,7 @@ export default function DashboardTecnico() {
                     }}
                 >
                     <span style={{ fontWeight: 600 }}>
-                        {activeSection === "dashboard" && "Reaaaan"}
+                        {activeSection === "dashboard" && "Resumen"}
                         {activeSection === "ordenes" && "Gestión de Órdenes"}
                         {activeSection === "equipos" && "Inventario de Equipos"}
                         {activeSection === "citas" && "Agenda de Citas"}

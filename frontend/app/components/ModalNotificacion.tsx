@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Send, Loader2 } from "lucide-react";
+import { fetchAPI } from "../lib/api"; // Importamos el helper centralizado
 
 interface Props {
     otId: number;
@@ -20,10 +21,12 @@ export default function ModalNotificacion({ otId, open, onClose }: Props) {
         setLoading(true);
 
         try {
-            const resp = await fetch(`http://localhost:8080/api/notificaciones/ot/${otId}`, {
+            // Usamos fetchAPI. Ya no hace falta poner http://localhost:8080
+            // fetchAPI combina API_BASE_URL + el endpoint que le pases.
+            await fetchAPI(`/api/notificaciones/ot/${otId}`, {
                 method: "POST",
                 headers: {
-                    "Content-Type": "application/json",
+                    // Content-Type se agrega automáticamente en fetchAPI, solo pasamos Auth
                     Authorization: `Bearer ${localStorage.getItem("token")}`,
                 },
                 body: JSON.stringify({
@@ -32,14 +35,12 @@ export default function ModalNotificacion({ otId, open, onClose }: Props) {
                 }),
             });
 
-            if (resp.ok) {
-                alert("Enviado correctamente ✔️");
-                onClose();
-            } else {
-                alert("Error al enviar");
-            }
+            // Si fetchAPI no lanza error, significa que la respuesta fue exitosa (resp.ok)
+            alert("Enviado correctamente ✔️");
+            onClose();
         } catch (e) {
-            alert("Servidor no disponible");
+            console.error(e);
+            alert("Error al enviar");
         } finally {
             setLoading(false);
         }
