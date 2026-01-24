@@ -11,7 +11,6 @@ import java.util.Optional;
 public interface FichaTecnicaRepository extends JpaRepository<FichaTecnica, Long> {
 
     List<FichaTecnica> findByOrdenTrabajoId(Long ordenTrabajoId);
-    // 🆕 Ahora con campo plano equipoId
     List<FichaTecnica> findByEquipoId(Long equipoId);
     List<FichaTecnica> findByOrdenTrabajo_Cliente_Cedula(String cedula);
     List<FichaTecnica> findByTecnicoId(String tecnicoId);
