@@ -25,8 +25,8 @@ public class SecurityConfig {
     private final JwtAuthenticationEntryPoint unauthorizedHandler; // Manejador de errores 401
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
-                          CustomUserDetailsService userDetailsService,
-                          JwtAuthenticationEntryPoint unauthorizedHandler) {
+            CustomUserDetailsService userDetailsService,
+            JwtAuthenticationEntryPoint unauthorizedHandler) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.userDetailsService = userDetailsService;
         this.unauthorizedHandler = unauthorizedHandler;
@@ -75,7 +75,9 @@ public class SecurityConfig {
                         // Público
                         .requestMatchers("/api/public/consultas/**").permitAll()
                         .requestMatchers("/api/public/otp/**").permitAll()
-                        .requestMatchers("/uploads/**").permitAll()
+
+                        // Documentos - requieren autenticación (ver DocumentoController)
+                        .requestMatchers("/api/documentos/**").authenticated()
 
                         // Configuración sistema
                         .requestMatchers("/api/v1/configurations/**").hasRole("ADMIN")
@@ -87,8 +89,7 @@ public class SecurityConfig {
 
                         // Todo lo demás
                         .requestMatchers("/api/**").authenticated()
-                        .anyRequest().authenticated()
-                );
+                        .anyRequest().authenticated());
 
         http.authenticationProvider(authenticationProvider());
         http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

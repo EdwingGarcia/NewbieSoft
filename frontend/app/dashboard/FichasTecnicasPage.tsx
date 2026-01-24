@@ -26,6 +26,7 @@ import {
 import FichaTecnicaForm from "./FichaTecnicaForm";
 import XmlUploader from "./XmlUploader";
 import { API_BASE_URL } from "../lib/api"; // <-- Import
+import { formatDateTime } from "../lib/config"; // Sistema de configuración
 
 const API_BASE = `${API_BASE_URL}/api/fichas`; // <-- Use variable
 const buildUrl = (p: string = "") => `${API_BASE}${p}`;
@@ -464,7 +465,7 @@ export default function FichasTecnicasPage() {
                                         <div className="flex items-center gap-1 text-gray-500 text-xs mt-1">
                                             <CalendarDays className="h-4 w-4" />
                                             {ficha.fechaCreacion
-                                                ? new Date(ficha.fechaCreacion).toLocaleString()
+                                                ? formatDateTime(ficha.fechaCreacion)
                                                 : ""}
                                         </div>
                                     </div>
@@ -521,7 +522,7 @@ export default function FichasTecnicasPage() {
                                     <br />
                                     Creada el{" "}
                                     {detalleForm.fechaCreacion
-                                        ? new Date(detalleForm.fechaCreacion).toLocaleString()
+                                        ? formatDateTime(detalleForm.fechaCreacion)
                                         : "-"}
                                 </p>
                             </div>
@@ -610,7 +611,7 @@ export default function FichasTecnicasPage() {
                                             className="h-8 bg-slate-100 text-xs"
                                             value={
                                                 detalleForm.fechaCreacion
-                                                    ? new Date(detalleForm.fechaCreacion).toLocaleString()
+                                                    ? formatDateTime(detalleForm.fechaCreacion)
                                                     : ""
                                             }
                                             disabled

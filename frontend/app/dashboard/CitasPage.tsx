@@ -18,6 +18,7 @@ import {
     Menu,
 } from "lucide-react";
 import { API_BASE_URL } from "../lib/api";
+import { formatDateTime, showNotification } from "../lib/config";
 
 const CITAS_API_BASE = `${API_BASE_URL}/api/citas`;
 const USUARIOS_API = `${API_BASE_URL}/api/usuarios`;
@@ -134,43 +135,45 @@ export default function CitasPage() {
 
     const getStatusClasses = (estado: string) => {
         switch (estado) {
-            case "PENDIENTE": return "bg-amber-50 border-amber-400 text-amber-900";
-            case "CONFIRMADA": return "bg-blue-50 border-blue-400 text-blue-900";
+            case "PENDIENTE": return "bg-purple-50 border-purple-400 text-purple-900";
+            case "CONFIRMADA": return "bg-indigo-50 border-indigo-400 text-indigo-900";
             case "FINALIZADA": return "bg-emerald-50 border-emerald-400 text-emerald-900";
             case "CANCELADA": return "bg-red-50 border-red-300 text-red-900 opacity-75";
-            default: return "bg-slate-50 border-slate-300 text-slate-700";
+            default: return "bg-purple-50 border-purple-300 text-purple-700";
         }
     };
 
     return (
-        <div className="flex flex-col h-[calc(100vh-80px)] min-h-[600px] bg-white font-sans text-slate-900 p-4 gap-4">
+        <div className="flex flex-col h-full min-h-[600px] bg-gradient-to-br from-slate-50 to-purple-50/30 font-sans text-slate-900 p-4 gap-4">
 
             {/* --- HEADER --- */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-4 border-b border-slate-200">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-4 rounded-xl border border-purple-100 bg-white px-5 py-4 shadow-sm">
 
                 {/* Izquierda: Título y Navegación */}
                 <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
                     <h2 className="text-xl font-bold flex items-center gap-2 text-slate-800">
-                        <Calendar className="w-6 h-6 text-blue-600" />
-                        <span>Agenda</span>
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-purple-600 to-indigo-700 shadow-lg shadow-purple-500/30">
+                            <Calendar className="w-5 h-5 text-white" />
+                        </div>
+                        <span>Agenda de Citas</span>
                     </h2>
 
-                    <div className="flex items-center bg-white border border-slate-300 rounded-lg overflow-hidden shadow-sm">
-                        <button onClick={() => cambiarSemana(-7)} className="p-2 hover:bg-slate-100 transition-colors border-r border-slate-200">
-                            <ChevronLeft size={18} />
+                    <div className="flex items-center bg-white border border-purple-200 rounded-lg overflow-hidden shadow-sm">
+                        <button onClick={() => cambiarSemana(-7)} className="p-2 hover:bg-purple-50 transition-colors border-r border-purple-200">
+                            <ChevronLeft size={18} className="text-purple-600" />
                         </button>
                         <button
                             onClick={() => setFechaActual(new Date())}
-                            className="px-4 py-2 text-sm font-semibold bg-slate-50 hover:bg-slate-100 transition-colors"
+                            className="px-4 py-2 text-sm font-semibold bg-purple-50 hover:bg-purple-100 transition-colors text-purple-700"
                         >
                             HOY
                         </button>
-                        <button onClick={() => cambiarSemana(7)} className="p-2 hover:bg-slate-100 transition-colors border-l border-slate-200">
-                            <ChevronRight size={18} />
+                        <button onClick={() => cambiarSemana(7)} className="p-2 hover:bg-purple-50 transition-colors border-l border-purple-200">
+                            <ChevronRight size={18} className="text-purple-600" />
                         </button>
                     </div>
 
-                    <span className="hidden sm:flex items-center text-sm font-medium text-slate-500 font-mono">
+                    <span className="hidden sm:flex items-center text-sm font-medium text-purple-600 font-mono">
                         {diasSemana[0].toLocaleDateString("es-ES", { month: "short", day: "numeric" })} —{" "}
                         {diasSemana[6].toLocaleDateString("es-ES", { month: "short", day: "numeric" })}
                     </span>
@@ -182,7 +185,7 @@ export default function CitasPage() {
                         <select
                             value={scope}
                             onChange={(e) => setScope(e.target.value as CitasScope)}
-                            className="h-10 px-3 py-2 border border-slate-300 rounded-lg text-xs font-bold bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                            className="h-10 px-3 py-2 border border-purple-200 rounded-lg text-xs font-bold bg-purple-50/50 text-purple-700 focus:ring-2 focus:ring-purple-500 outline-none"
                         >
                             <option value="TODAS">TODAS</option>
                             <option value="CLIENTE">CLIENTE</option>
@@ -194,7 +197,7 @@ export default function CitasPage() {
                                 value={scopeId}
                                 onChange={(e) => setScopeId(e.target.value)}
                                 placeholder="Cédula..."
-                                className="h-10 w-32 px-3 py-2 border border-slate-300 rounded-lg text-xs font-mono font-semibold focus:ring-2 focus:ring-blue-500 outline-none"
+                                className="h-10 w-32 px-3 py-2 border border-purple-200 rounded-lg text-xs font-mono font-semibold bg-purple-50/50 focus:ring-2 focus:ring-purple-500 outline-none"
                             />
                         )}
                     </div>
@@ -202,35 +205,35 @@ export default function CitasPage() {
 
                     <button
                         onClick={() => setOpenCrear(true)}
-                        className="h-10 px-4 bg-slate-900 text-white text-xs font-bold rounded-lg flex items-center justify-center gap-2 hover:bg-slate-800 transition-colors shadow-md"
+                        className="h-10 px-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-bold rounded-lg flex items-center justify-center gap-2 hover:from-purple-700 hover:to-indigo-700 transition-all shadow-md shadow-purple-500/25"
                     >
                         <Calendar size={14} />
-                        <span>NUEVA</span>
+                        <span>NUEVA CITA</span>
                     </button>
                 </div>
             </div>
 
             {/* --- CALENDARIO GRID --- */}
-            <div className="flex-1 overflow-auto border border-slate-200 rounded-xl bg-white shadow-sm relative">
+            <div className="flex-1 overflow-auto border border-purple-100 rounded-xl bg-white shadow-sm relative">
                 {/* Contenedor con scroll horizontal para móviles */}
                 <div className="min-w-[800px]">
 
                     {/* Header Días */}
-                    <div className="grid grid-cols-[60px_repeat(7,1fr)] sticky top-0 bg-white z-10 border-b border-slate-200 shadow-sm">
-                        <div className="bg-slate-50 border-r border-slate-200"></div>
+                    <div className="grid grid-cols-[60px_repeat(7,1fr)] sticky top-0 bg-white z-10 border-b border-purple-100 shadow-sm">
+                        <div className="bg-purple-50/50 border-r border-purple-100"></div>
                         {diasSemana.map((day, i) => {
                             const isToday = new Date().toDateString() === day.toDateString();
                             return (
                                 <div
                                     key={i}
-                                    className={`p-2 text-center border-r border-slate-100 last:border-0 ${isToday ? "bg-blue-50/50" : ""
+                                    className={`p-2 text-center border-r border-purple-50 last:border-0 ${isToday ? "bg-purple-50" : ""
                                         }`}
                                 >
-                                    <div className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${isToday ? "text-blue-600" : "text-slate-400"
+                                    <div className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${isToday ? "text-purple-600" : "text-purple-400"
                                         }`}>
                                         {day.toLocaleDateString("es-ES", { weekday: "short" })}
                                     </div>
-                                    <div className={`text-lg font-bold font-mono ${isToday ? "text-blue-700 bg-blue-100 w-8 h-8 rounded-full flex items-center justify-center mx-auto" : "text-slate-700"
+                                    <div className={`text-lg font-bold font-mono ${isToday ? "text-purple-700 bg-purple-100 w-8 h-8 rounded-full flex items-center justify-center mx-auto" : "text-slate-700"
                                         }`}>
                                         {day.getDate()}
                                     </div>
@@ -240,16 +243,16 @@ export default function CitasPage() {
                     </div>
 
                     {/* Cuerpo Horas */}
-                    <div className="divide-y divide-slate-100">
+                    <div className="divide-y divide-purple-50">
                         {loading ? (
-                            <div className="p-8 text-center text-slate-400 flex flex-col items-center gap-2">
-                                <Loader2 className="animate-spin" /> Cargando agenda...
+                            <div className="p-8 text-center text-purple-500 flex flex-col items-center gap-2">
+                                <Loader2 className="animate-spin text-purple-600" /> Cargando agenda...
                             </div>
                         ) : (
                             horas.map((hour) => (
                                 <div key={hour} className="grid grid-cols-[60px_repeat(7,1fr)] min-h-[100px]">
                                     {/* Columna Hora */}
-                                    <div className="p-2 text-[11px] text-slate-400 font-mono text-right bg-slate-50/50 border-r border-slate-200">
+                                    <div className="p-2 text-[11px] text-purple-500 font-mono text-right bg-purple-50/50 border-r border-purple-100">
                                         {hour}:00
                                     </div>
 
@@ -260,7 +263,7 @@ export default function CitasPage() {
                                         return (
                                             <div
                                                 key={i}
-                                                className={`p-1 border-r border-slate-100 last:border-0 relative group transition-colors hover:bg-slate-50 ${isToday ? "bg-blue-50/30" : ""
+                                                className={`p-1 border-r border-purple-50 last:border-0 relative group transition-colors hover:bg-purple-50/50 ${isToday ? "bg-purple-50/30" : ""
                                                     }`}
                                             >
                                                 {slots.map((cita) => (
@@ -500,7 +503,7 @@ function CrearCitaModal({ onClose, onCreated }: { onClose: () => void; onCreated
                     {/* Cliente Autocomplete */}
                     <div className="relative">
                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">Cliente *</label>
-                        <div className={`flex items-center border rounded-lg bg-white transition-all ${showDropCliente ? 'ring-2 ring-blue-500 border-transparent' : 'border-slate-300'}`}>
+                        <div className={`flex items-center border rounded-lg bg-white transition-all ${showDropCliente ? 'ring-2 ring-indigo-500 border-transparent' : 'border-slate-300'}`}>
                             <Search size={16} className="ml-3 text-slate-400" />
                             <input
                                 className="w-full p-2.5 text-sm outline-none bg-transparent"
@@ -528,7 +531,7 @@ function CrearCitaModal({ onClose, onCreated }: { onClose: () => void; onCreated
                     {/* Técnico Autocomplete */}
                     <div className="relative">
                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">Técnico (Opcional)</label>
-                        <div className={`flex items-center border rounded-lg bg-white transition-all ${showDropTecnico ? 'ring-2 ring-blue-500 border-transparent' : 'border-slate-300'}`}>
+                        <div className={`flex items-center border rounded-lg bg-white transition-all ${showDropTecnico ? 'ring-2 ring-indigo-500 border-transparent' : 'border-slate-300'}`}>
                             <Search size={16} className="ml-3 text-slate-400" />
                             <input
                                 className="w-full p-2.5 text-sm outline-none bg-transparent"
@@ -561,7 +564,7 @@ function CrearCitaModal({ onClose, onCreated }: { onClose: () => void; onCreated
                                 value={fecha}
                                 onChange={e => setFecha(e.target.value)}
                                 min={new Date().toISOString().split("T")[0]}
-                                className="w-full p-2.5 text-sm border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full p-2.5 text-sm border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"
                             />
                         </div>
                         <div>
@@ -570,7 +573,7 @@ function CrearCitaModal({ onClose, onCreated }: { onClose: () => void; onCreated
                                 type="time"
                                 value={hora}
                                 onChange={e => setHora(e.target.value)}
-                                className="w-full p-2.5 text-sm border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full p-2.5 text-sm border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"
                             />
                         </div>
                     </div>
@@ -581,7 +584,7 @@ function CrearCitaModal({ onClose, onCreated }: { onClose: () => void; onCreated
                             value={motivo}
                             onChange={e => setMotivo(e.target.value)}
                             placeholder="Describa el problema..."
-                            className="w-full p-3 text-sm border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px] resize-none"
+                            className="w-full p-3 text-sm border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 min-h-[100px] resize-none"
                         />
                     </div>
 
@@ -592,7 +595,7 @@ function CrearCitaModal({ onClose, onCreated }: { onClose: () => void; onCreated
                         <button
                             type="submit"
                             disabled={loading || !clienteSeleccionado}
-                            className="px-4 py-2 text-sm font-bold text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                            className="px-4 py-2 text-sm font-bold text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-md shadow-indigo-500/25"
                         >
                             {loading && <Loader2 size={16} className="animate-spin" />}
                             Confirmar Cita
@@ -612,8 +615,8 @@ function CitaDetailModal({ cita, onClose }: { cita: CitaAdminDTO; onClose: () =>
     }, []);
 
     const estadoStyles = {
-        PENDIENTE: "bg-amber-100 text-amber-800 border-amber-200",
-        CONFIRMADA: "bg-blue-100 text-blue-800 border-blue-200",
+        PENDIENTE: "bg-purple-100 text-purple-800 border-purple-200",
+        CONFIRMADA: "bg-indigo-100 text-indigo-800 border-indigo-200",
         FINALIZADA: "bg-emerald-100 text-emerald-800 border-emerald-200",
         CANCELADA: "bg-red-100 text-red-800 border-red-200",
     }[cita.estado] || "bg-slate-100 text-slate-800";
@@ -621,14 +624,14 @@ function CitaDetailModal({ cita, onClose }: { cita: CitaAdminDTO; onClose: () =>
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" onClick={onClose}>
             <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
-                <div className="p-6 bg-slate-900 text-white flex justify-between items-center">
+                <div className="p-6 bg-gradient-to-r from-indigo-600 to-purple-600 text-white flex justify-between items-center">
                     <div>
                         <div className="flex items-center gap-2 mb-1">
                             <span className="text-xs font-bold tracking-widest text-slate-400 uppercase">Detalle de cita</span>
                             <span className="px-2 py-0.5 rounded-full bg-white/10 border border-white/20 text-[10px] font-mono font-bold">#{String(cita.id).padStart(5, '0')}</span>
                         </div>
                         <div className="text-lg font-bold">
-                            {new Date(cita.fechaHoraInicio).toLocaleString("es-ES", { dateStyle: "full", timeStyle: "short" })}
+                            {formatDateTime(cita.fechaHoraInicio)}
                         </div>
                     </div>
                     <button onClick={onClose} className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors"><X size={18} /></button>
@@ -645,7 +648,7 @@ function CitaDetailModal({ cita, onClose }: { cita: CitaAdminDTO; onClose: () =>
                         <div className="flex-1">
                             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Horario</label>
                             <div className="flex items-center gap-2 font-bold text-slate-800">
-                                <Clock size={16} className="text-blue-500" />
+                                <Clock size={16} className="text-indigo-500" />
                                 {new Date(cita.fechaHoraInicio).toLocaleTimeString("es-ES", { hour: '2-digit', minute: '2-digit' })}
                             </div>
                         </div>

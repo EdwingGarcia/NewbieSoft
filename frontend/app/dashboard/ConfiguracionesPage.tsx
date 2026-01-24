@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { API_BASE_URL } from "../lib/api";
+import { invalidateBackendConfigCache } from "../lib/config";
+import { Settings, Key, Globe, Palette, Bell, Shield, Clock, Save, RefreshCw, Eye, EyeOff, Check, X, Info, AlertCircle, Server, Mail, Database, Loader2 } from "lucide-react";
 
 /* =========================
    Helpers
@@ -34,6 +36,7 @@ function getAuthToken(): string | null {
    Tipos e Interfaces
 ========================= */
 type ValueType = "STRING" | "NUMBER" | "BOOLEAN" | "URL" | "EMAIL" | "PASSWORD";
+type ConfigSource = "frontend" | "backend";
 
 interface ConfigurationProperty {
     id: number;
@@ -46,6 +49,20 @@ interface ConfigurationProperty {
     valueType: ValueType;
     updatedAt?: string;
     updatedBy?: string;
+    source?: ConfigSource;
+}
+
+interface FrontendConfig {
+    key: string;
+    label: string;
+    description: string;
+    type: "text" | "password" | "number" | "boolean" | "select" | "url";
+    defaultValue: string;
+    options?: { label: string; value: string }[];
+    placeholder?: string;
+    sensitive?: boolean;
+    required?: boolean;
+    category: string;
 }
 
 interface ConfigurationsResponse {
@@ -64,31 +81,142 @@ interface BulkUpdateDTO {
 }
 
 /* =========================
-   Constantes
+   Constantes - Configuraciones Frontend
 ========================= */
+const FRONTEND_CONFIGS: FrontendConfig[] = [
+    // Integraciones
+    {
+        key: "RECAPTCHA_SITE_KEY",
+        label: "reCAPTCHA Site Key",
+        description: "Clave pública de Google reCAPTCHA v2 para proteger formularios",
+        type: "text",
+        defaultValue: process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || "",
+        placeholder: "6Le...",
+        required: true,
+        category: "Frontend",
+    },
+    {
+        key: "API_BASE_URL",
+        label: "URL del Backend API",
+        description: "Dirección base del servidor backend",
+        type: "url",
+        defaultValue: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080",
+        placeholder: "https://api.example.com",
+        required: true,
+        category: "Frontend",
+    },
+    // Aplicación
+    {
+        key: "APP_NAME",
+        label: "Nombre de la Aplicación",
+        description: "Nombre mostrado en encabezados",
+        type: "text",
+        defaultValue: "Newbie Data Control",
+        placeholder: "Mi Aplicación",
+        category: "Frontend",
+    },
+    {
+        key: "COMPANY_NAME",
+        label: "Nombre de la Empresa",
+        description: "Nombre comercial para reportes",
+        type: "text",
+        defaultValue: "Newbie Soft",
+        placeholder: "Mi Empresa S.A.",
+        category: "Frontend",
+    },
+    // UI
+    {
+        key: "SIDEBAR_STYLE",
+        label: "Estilo del Sidebar",
+        description: "Comportamiento del menú lateral",
+        type: "select",
+        defaultValue: "auto",
+        options: [
+            { label: "Auto (hover)", value: "auto" },
+            { label: "Siempre expandido", value: "expanded" },
+            { label: "Siempre colapsado", value: "collapsed" },
+        ],
+        category: "Frontend",
+    },
+    {
+        key: "DATE_FORMAT",
+        label: "Formato de Fecha",
+        description: "Formato para mostrar fechas",
+        type: "select",
+        defaultValue: "DD/MM/YYYY",
+        options: [
+            { label: "DD/MM/YYYY", value: "DD/MM/YYYY" },
+            { label: "MM/DD/YYYY", value: "MM/DD/YYYY" },
+            { label: "YYYY-MM-DD", value: "YYYY-MM-DD" },
+        ],
+        category: "Frontend",
+    },
+    {
+        key: "ITEMS_PER_PAGE",
+        label: "Items por Página",
+        description: "Registros por página en listados",
+        type: "number",
+        defaultValue: "10",
+        placeholder: "10",
+        category: "Frontend",
+    },
+    // Notificaciones
+    {
+        key: "NOTIFY_NEW_CITA",
+        label: "Notificar nuevas citas",
+        description: "Alerta al crear una nueva cita",
+        type: "boolean",
+        defaultValue: "true",
+        category: "Frontend",
+    },
+    {
+        key: "NOTIFY_SOUND",
+        label: "Sonido de notificación",
+        description: "Reproducir sonido en notificaciones",
+        type: "boolean",
+        defaultValue: "false",
+        category: "Frontend",
+    },
+    // Sesión
+    {
+        key: "SESSION_TIMEOUT",
+        label: "Timeout de sesión (min)",
+        description: "Minutos antes de cerrar sesión por inactividad",
+        type: "number",
+        defaultValue: "30",
+        placeholder: "30",
+        category: "Frontend",
+    },
+    {
+        key: "AUTO_REFRESH_INTERVAL",
+        label: "Auto-refresh (seg)",
+        description: "Segundos entre actualizaciones (0 = off)",
+        type: "number",
+        defaultValue: "60",
+        placeholder: "60",
+        category: "Frontend",
+    },
+];
+
 const CONFIG_API = `${API_BASE_URL}/api/v1/configurations`;
 
-const CATEGORY_ICONS: Record<string, string> = {
-    "Aplicación": "🏢",
-    "Base de Datos": "🗄️",
-    "Seguridad": "🔒",
-    "Correo SMTP": "📧",
-    "Logging": "📋",
-    "Archivos": "📁",
-    "Servicios Externos": "🔗",
-    "Actuator": "📊",
-    "default": "⚙️",
+const CATEGORY_ICONS: Record<string, React.ReactNode> = {
+    "Frontend": <Globe className="w-5 h-5" />,
+    "Aplicación": <Settings className="w-5 h-5" />,
+    "Base de Datos": <Database className="w-5 h-5" />,
+    "Seguridad": <Shield className="w-5 h-5" />,
+    "Correo SMTP": <Mail className="w-5 h-5" />,
+    "Servicios Externos": <Key className="w-5 h-5" />,
+    "default": <Server className="w-5 h-5" />,
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
+    "Frontend": "#7c3aed",
     "Aplicación": "#6366f1",
     "Base de Datos": "#059669",
     "Seguridad": "#dc2626",
     "Correo SMTP": "#0891b2",
-    "Logging": "#7c3aed",
-    "Archivos": "#ea580c",
     "Servicios Externos": "#2563eb",
-    "Actuator": "#84cc16",
     "default": "#6b7280",
 };
 
@@ -99,7 +227,7 @@ export default function ConfiguracionesPage() {
     // Estados principales
     const [configurations, setConfigurations] = useState<Record<string, ConfigurationProperty[]>>({});
     const [categories, setCategories] = useState<string[]>([]);
-    const [activeCategory, setActiveCategory] = useState<string | null>(null);
+    const [activeCategory, setActiveCategory] = useState<string>("Frontend");
 
     // Estados de UI
     const [loading, setLoading] = useState(true);
@@ -107,21 +235,43 @@ export default function ConfiguracionesPage() {
     const [error, setError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-    // Estados de edición
-    const [editedValues, setEditedValues] = useState<Record<number, string>>({});
-    const [showPasswords, setShowPasswords] = useState<Record<number, boolean>>({});
-
-    // Estados de búsqueda
-    const [searchQuery, setSearchQuery] = useState("");
-    const [searchResults, setSearchResults] = useState<ConfigurationProperty[] | null>(null);
-    const [searching, setSearching] = useState(false);
+    // Estados de edición - separamos frontend y backend
+    const [editedBackendValues, setEditedBackendValues] = useState<Record<number, string>>({});
+    const [editedFrontendValues, setEditedFrontendValues] = useState<Record<string, string>>({});
+    const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
 
     /* =========================
-       Cargar configuraciones
+       Cargar configuraciones Frontend desde localStorage
     ========================= */
-    const loadConfigurations = useCallback(async () => {
+    const loadFrontendConfigs = useCallback(() => {
+        const frontendConfigs: ConfigurationProperty[] = FRONTEND_CONFIGS.map((cfg, idx) => ({
+            id: -1000 - idx, // IDs negativos para distinguir de backend
+            key: cfg.key,
+            value: localStorage.getItem(`config.${cfg.key}`) || cfg.defaultValue,
+            category: "Frontend",
+            description: cfg.description,
+            isSensitive: cfg.sensitive || false,
+            isEditable: true,
+            valueType: cfg.type === "boolean" ? "BOOLEAN" : cfg.type === "number" ? "NUMBER" : cfg.type === "password" ? "PASSWORD" : "STRING",
+            source: "frontend" as ConfigSource,
+        }));
+        
+        return { "Frontend": frontendConfigs };
+    }, []);
+
+    /* =========================
+       Cargar configuraciones Backend desde API
+    ========================= */
+    const loadBackendConfigurations = useCallback(async () => {
         const token = getAuthToken();
-        if (!token) return;
+        if (!token) {
+            // Sin token, solo cargamos frontend
+            const frontendData = loadFrontendConfigs();
+            setConfigurations(frontendData);
+            setCategories(["Frontend"]);
+            setLoading(false);
+            return;
+        }
 
         setLoading(true);
         setError(null);
@@ -133,7 +283,11 @@ export default function ConfiguracionesPage() {
 
             if (!res.ok) {
                 if (res.status === 401 || res.status === 403) {
-                    throw new Error("No tienes permisos para acceder a las configuraciones");
+                    // Sin permisos, solo frontend
+                    const frontendData = loadFrontendConfigs();
+                    setConfigurations(frontendData);
+                    setCategories(["Frontend"]);
+                    return;
                 }
                 throw new Error(`Error ${res.status} al cargar configuraciones`);
             }
@@ -141,25 +295,43 @@ export default function ConfiguracionesPage() {
             const json: ConfigurationsResponse = await res.json();
 
             if (json.success) {
-                setConfigurations(json.data);
-                setCategories(json.categories || Object.keys(json.data));
+                // Combinar frontend + backend
+                const frontendData = loadFrontendConfigs();
+                
+                // Filtrar categorías irrelevantes del backend
+                const relevantCategories = ["Aplicación", "Seguridad", "Correo SMTP", "Base de Datos", "Servicios Externos"];
+                const filteredBackendData: Record<string, ConfigurationProperty[]> = {};
+                
+                Object.entries(json.data).forEach(([category, configs]) => {
+                    if (relevantCategories.includes(category)) {
+                        // Marcar como backend y filtrar propiedades no relevantes
+                        filteredBackendData[category] = configs
+                            .filter(cfg => !cfg.key.includes("debug") && !cfg.key.includes("actuator") && !cfg.key.includes("logging"))
+                            .map(cfg => ({ ...cfg, source: "backend" as ConfigSource }));
+                    }
+                });
 
-                // Seleccionar primera categoría si no hay ninguna activa
-                if (!activeCategory && json.categories?.length > 0) {
-                    setActiveCategory(json.categories[0]);
-                }
+                const combinedData = { ...frontendData, ...filteredBackendData };
+                const allCategories = ["Frontend", ...relevantCategories.filter(cat => filteredBackendData[cat]?.length > 0)];
+                
+                setConfigurations(combinedData);
+                setCategories(allCategories);
             }
         } catch (err) {
-            console.error("Error cargando configuraciones:", err);
-            setError(err instanceof Error ? err.message : "No se pudieron cargar las configuraciones");
+            console.error("Error cargando configuraciones backend:", err);
+            // Fallback a solo frontend
+            const frontendData = loadFrontendConfigs();
+            setConfigurations(frontendData);
+            setCategories(["Frontend"]);
+            setError(err instanceof Error ? err.message : "Error cargando configuraciones del servidor");
         } finally {
             setLoading(false);
         }
-    }, [activeCategory]);
+    }, [loadFrontendConfigs]);
 
     useEffect(() => {
-        loadConfigurations();
-    }, []);
+        loadBackendConfigurations();
+    }, [loadBackendConfigurations]);
 
     /* =========================
        Búsqueda
@@ -202,42 +374,104 @@ export default function ConfiguracionesPage() {
     /* =========================
        Edición de valores
     ========================= */
-    const handleValueChange = (configId: number, newValue: string) => {
-        setEditedValues((prev) => ({
-            ...prev,
-            [configId]: newValue,
-        }));
+    const handleValueChange = (config: ConfigurationProperty, newValue: string) => {
+        if (config.source === "frontend" || config.id < 0) {
+            setEditedFrontendValues((prev) => ({
+                ...prev,
+                [config.key]: newValue,
+            }));
+        } else {
+            setEditedBackendValues((prev) => ({
+                ...prev,
+                [config.id]: newValue,
+            }));
+        }
     };
 
     const getDisplayValue = (config: ConfigurationProperty): string => {
-        if (editedValues[config.id] !== undefined) {
-            return editedValues[config.id] ?? "";
+        if (config.source === "frontend" || config.id < 0) {
+            if (editedFrontendValues[config.key] !== undefined) {
+                return editedFrontendValues[config.key];
+            }
+        } else {
+            if (editedBackendValues[config.id] !== undefined) {
+                return editedBackendValues[config.id] ?? "";
+            }
         }
         return config.value ?? "";
     };
 
-    const hasChanges = (configId: number, originalValue: string | null): boolean => {
-        const editedValue = editedValues[configId];
-        if (editedValue === undefined) return false;
-        return editedValue !== (originalValue ?? "");
+    const hasConfigChanges = (config: ConfigurationProperty): boolean => {
+        if (config.source === "frontend" || config.id < 0) {
+            const edited = editedFrontendValues[config.key];
+            if (edited === undefined) return false;
+            return edited !== (config.value ?? "");
+        } else {
+            const edited = editedBackendValues[config.id];
+            if (edited === undefined) return false;
+            return edited !== (config.value ?? "");
+        }
     };
 
-    const discardChanges = (configId: number) => {
-        setEditedValues((prev) => {
-            const updated = { ...prev };
-            delete updated[configId];
-            return updated;
-        });
+    const discardChanges = (config: ConfigurationProperty) => {
+        if (config.source === "frontend" || config.id < 0) {
+            setEditedFrontendValues((prev) => {
+                const updated = { ...prev };
+                delete updated[config.key];
+                return updated;
+            });
+        } else {
+            setEditedBackendValues((prev) => {
+                const updated = { ...prev };
+                delete updated[config.id];
+                return updated;
+            });
+        }
     };
+
+    // Contar cambios pendientes
+    const pendingFrontendChanges = Object.keys(editedFrontendValues).length;
+    const pendingBackendChanges = Object.keys(editedBackendValues).length;
+    const totalPendingChanges = pendingFrontendChanges + pendingBackendChanges;
 
     /* =========================
-       Guardar configuración individual
+       Guardar configuraciones Frontend (localStorage)
     ========================= */
-    const saveConfiguration = async (config: ConfigurationProperty) => {
+    const saveFrontendConfigs = useCallback(() => {
+        Object.entries(editedFrontendValues).forEach(([key, value]) => {
+            localStorage.setItem(`config.${key}`, value);
+            
+            // Disparar evento custom para que otros componentes se actualicen
+            window.dispatchEvent(new CustomEvent("frontendConfigChanged", {
+                detail: { key, value }
+            }));
+        });
+
+        // Actualizar estado
+        setConfigurations((prev) => {
+            const updated = { ...prev };
+            if (updated["Frontend"]) {
+                updated["Frontend"] = updated["Frontend"].map((cfg) => {
+                    if (editedFrontendValues[cfg.key] !== undefined) {
+                        return { ...cfg, value: editedFrontendValues[cfg.key] };
+                    }
+                    return cfg;
+                });
+            }
+            return updated;
+        });
+
+        setEditedFrontendValues({});
+    }, [editedFrontendValues]);
+
+    /* =========================
+       Guardar configuración Backend individual
+    ========================= */
+    const saveBackendConfiguration = async (config: ConfigurationProperty) => {
         const token = getAuthToken();
         if (!token) return;
 
-        const newValue = editedValues[config.id];
+        const newValue = editedBackendValues[config.id];
         if (newValue === undefined || newValue === (config.value ?? "")) return;
 
         setSaving(true);
@@ -273,7 +507,7 @@ export default function ConfiguracionesPage() {
             });
 
             // Limpiar el valor editado
-            discardChanges(config.id);
+            discardChanges(config);
 
             setSuccessMessage(`Configuración "${config.key}" actualizada correctamente`);
             setTimeout(() => setSuccessMessage(null), 3000);
@@ -289,42 +523,46 @@ export default function ConfiguracionesPage() {
        Guardar todos los cambios pendientes
     ========================= */
     const saveAllChanges = async () => {
-        const token = getAuthToken();
-        if (!token) return;
-
-        const changedConfigs = Object.entries(editedValues).map(([id, value]) => ({
-            id: parseInt(id),
-            value,
-        }));
-
-        if (changedConfigs.length === 0) return;
-
         setSaving(true);
         setError(null);
         setSuccessMessage(null);
 
         try {
-            const res = await fetch(`${CONFIG_API}/bulk`, {
-                method: "PUT",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({ configurations: changedConfigs } as BulkUpdateDTO),
-            });
-
-            if (!res.ok) {
-                const errorData = await res.json().catch(() => ({}));
-                throw new Error(errorData.message || `Error ${res.status} al guardar`);
+            // 1. Guardar cambios frontend
+            if (pendingFrontendChanges > 0) {
+                saveFrontendConfigs();
             }
 
-            // Recargar configuraciones
-            await loadConfigurations();
+            // 2. Guardar cambios backend
+            if (pendingBackendChanges > 0) {
+                const token = getAuthToken();
+                if (token) {
+                    const changedConfigs = Object.entries(editedBackendValues).map(([id, value]) => ({
+                        id: parseInt(id),
+                        value,
+                    }));
 
-            // Limpiar valores editados
-            setEditedValues({});
+                    const res = await fetch(`${CONFIG_API}/bulk`, {
+                        method: "PUT",
+                        headers: {
+                            "Content-Type": "application/json",
+                            Authorization: `Bearer ${token}`,
+                        },
+                        body: JSON.stringify({ configurations: changedConfigs } as BulkUpdateDTO),
+                    });
 
-            setSuccessMessage(`${changedConfigs.length} configuraciones actualizadas correctamente`);
+                    if (!res.ok) {
+                        const errorData = await res.json().catch(() => ({}));
+                        throw new Error(errorData.message || `Error ${res.status} al guardar backend`);
+                    }
+
+                    // Invalidar caché para que otros componentes lean los nuevos valores
+                    invalidateBackendConfigCache();
+                    setEditedBackendValues({});
+                }
+            }
+
+            setSuccessMessage(`${totalPendingChanges} configuración(es) guardada(s) correctamente`);
             setTimeout(() => setSuccessMessage(null), 3000);
         } catch (err) {
             console.error("Error guardando configuraciones:", err);
@@ -335,367 +573,209 @@ export default function ConfiguracionesPage() {
     };
 
     /* =========================
+       Descartar todos los cambios
+    ========================= */
+    const discardAllChanges = () => {
+        setEditedFrontendValues({});
+        setEditedBackendValues({});
+    };
+
+    /* =========================
        Configuraciones a mostrar
     ========================= */
     const displayConfigurations = useMemo(() => {
-        if (searchResults !== null) {
-            return searchResults;
-        }
         if (activeCategory && configurations[activeCategory]) {
             return configurations[activeCategory];
         }
         return [];
-    }, [searchResults, activeCategory, configurations]);
-
-    const pendingChangesCount = Object.keys(editedValues).length;
-
-    /* =========================
-       Estilos
-    ========================= */
-    const cardStyle: React.CSSProperties = {
-        backgroundColor: "#ffffff",
-        borderRadius: "12px",
-        padding: "1.25rem",
-        border: "1px solid #e5e7eb",
-        boxShadow: "0 8px 24px rgba(15,23,42,0.06)",
-    };
-
-    const inputStyle: React.CSSProperties = {
-        width: "100%",
-        padding: "0.6rem 0.8rem",
-        borderRadius: "8px",
-        border: "1px solid #e5e7eb",
-        fontSize: "0.85rem",
-        outline: "none",
-        transition: "border-color 0.2s, box-shadow 0.2s",
-        fontFamily: "monospace",
-    };
-
-    const buttonPrimaryStyle: React.CSSProperties = {
-        background: "linear-gradient(90deg, #6366f1, #4f46e5)",
-        borderRadius: "999px",
-        border: "none",
-        color: "#fff",
-        cursor: "pointer",
-        padding: "0.5rem 1rem",
-        fontSize: "0.85rem",
-        fontWeight: 600,
-        transition: "opacity 0.2s",
-    };
-
-    const buttonSecondaryStyle: React.CSSProperties = {
-        background: "#fff",
-        borderRadius: "999px",
-        border: "1px solid #e5e7eb",
-        color: "#374151",
-        cursor: "pointer",
-        padding: "0.5rem 1rem",
-        fontSize: "0.85rem",
-        fontWeight: 600,
-        transition: "all 0.2s",
-    };
+    }, [activeCategory, configurations]);
 
     /* =========================
        Render
     ========================= */
     return (
-        <div style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "1.25rem",
-            height: "calc(100vh - 120px)", // Altura total menos header
-            overflow: "hidden",
-        }}>
+        <div className="min-h-full h-full bg-gradient-to-br from-slate-50 to-purple-50/30 p-4 lg:p-6 flex flex-col gap-6">
             {/* Header */}
-            <div
-                style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "flex-start",
-                    flexWrap: "wrap",
-                    gap: "1rem",
-                    flexShrink: 0,
-                }}
-            >
-                <div>
-                    <h1 style={{ fontSize: "1.5rem", fontWeight: 700, color: "#0f172a", margin: 0 }}>
-                        ⚙️ Configuraciones del Sistema
-                    </h1>
-                    <p style={{ fontSize: "0.85rem", color: "#6b7280", marginTop: "0.25rem" }}>
-                        Administra las configuraciones de la aplicación
-                    </p>
-                </div>
+            <div className="flex-none bg-white/80 backdrop-blur-sm rounded-2xl border border-purple-100 shadow-lg shadow-purple-500/5 p-4 lg:p-6">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg shadow-purple-500/25">
+                            <Settings className="h-5 w-5 text-white" />
+                        </div>
+                        <div>
+                            <h1 className="text-xl font-bold text-slate-900">Configuraciones</h1>
+                            <p className="text-sm text-slate-500">Frontend y Backend • {categories.length} categorías</p>
+                        </div>
+                    </div>
 
-                {/* Botón guardar todos los cambios */}
-                {pendingChangesCount > 0 && (
-                    <button
-                        style={{
-                            ...buttonPrimaryStyle,
-                            background: "linear-gradient(90deg, #16a34a, #22c55e)",
-                        }}
-                        onClick={saveAllChanges}
-                        disabled={saving}
-                    >
-                        {saving ? "Guardando..." : `💾 Guardar ${pendingChangesCount} cambio(s)`}
-                    </button>
-                )}
+                    <div className="flex flex-wrap gap-2">
+                        {totalPendingChanges > 0 && (
+                            <>
+                                <button
+                                    onClick={discardAllChanges}
+                                    className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50 transition-colors flex items-center gap-2"
+                                >
+                                    <X className="w-4 h-4" />
+                                    Descartar
+                                </button>
+                                <button
+                                    onClick={saveAllChanges}
+                                    disabled={saving}
+                                    className="px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-purple-700 text-white text-sm font-medium shadow-lg shadow-purple-500/25 hover:from-purple-700 hover:to-purple-800 transition-all flex items-center gap-2 disabled:opacity-50"
+                                >
+                                    <Save className="w-4 h-4" />
+                                    {saving ? "Guardando..." : `Guardar (${totalPendingChanges})`}
+                                </button>
+                            </>
+                        )}
+                        <button
+                            onClick={() => loadBackendConfigurations()}
+                            className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50 transition-colors flex items-center gap-2"
+                            title="Recargar configuraciones"
+                        >
+                            <RefreshCw className="w-4 h-4" />
+                            Recargar
+                        </button>
+                    </div>
+                </div>
             </div>
 
-            {/* Mensajes de error/éxito */}
+            {/* Mensajes */}
             {error && (
-                <div
-                    style={{
-                        fontSize: "0.85rem",
-                        color: "#b91c1c",
-                        backgroundColor: "#fee2e2",
-                        borderRadius: "8px",
-                        padding: "0.75rem 1rem",
-                        border: "1px solid #fecaca",
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        flexShrink: 0,
-                    }}
-                >
-                    <span>❌ {error}</span>
-                    <button
-                        onClick={() => setError(null)}
-                        style={{ background: "none", border: "none", cursor: "pointer", fontSize: "1rem" }}
-                    >
-                        ✕
+                <div className="flex-none bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2 text-sm">
+                    <AlertCircle className="w-4 h-4" />
+                    {error}
+                    <button onClick={() => setError(null)} className="ml-auto text-red-400 hover:text-red-600">
+                        <X className="w-4 h-4" />
                     </button>
                 </div>
             )}
 
             {successMessage && (
-                <div
-                    style={{
-                        fontSize: "0.85rem",
-                        color: "#166534",
-                        backgroundColor: "#dcfce7",
-                        borderRadius: "8px",
-                        padding: "0.75rem 1rem",
-                        border: "1px solid #bbf7d0",
-                        flexShrink: 0,
-                    }}
-                >
-                    ✅ {successMessage}
+                <div className="flex-none bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl flex items-center gap-2 text-sm">
+                    <Check className="w-4 h-4" />
+                    {successMessage}
                 </div>
             )}
 
-            {/* Barra de búsqueda */}
-            <div style={{ ...cardStyle, padding: "1rem", flexShrink: 0 }}>
-                <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
-                    <div style={{ flex: 1, position: "relative" }}>
-                        <input
-                            type="text"
-                            placeholder="Buscar configuraciones por clave o descripción..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                            style={{
-                                ...inputStyle,
-                                fontFamily: "inherit",
-                                paddingRight: searchQuery ? "2.5rem" : "0.8rem",
-                            }}
-                        />
-                        {searchQuery && (
-                            <button
-                                onClick={clearSearch}
-                                style={{
-                                    position: "absolute",
-                                    right: "0.5rem",
-                                    top: "50%",
-                                    transform: "translateY(-50%)",
-                                    background: "none",
-                                    border: "none",
-                                    cursor: "pointer",
-                                    color: "#6b7280",
-                                    fontSize: "1rem",
-                                }}
-                            >
-                                ✕
-                            </button>
-                        )}
-                    </div>
-                    <button
-                        style={buttonPrimaryStyle}
-                        onClick={handleSearch}
-                        disabled={searching || !searchQuery.trim()}
-                    >
-                        {searching ? "Buscando..." : "🔍 Buscar"}
-                    </button>
-                </div>
-
-                {searchResults !== null && (
-                    <div style={{ marginTop: "0.75rem", fontSize: "0.85rem", color: "#6b7280" }}>
-                        Se encontraron <b>{searchResults.length}</b> resultado(s) para "{searchQuery}"
-                        <button
-                            onClick={clearSearch}
-                            style={{
-                                marginLeft: "0.5rem",
-                                background: "none",
-                                border: "none",
-                                color: "#4f46e5",
-                                cursor: "pointer",
-                                textDecoration: "underline",
-                            }}
-                        >
-                            Limpiar búsqueda
-                        </button>
-                    </div>
-                )}
-            </div>
-
             {/* Contenido principal */}
             {loading ? (
-                <div style={{ ...cardStyle, textAlign: "center", padding: "3rem" }}>
-                    <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>⏳</div>
-                    <p style={{ color: "#6b7280" }}>Cargando configuraciones...</p>
+                <div className="flex-1 flex items-center justify-center">
+                    <div className="text-center">
+                        <Loader2 className="w-8 h-8 animate-spin text-purple-600 mx-auto mb-2" />
+                        <p className="text-slate-500">Cargando configuraciones...</p>
+                    </div>
                 </div>
             ) : (
-                <div style={{
-                    display: "flex",
-                    gap: "1.25rem",
-                    flex: 1,
-                    minHeight: 0, // Importante para que flex funcione con overflow
-                    overflow: "hidden",
-                }}>
+                <div className="flex-1 flex gap-6 min-h-0">
                     {/* Sidebar de categorías */}
-                    {searchResults === null && (
-                        <div
-                            style={{
-                                width: "220px",
-                                flexShrink: 0,
-                                display: "flex",
-                                flexDirection: "column",
-                                gap: "0.5rem",
-                                overflowY: "auto",
-                                paddingRight: "0.5rem",
-                            }}
-                        >
-                            <div style={{
-                                fontSize: "0.8rem",
-                                fontWeight: 600,
-                                color: "#6b7280",
-                                marginBottom: "0.25rem",
-                                position: "sticky",
-                                top: 0,
-                                backgroundColor: "#f5f5ff",
-                                paddingBottom: "0.5rem",
-                                zIndex: 1,
-                            }}>
-                                CATEGORÍAS
-                            </div>
-                            {categories.map((category) => {
-                                const icon = CATEGORY_ICONS[category] || CATEGORY_ICONS.default;
-                                const color = CATEGORY_COLORS[category] || CATEGORY_COLORS.default;
-                                const isActive = activeCategory === category;
-                                const count = configurations[category]?.length || 0;
+                    <div className="w-56 flex-shrink-0 flex flex-col gap-2">
+                        <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 px-3">
+                            Categorías
+                        </div>
+                        {categories.map((category) => {
+                            const icon = CATEGORY_ICONS[category] || CATEGORY_ICONS.default;
+                            const color = CATEGORY_COLORS[category] || CATEGORY_COLORS.default;
+                            const isActive = activeCategory === category;
+                            const count = configurations[category]?.length || 0;
+                            const categoryConfigs = configurations[category] || [];
+                            const categoryHasChanges = categoryConfigs.some((c) => hasConfigChanges(c));
+                            const isFrontend = category === "Frontend";
 
-                                return (
-                                    <button
-                                        key={category}
-                                        onClick={() => setActiveCategory(category)}
+                            return (
+                                <button
+                                    key={category}
+                                    onClick={() => setActiveCategory(category)}
+                                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all ${
+                                        isActive
+                                            ? "bg-white shadow-md border border-purple-200"
+                                            : "hover:bg-white/60 border border-transparent"
+                                    }`}
+                                >
+                                    <div
+                                        className="p-2 rounded-lg"
                                         style={{
-                                            display: "flex",
-                                            alignItems: "center",
-                                            gap: "0.6rem",
-                                            padding: "0.65rem 0.85rem",
-                                            borderRadius: "10px",
-                                            border: isActive ? `2px solid ${color}` : "1px solid #e5e7eb",
-                                            background: isActive ? `${color}10` : "#fff",
-                                            cursor: "pointer",
-                                            textAlign: "left",
-                                            transition: "all 0.2s",
+                                            backgroundColor: isActive ? `${color}15` : "#f1f5f9",
+                                            color: isActive ? color : "#64748b",
                                         }}
                                     >
-                                        <span style={{ fontSize: "1.1rem" }}>{icon}</span>
-                                        <div style={{ flex: 1 }}>
-                                            <div
-                                                style={{
-                                                    fontSize: "0.85rem",
-                                                    fontWeight: isActive ? 600 : 500,
-                                                    color: isActive ? color : "#374151",
-                                                }}
-                                            >
-                                                {category}
-                                            </div>
-                                            <div style={{ fontSize: "0.75rem", color: "#9ca3af" }}>
-                                                {count} propiedades
-                                            </div>
+                                        {icon}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className={`text-sm font-medium truncate flex items-center gap-1 ${isActive ? "text-slate-900" : "text-slate-600"}`}>
+                                            {category}
+                                            {categoryHasChanges && (
+                                                <span className="inline-block w-2 h-2 bg-purple-500 rounded-full" />
+                                            )}
                                         </div>
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    )}
+                                        <div className="text-xs text-slate-400 truncate">
+                                            {count} props • {isFrontend ? "Local" : "Servidor"}
+                                        </div>
+                                    </div>
+                                </button>
+                            );
+                        })}
+                    </div>
 
                     {/* Lista de configuraciones */}
-                    <div style={{
-                        flex: 1,
-                        overflowY: "auto",
-                        paddingRight: "0.5rem",
-                        minHeight: 0,
-                    }}>
-                        {searchResults === null && activeCategory && (
-                            <div
-                                style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: "0.5rem",
-                                    marginBottom: "1rem",
-                                    position: "sticky",
-                                    top: 0,
-                                    backgroundColor: "#f5f5ff",
-                                    paddingBottom: "0.75rem",
-                                    paddingTop: "0.25rem",
-                                    zIndex: 1,
-                                }}
-                            >
-                                <span style={{ fontSize: "1.25rem" }}>
-                                    {CATEGORY_ICONS[activeCategory] || CATEGORY_ICONS.default}
-                                </span>
-                                <h2 style={{ fontSize: "1.1rem", fontWeight: 600, color: "#0f172a", margin: 0 }}>
-                                    {activeCategory}
-                                </h2>
-                                <span
+                    <div className="flex-1 bg-white/80 backdrop-blur-sm rounded-2xl border border-purple-100 shadow-lg shadow-purple-500/5 p-6 overflow-y-auto">
+                        {activeCategory && (
+                            <div className="flex items-center gap-3 mb-6 pb-4 border-b border-purple-100">
+                                <div
+                                    className="p-2 rounded-lg"
                                     style={{
-                                        fontSize: "0.75rem",
-                                        padding: "0.15rem 0.5rem",
-                                        borderRadius: "999px",
-                                        backgroundColor: "#f3f4f6",
-                                        color: "#6b7280",
+                                        backgroundColor: `${CATEGORY_COLORS[activeCategory] || CATEGORY_COLORS.default}15`,
+                                        color: CATEGORY_COLORS[activeCategory] || CATEGORY_COLORS.default,
                                     }}
                                 >
-                                    {displayConfigurations.length} propiedades
-                                </span>
+                                    {CATEGORY_ICONS[activeCategory] || CATEGORY_ICONS.default}
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-semibold text-slate-900">
+                                        {activeCategory}
+                                    </h2>
+                                    <p className="text-sm text-slate-500">
+                                        {displayConfigurations.length} propiedades • 
+                                        {activeCategory === "Frontend" ? " Guardado local" : " Guardado en servidor"}
+                                    </p>
+                                </div>
                             </div>
                         )}
 
-                        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", paddingBottom: "1rem" }}>
+                        <div className="space-y-4">
                             {displayConfigurations.length === 0 ? (
-                                <div style={{ ...cardStyle, textAlign: "center", padding: "2rem" }}>
-                                    <p style={{ color: "#6b7280" }}>No hay configuraciones para mostrar</p>
+                                <div className="text-center py-8 text-slate-400">
+                                    No hay configuraciones para mostrar
                                 </div>
                             ) : (
                                 displayConfigurations.map((config) => (
                                     <ConfigurationCard
-                                        key={config.id}
+                                        key={config.key}
                                         config={config}
+                                        frontendConfig={FRONTEND_CONFIGS.find(fc => fc.key === config.key)}
                                         value={getDisplayValue(config)}
-                                        hasChanges={hasChanges(config.id, config.value)}
-                                        showPassword={showPasswords[config.id] || false}
+                                        hasChanges={hasConfigChanges(config)}
+                                        showPassword={showPasswords[config.key] || false}
                                         saving={saving}
-                                        onValueChange={(val) => handleValueChange(config.id, val)}
+                                        onValueChange={(val) => handleValueChange(config, val)}
                                         onTogglePassword={() =>
                                             setShowPasswords((prev) => ({
                                                 ...prev,
-                                                [config.id]: !prev[config.id],
+                                                [config.key]: !prev[config.key],
                                             }))
                                         }
-                                        onSave={() => saveConfiguration(config)}
-                                        onDiscard={() => discardChanges(config.id)}
+                                        onSave={() => {
+                                            if (config.source === "frontend" || config.id < 0) {
+                                                // Guardar frontend individual
+                                                localStorage.setItem(`config.${config.key}`, getDisplayValue(config));
+                                                discardChanges(config);
+                                                setSuccessMessage(`"${config.key}" guardado`);
+                                                setTimeout(() => setSuccessMessage(null), 2000);
+                                            } else {
+                                                saveBackendConfiguration(config);
+                                            }
+                                        }}
+                                        onDiscard={() => discardChanges(config)}
                                     />
                                 ))
                             )}
@@ -704,31 +784,12 @@ export default function ConfiguracionesPage() {
                 </div>
             )}
 
-            {/* Info footer */}
-            <div
-                style={{
-                    padding: "0.75rem 1rem",
-                    backgroundColor: "#f8fafc",
-                    borderRadius: "8px",
-                    border: "1px solid #e2e8f0",
-                    fontSize: "0.8rem",
-                    color: "#64748b",
-                    flexShrink: 0, // No permitir que se encoja
-                }}
-            >
-                <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" }}>
-                    <div>
-                        <span style={{ marginRight: "0.35rem" }}>🔒</span>
-                        <b>Valores sensibles</b> están enmascarados por seguridad
-                    </div>
-                    <div>
-                        <span style={{ marginRight: "0.35rem" }}>✏️</span>
-                        Solo las propiedades <b>editables</b> pueden modificarse
-                    </div>
-                    <div>
-                        <span style={{ marginRight: "0.35rem" }}>📝</span>
-                        Los cambios se registran en el <b>log de auditoría</b>
-                    </div>
+            {/* Footer con info */}
+            <div className="mt-4 pt-4 border-t border-purple-100">
+                <div className="text-xs text-slate-500 flex items-center gap-4 flex-wrap">
+                    <span><Globe className="w-3 h-3 inline mr-1" /> <b>Frontend:</b> Guardado en navegador</span>
+                    <span><Server className="w-3 h-3 inline mr-1" /> <b>Backend:</b> Guardado en servidor</span>
+                    <span><Shield className="w-3 h-3 inline mr-1" /> Valores sensibles están enmascarados</span>
                 </div>
             </div>
         </div>
@@ -740,6 +801,7 @@ export default function ConfiguracionesPage() {
 ========================= */
 interface ConfigurationCardProps {
     config: ConfigurationProperty;
+    frontendConfig?: FrontendConfig;
     value: string;
     hasChanges: boolean;
     showPassword: boolean;
@@ -752,6 +814,7 @@ interface ConfigurationCardProps {
 
 function ConfigurationCard({
     config,
+    frontendConfig,
     value,
     hasChanges,
     showPassword,
@@ -761,205 +824,118 @@ function ConfigurationCard({
     onSave,
     onDiscard,
 }: ConfigurationCardProps) {
-    const isPassword = config.valueType === "PASSWORD" || config.isSensitive;
-    const isBoolean = config.valueType === "BOOLEAN";
-    const isNumber = config.valueType === "NUMBER";
+    const isPassword = config.valueType === "PASSWORD" || config.isSensitive || frontendConfig?.sensitive;
+    const isBoolean = config.valueType === "BOOLEAN" || frontendConfig?.type === "boolean";
+    const isNumber = config.valueType === "NUMBER" || frontendConfig?.type === "number";
+    const isSelect = frontendConfig?.type === "select";
+    const isFrontend = config.source === "frontend" || config.id < 0;
 
-    const getTypeLabel = (type: ValueType): string => {
-        const labels: Record<ValueType, string> = {
-            STRING: "Texto",
-            NUMBER: "Número",
-            BOOLEAN: "Booleano",
-            URL: "URL",
-            EMAIL: "Email",
-            PASSWORD: "Contraseña",
-        };
-        return labels[type] || type;
-    };
-
-    const getTypeColor = (type: ValueType): string => {
-        const colors: Record<ValueType, string> = {
-            STRING: "#6b7280",
-            NUMBER: "#2563eb",
-            BOOLEAN: "#7c3aed",
-            URL: "#0891b2",
-            EMAIL: "#ea580c",
-            PASSWORD: "#dc2626",
-        };
-        return colors[type] || "#6b7280";
-    };
+    const label = frontendConfig?.label || config.key;
+    const description = frontendConfig?.description || config.description;
 
     return (
         <div
-            style={{
-                backgroundColor: "#ffffff",
-                borderRadius: "10px",
-                padding: "1rem",
-                border: hasChanges ? "2px solid #f59e0b" : "1px solid #e5e7eb",
-                boxShadow: "0 2px 8px rgba(15,23,42,0.04)",
-                transition: "border-color 0.2s",
-            }}
+            className={`p-4 rounded-xl border transition-all ${
+                hasChanges ? "border-purple-300 bg-purple-50/50" : "border-slate-100 bg-slate-50/50"
+            }`}
         >
             {/* Header */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.6rem" }}>
-                <div style={{ flex: 1 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
-                        <code
-                            style={{
-                                fontSize: "0.85rem",
-                                fontWeight: 600,
-                                color: "#0f172a",
-                                backgroundColor: "#f1f5f9",
-                                padding: "0.15rem 0.4rem",
-                                borderRadius: "4px",
-                            }}
-                        >
-                            {config.key}
-                        </code>
-
-                        <span
-                            style={{
-                                fontSize: "0.7rem",
-                                padding: "0.1rem 0.4rem",
-                                borderRadius: "999px",
-                                backgroundColor: `${getTypeColor(config.valueType)}15`,
-                                color: getTypeColor(config.valueType),
-                                fontWeight: 600,
-                            }}
-                        >
-                            {getTypeLabel(config.valueType)}
-                        </span>
-
+            <div className="flex items-start justify-between gap-4 mb-2">
+                <div className="flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-semibold text-slate-900">{label}</span>
+                        {isFrontend && (
+                            <span className="px-1.5 py-0.5 text-xs bg-purple-100 text-purple-700 rounded">
+                                Local
+                            </span>
+                        )}
+                        {!isFrontend && (
+                            <span className="px-1.5 py-0.5 text-xs bg-blue-100 text-blue-700 rounded">
+                                Servidor
+                            </span>
+                        )}
                         {config.isSensitive && (
-                            <span
-                                style={{
-                                    fontSize: "0.7rem",
-                                    padding: "0.1rem 0.4rem",
-                                    borderRadius: "999px",
-                                    backgroundColor: "#fef2f2",
-                                    color: "#dc2626",
-                                    fontWeight: 600,
-                                }}
-                            >
-                                🔒 Sensible
+                            <span className="px-1.5 py-0.5 text-xs bg-amber-100 text-amber-700 rounded">
+                                Sensible
                             </span>
                         )}
-
-                        {!config.isEditable && (
-                            <span
-                                style={{
-                                    fontSize: "0.7rem",
-                                    padding: "0.1rem 0.4rem",
-                                    borderRadius: "999px",
-                                    backgroundColor: "#f3f4f6",
-                                    color: "#6b7280",
-                                    fontWeight: 600,
-                                }}
-                            >
-                                🔐 Solo lectura
-                            </span>
-                        )}
-
                         {hasChanges && (
-                            <span
-                                style={{
-                                    fontSize: "0.7rem",
-                                    padding: "0.1rem 0.4rem",
-                                    borderRadius: "999px",
-                                    backgroundColor: "#fef3c7",
-                                    color: "#d97706",
-                                    fontWeight: 600,
-                                }}
-                            >
-                                ● Modificado
+                            <span className="px-1.5 py-0.5 text-xs bg-green-100 text-green-700 rounded">
+                                Modificado
+                            </span>
+                        )}
+                        {!config.isEditable && (
+                            <span className="px-1.5 py-0.5 text-xs bg-slate-200 text-slate-600 rounded">
+                                Solo lectura
                             </span>
                         )}
                     </div>
-
-                    <p style={{ fontSize: "0.8rem", color: "#6b7280", margin: "0.35rem 0 0 0" }}>
-                        {config.description}
+                    <p className="text-xs text-slate-500 mt-1 flex items-start gap-1">
+                        <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                        {description}
                     </p>
                 </div>
             </div>
 
             {/* Input */}
-            <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+            <div className="mt-3 flex items-center gap-2">
                 {isBoolean ? (
-                    <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                    <div className="flex gap-2">
                         <button
                             onClick={() => config.isEditable && onValueChange("true")}
                             disabled={!config.isEditable}
-                            style={{
-                                padding: "0.4rem 0.8rem",
-                                borderRadius: "6px",
-                                border: "1px solid #e5e7eb",
-                                background: value === "true" ? "#22c55e" : "#fff",
-                                color: value === "true" ? "#fff" : "#374151",
-                                cursor: config.isEditable ? "pointer" : "not-allowed",
-                                fontWeight: 600,
-                                fontSize: "0.8rem",
-                                transition: "all 0.2s",
-                            }}
+                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                                value === "true"
+                                    ? "bg-green-500 text-white shadow-md"
+                                    : "bg-white border border-slate-200 text-slate-600 hover:border-green-300"
+                            } ${!config.isEditable ? "opacity-50 cursor-not-allowed" : ""}`}
                         >
-                            ✓ true
+                            <Check className="w-4 h-4 inline mr-1" />
+                            Activado
                         </button>
                         <button
                             onClick={() => config.isEditable && onValueChange("false")}
                             disabled={!config.isEditable}
-                            style={{
-                                padding: "0.4rem 0.8rem",
-                                borderRadius: "6px",
-                                border: "1px solid #e5e7eb",
-                                background: value === "false" ? "#ef4444" : "#fff",
-                                color: value === "false" ? "#fff" : "#374151",
-                                cursor: config.isEditable ? "pointer" : "not-allowed",
-                                fontWeight: 600,
-                                fontSize: "0.8rem",
-                                transition: "all 0.2s",
-                            }}
+                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                                value === "false"
+                                    ? "bg-red-500 text-white shadow-md"
+                                    : "bg-white border border-slate-200 text-slate-600 hover:border-red-300"
+                            } ${!config.isEditable ? "opacity-50 cursor-not-allowed" : ""}`}
                         >
-                            ✗ false
+                            <X className="w-4 h-4 inline mr-1" />
+                            Desactivado
                         </button>
                     </div>
+                ) : isSelect && frontendConfig?.options ? (
+                    <select
+                        value={value}
+                        onChange={(e) => onValueChange(e.target.value)}
+                        disabled={!config.isEditable}
+                        className="w-full max-w-md px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-900 focus:border-purple-400 focus:ring-2 focus:ring-purple-100 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {frontendConfig.options.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                            </option>
+                        ))}
+                    </select>
                 ) : (
-                    <div style={{ flex: 1, position: "relative" }}>
+                    <div className="relative flex-1 max-w-md">
                         <input
                             type={isPassword && !showPassword ? "password" : isNumber ? "number" : "text"}
-                            value={value ?? ""}
+                            value={value}
                             onChange={(e) => onValueChange(e.target.value)}
                             disabled={!config.isEditable}
-                            style={{
-                                width: "100%",
-                                padding: "0.55rem 0.75rem",
-                                paddingRight: isPassword ? "2.5rem" : "0.75rem",
-                                borderRadius: "8px",
-                                border: "1px solid #e5e7eb",
-                                fontSize: "0.85rem",
-                                fontFamily: "monospace",
-                                backgroundColor: config.isEditable ? "#fff" : "#f9fafb",
-                                color: config.isEditable ? "#0f172a" : "#6b7280",
-                                outline: "none",
-                                transition: "border-color 0.2s",
-                            }}
-                            placeholder={isPassword ? "••••••••" : ""}
+                            placeholder={frontendConfig?.placeholder || ""}
+                            className="w-full px-3 py-2 pr-10 rounded-lg border border-slate-200 bg-white text-sm text-slate-900 font-mono focus:border-purple-400 focus:ring-2 focus:ring-purple-100 outline-none transition-all disabled:opacity-50 disabled:bg-slate-50 disabled:cursor-not-allowed"
                         />
                         {isPassword && (
                             <button
+                                type="button"
                                 onClick={onTogglePassword}
-                                style={{
-                                    position: "absolute",
-                                    right: "0.5rem",
-                                    top: "50%",
-                                    transform: "translateY(-50%)",
-                                    background: "none",
-                                    border: "none",
-                                    cursor: "pointer",
-                                    color: "#6b7280",
-                                    fontSize: "0.9rem",
-                                }}
-                                title={showPassword ? "Ocultar" : "Mostrar"}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
                             >
-                                {showPassword ? "🙈" : "👁️"}
+                                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                             </button>
                         )}
                     </div>
@@ -967,53 +943,31 @@ function ConfigurationCard({
 
                 {/* Botones de acción */}
                 {hasChanges && config.isEditable && (
-                    <div style={{ display: "flex", gap: "0.35rem" }}>
+                    <div className="flex gap-2">
                         <button
                             onClick={onSave}
                             disabled={saving}
-                            style={{
-                                padding: "0.45rem 0.75rem",
-                                borderRadius: "6px",
-                                border: "none",
-                                background: "linear-gradient(90deg, #16a34a, #22c55e)",
-                                color: "#fff",
-                                cursor: saving ? "not-allowed" : "pointer",
-                                fontWeight: 600,
-                                fontSize: "0.8rem",
-                                opacity: saving ? 0.7 : 1,
-                            }}
-                            title="Guardar cambio"
+                            className="px-3 py-2 rounded-lg bg-gradient-to-r from-green-500 to-green-600 text-white text-sm font-medium shadow-sm hover:from-green-600 hover:to-green-700 transition-all disabled:opacity-50"
+                            title="Guardar"
                         >
-                            {saving ? "..." : "💾"}
+                            <Save className="w-4 h-4" />
                         </button>
                         <button
                             onClick={onDiscard}
                             disabled={saving}
-                            style={{
-                                padding: "0.45rem 0.75rem",
-                                borderRadius: "6px",
-                                border: "1px solid #e5e7eb",
-                                background: "#fff",
-                                color: "#6b7280",
-                                cursor: "pointer",
-                                fontWeight: 600,
-                                fontSize: "0.8rem",
-                            }}
-                            title="Descartar cambio"
+                            className="px-3 py-2 rounded-lg border border-slate-200 text-slate-600 text-sm hover:bg-slate-50 transition-all"
+                            title="Descartar"
                         >
-                            ↩️
+                            <X className="w-4 h-4" />
                         </button>
                     </div>
                 )}
             </div>
 
-            {/* Metadata */}
-            {config.updatedAt && (
-                <div style={{ marginTop: "0.5rem", fontSize: "0.7rem", color: "#9ca3af" }}>
-                    Última actualización: {new Date(config.updatedAt).toLocaleString()}
-                    {config.updatedBy && ` por ${config.updatedBy}`}
-                </div>
-            )}
+            {/* Key técnica */}
+            <div className="mt-2 text-xs text-slate-400 font-mono">
+                {isFrontend ? `localStorage: config.${config.key}` : `backend: ${config.key}`}
+            </div>
         </div>
     );
 }

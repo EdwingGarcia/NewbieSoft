@@ -18,14 +18,38 @@ import {
     FileUp,
     ChevronLeft,
     ChevronRight,
-    UserCog // Icono para el técnico
+    UserCog,
+    Laptop,
+    Eye,
+    Cpu,
+    HardDrive,
+    MemoryStick,
+    Wifi,
+    CircuitBoard,
+    Monitor,
+    Settings,
+    Layers,
+    type LucideIcon,
 } from "lucide-react";
 import XmlUploader from "./XmlUploader";
 import { API_BASE_URL } from "../lib/api";
 
 // --- CONSTANTES ---
-const ITEMS_PER_PAGE = 6;
+const ITEMS_PER_PAGE = 8;
 const API_BASE = `${API_BASE_URL}/api/equipos`;
+
+/* ============================
+   CATEGORÍAS DE HARDWARE
+=============================== */
+const HARDWARE_CATEGORIES: { name: string; icon: LucideIcon; keywords: string[] }[] = [
+    { name: "Procesador", icon: Cpu, keywords: ["cpu", "procesador", "processor", "núcleo", "core", "frecuencia"] },
+    { name: "Memoria RAM", icon: MemoryStick, keywords: ["ram", "memoria", "memory", "módulo", "ddr"] },
+    { name: "Almacenamiento", icon: HardDrive, keywords: ["disco", "drive", "ssd", "hdd", "storage", "capacidad", "unidad"] },
+    { name: "Placa Base", icon: CircuitBoard, keywords: ["placa", "mainboard", "motherboard", "chipset", "bios", "uefi"] },
+    { name: "Red", icon: Wifi, keywords: ["red", "network", "wifi", "ethernet", "mac", "adaptador", "enlace"] },
+    { name: "Gráficos", icon: Monitor, keywords: ["gpu", "gráfica", "video", "display", "monitor", "tarjeta grafica"] },
+    { name: "Sistema", icon: Settings, keywords: ["sistema", "operativo", "windows", "linux", "os", "tpm", "secure"] },
+];
 
 /* ============================
    INTERFACES
@@ -42,7 +66,8 @@ interface Usuario {
     rol?: Rol;
 }
 interface Equipo {
-    idEquipo: number;
+    idEquipo?: number;      // Campo principal
+    id?: number;            // Campo alternativo (backend puede usar este)
     tipo?: string;
     marca?: string;
     modelo?: string;
@@ -294,7 +319,7 @@ export default function EquipoPage(): JSX.Element {
         }
 
         // 2. Ordenar por ID descendente (El más reciente primero)
-        return result.sort((a, b) => b.idEquipo - a.idEquipo);
+        return result.sort((a, b) => (b.idEquipo || b.id || 0) - (a.idEquipo || a.id || 0));
 
     }, [equipos, listaSearch]);
 
@@ -310,348 +335,480 @@ export default function EquipoPage(): JSX.Element {
        UI COMPLETA
        =============================== */
 
+    // Función para categorizar campos de hardware
+    const categorizeHardwareField = (key: string): { category: string; icon: LucideIcon } => {
+        const keyLower = key.toLowerCase();
+        for (const cat of HARDWARE_CATEGORIES) {
+            if (cat.keywords.some(kw => keyLower.includes(kw))) {
+                return { category: cat.name, icon: cat.icon };
+            }
+        }
+        return { category: "Otros", icon: Layers };
+    };
+
+    // Agrupar hardware por categoría
+    const groupedHardware = useMemo(() => {
+        if (!detalle?.hardwareJson) return {};
+        const entries = Object.entries(detalle.hardwareJson);
+        const term = hardwareSearch.trim().toLowerCase();
+        
+        const filtered = term 
+            ? entries.filter(([k, v]) => {
+                const val = typeof v === "string" ? v : JSON.stringify(v);
+                return k.toLowerCase().includes(term) || val.toLowerCase().includes(term);
+            })
+            : entries;
+
+        const groups: Record<string, Array<[string, unknown]>> = {};
+        filtered.forEach(([key, value]) => {
+            const { category } = categorizeHardwareField(key);
+            if (!groups[category]) groups[category] = [];
+            groups[category].push([key, value]);
+        });
+        return groups;
+    }, [detalle?.hardwareJson, hardwareSearch]);
+
     return (
-        <div className="p-6 space-y-6">
-            {/* HEADER */}
-            <div className="flex items-center justify-between">
-                <h1 className="text-2xl font-bold">Gestión de Equipos 💻</h1>
+        <div className="min-h-full h-full bg-gradient-to-br from-slate-50 to-purple-50/30 p-6 space-y-6">
+            {/* ===== HEADER ===== */}
+            <div className="flex items-center justify-between rounded-xl border border-purple-100 bg-white px-5 py-4 shadow-sm">
+                <div className="flex items-center gap-4">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-br from-purple-600 to-indigo-700 shadow-lg shadow-purple-500/30">
+                        <Laptop className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                        <h1 className="text-2xl font-bold text-slate-800">Gestión de Equipos</h1>
+                        <p className="text-purple-600 text-sm font-medium">
+                            {equipos.length} equipos registrados
+                        </p>
+                    </div>
+                </div>
+
                 <Button
                     onClick={() => setShowForm(true)}
-                    className="flex items-center gap-2"
+                    className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-md shadow-purple-500/25"
                 >
-                    <Plus className="h-4 w-4" /> Nuevo Equipo
+                    <Plus className="h-4 w-4 mr-2" /> Nuevo Equipo
                 </Button>
             </div>
 
-            {/* TABLA PRINCIPAL */}
-            <Card>
-                <CardHeader>
+            {/* ===== TABLA PRINCIPAL ===== */}
+            <Card className="shadow-sm border border-purple-100">
+                <CardHeader className="border-b bg-white">
                     <div className="flex items-center justify-between gap-4">
                         <div>
-                            <CardTitle className="text-lg">Lista de equipos</CardTitle>
-                            <CardDescription>
-                                Visualiza todos los equipos registrados.
+                            <CardTitle className="text-lg text-purple-900">Inventario de Equipos</CardTitle>
+                            <CardDescription className="text-purple-600">
+                                {filteredEquipos.length} de {equipos.length} equipos
                             </CardDescription>
                         </div>
 
                         {/* Buscador */}
-                        <div className="relative w-64">
+                        <div className="relative w-72">
                             <Input
                                 value={listaSearch}
                                 onChange={(e) => setListaSearch(e.target.value)}
-                                placeholder="Buscar por serie, modelo, cédula..."
-                                className="pl-8 h-9 text-sm"
+                                placeholder="Buscar por serie, modelo, marca..."
+                                className="pl-9 h-9 text-sm border-purple-200 bg-purple-50/50 focus-visible:ring-purple-400"
                             />
-                            <Search className="h-4 w-4 text-gray-400 absolute left-2 top-2.5" />
+                            <Search className="h-4 w-4 text-purple-400 absolute left-3 top-2.5" />
+                            {listaSearch && (
+                                <button
+                                    onClick={() => setListaSearch("")}
+                                    className="absolute right-3 top-2.5 text-purple-400 hover:text-purple-600"
+                                >
+                                    <X className="h-4 w-4" />
+                                </button>
+                            )}
                         </div>
                     </div>
                 </CardHeader>
 
-                <CardContent>
+                <CardContent className="p-0">
                     {error && (
-                        <div className="text-red-600 text-sm mb-3 bg-red-50 p-2 rounded border border-red-200">
+                        <div className="m-4 text-red-700 text-sm bg-red-50 p-3 rounded border border-red-200">
                             Error: {error}
                         </div>
                     )}
 
                     {loading ? (
-                        <div className="flex justify-center py-10">
-                            <Loader2 className="h-6 w-6 animate-spin text-gray-600" />
+                        <div className="flex items-center justify-center py-12">
+                            <Loader2 className="h-6 w-6 animate-spin text-purple-600" />
                         </div>
                     ) : filteredEquipos.length === 0 ? (
-                        <div className="text-gray-500 text-center py-6">
-                            {listaSearch
-                                ? "No hay equipos que coincidan."
-                                : "No hay equipos registrados."}
+                        <div className="text-center py-12 text-purple-600">
+                            {listaSearch ? "No hay equipos que coincidan" : "No hay equipos registrados"}
                         </div>
                     ) : (
                         <>
-                            <div className="overflow-x-auto rounded-lg border border-gray-200">
-                                <table className="w-full border-collapse text-sm">
-                                    <thead className="bg-gray-100">
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                    <thead className="bg-gradient-to-r from-purple-50 to-indigo-50/50 border-b border-purple-100">
                                         <tr>
-                                            <th className="px-4 py-2 text-left">ID</th>
-                                            <th className="px-4 py-2 text-left">Serie / Hostname</th>
-                                            <th className="px-4 py-2 text-left">Equipo</th>
-                                            <th className="px-4 py-2 text-left">Propietario</th>
+                                            <th className="px-4 py-3 text-left font-medium text-purple-700">ID</th>
+                                            <th className="px-4 py-3 text-left font-medium text-purple-700">Identificación</th>
+                                            <th className="px-4 py-3 text-left font-medium text-purple-700">Equipo</th>
+                                            <th className="px-4 py-3 text-left font-medium text-indigo-700">Propietario</th>
                                         </tr>
                                     </thead>
 
-                                    <tbody>
-                                        {currentEquipos.map((eq, index) => (
-                                            <tr
-                                                key={eq.idEquipo ?? `fallback-key-${index}`}
-                                                className="hover:bg-gray-50 cursor-pointer"
-                                                onClick={() => verDetalles(eq.idEquipo)}
-                                            >
-                                                <td className="px-4 py-2 font-mono text-xs text-gray-500">
-                                                    {eq.idEquipo}
-                                                </td>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {currentEquipos.map((eq, index) => {
+                                            const equipoId = eq.idEquipo || eq.id;
+                                            return (
+                                                <tr
+                                                    key={equipoId ?? `fallback-key-${index}`}
+                                                    onDoubleClick={() => equipoId && verDetalles(equipoId)}
+                                                    className="hover:bg-indigo-50/50 cursor-pointer transition-colors"
+                                                    title="Doble clic para ver detalles"
+                                                >
+                                                    <td className="px-4 py-3">
+                                                        <span className="font-mono text-xs text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">
+                                                            {equipoId || "—"}
+                                                        </span>
+                                                    </td>
 
-                                                <td className="px-4 py-2">
-                                                    <div className="flex flex-col">
-                                                        <span className="font-medium">{eq.numeroSerie}</span>
-                                                        <span className="text-xs text-gray-500">{eq.hostname}</span>
-                                                    </div>
-                                                </td>
-                                                <td className="px-4 py-2">
-                                                    <div className="flex flex-col">
-                                                        <span>{eq.marca} / {eq.modelo}</span>
-                                                        <span className="text-xs text-gray-500">{eq.sistemaOperativo}</span>
-                                                    </div>
-                                                </td>
-                                                <td className="px-4 py-2 font-medium text-blue-600">
-                                                    {eq.propietario ?? "Sin asignar"}
-                                                </td>
-                                            </tr>
-                                        ))}
+                                                    <td className="px-4 py-3">
+                                                        <div className="flex flex-col">
+                                                            <span className="font-medium text-slate-800">{eq.numeroSerie || "S/N"}</span>
+                                                            {eq.hostname && (
+                                                                <span className="text-xs text-slate-500">{eq.hostname}</span>
+                                                            )}
+                                                        </div>
+                                                    </td>
+
+                                                    <td className="px-4 py-3">
+                                                        <div className="flex flex-col">
+                                                            <span className="text-slate-800">
+                                                                {eq.marca || "—"} {eq.modelo ? `/ ${eq.modelo}` : ""}
+                                                            </span>
+                                                            {eq.sistemaOperativo && (
+                                                                <span className="text-xs text-slate-500">{eq.sistemaOperativo}</span>
+                                                            )}
+                                                        </div>
+                                                    </td>
+
+                                                    <td className="px-4 py-3 text-slate-700">
+                                                        {eq.propietario || "Sin asignar"}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
                                     </tbody>
                                 </table>
                             </div>
 
-                            {/* --- PAGINACIÓN --- */}
-                            {filteredEquipos.length > ITEMS_PER_PAGE && (
-                                <div className="mt-6 flex items-center justify-center gap-4">
-                                    <Button
-                                        variant="outline"
-                                        size="icon"
-                                        className="h-8 w-8 border-slate-300"
-                                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                                        disabled={currentPage === 1}
-                                    >
-                                        <ChevronLeft className="h-4 w-4" />
-                                    </Button>
-                                    <span className="text-xs text-slate-500">
-                                        Página <span className="font-semibold text-slate-900">{currentPage}</span> de{" "}
-                                        <span className="font-semibold text-slate-900">{totalPages}</span>
-                                    </span>
-                                    <Button
-                                        variant="outline"
-                                        size="icon"
-                                        className="h-8 w-8 border-slate-300"
-                                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                                        disabled={currentPage === totalPages}
-                                    >
-                                        <ChevronRight className="h-4 w-4" />
-                                    </Button>
+                            {/* Paginación */}
+                            <div className="flex items-center justify-between px-4 py-3 border-t bg-slate-50">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs text-slate-400 italic">Doble clic en una fila para ver detalles</span>
                                 </div>
-                            )}
+                                <div className="flex items-center gap-4">
+                                    <span className="text-sm text-slate-600">
+                                        {startIndex + 1} - {Math.min(startIndex + ITEMS_PER_PAGE, filteredEquipos.length)} de {filteredEquipos.length}
+                                    </span>
+                                    {totalPages > 1 && (
+                                        <div className="flex items-center gap-1">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                                                disabled={currentPage === 1}
+                                                className="h-8 border-indigo-200 hover:bg-indigo-50 hover:border-indigo-300"
+                                            >
+                                                <ChevronLeft className="h-4 w-4" />
+                                            </Button>
+                                            <span className="px-3 text-sm text-indigo-600 min-w-[60px] text-center font-medium">
+                                                {currentPage} / {totalPages}
+                                            </span>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                                                disabled={currentPage === totalPages}
+                                                className="h-8 border-indigo-200 hover:bg-indigo-50 hover:border-indigo-300"
+                                            >
+                                                <ChevronRight className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                         </>
                     )}
                 </CardContent>
             </Card>
 
-            {/* MODAL NUEVO EQUIPO */}
-            {
-                showForm && (
-                    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-                        <div className="bg-white rounded-xl p-6 w-full max-w-2xl relative shadow-xl">
-
+            {/* ===== MODAL NUEVO EQUIPO ===== */}
+            {showForm && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg w-full max-w-lg relative shadow-lg">
+                        {/* Header */}
+                        <div className="flex items-center justify-between px-6 py-4 border-b">
+                            <h2 className="text-lg font-semibold text-slate-800">Nuevo Equipo</h2>
                             <button
                                 onClick={() => setShowForm(false)}
-                                className="absolute top-2 right-3 text-gray-500 hover:text-gray-800 text-xl"
+                                className="text-slate-400 hover:text-slate-600"
                             >
-                                ✕
+                                <X className="h-5 w-5" />
                             </button>
+                        </div>
 
-                            <h2 className="text-lg font-semibold mb-4">
-                                Nuevo Equipo
-                            </h2>
+                        {/* Contenido */}
+                        <div className="p-6 space-y-4">
+                            {error && (
+                                <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">
+                                    {error}
+                                </div>
+                            )}
 
-                            <div className="space-y-3">
-                                <Input
-                                    placeholder="Número de serie"
-                                    value={numeroSerie}
-                                    onChange={(e) => setNumeroSerie(e.target.value)}
-                                />
-                                <Input
-                                    placeholder="Modelo"
-                                    value={modelo}
-                                    onChange={(e) => setModelo(e.target.value)}
-                                />
-                                <Input
-                                    placeholder="Marca"
-                                    value={marca}
-                                    onChange={(e) => setMarca(e.target.value)}
-                                />
-
-                                {/* COMBO CLIENTE */}
-                                <label className="text-xs font-semibold text-gray-500 uppercase mt-2 block">
-                                    Cliente Asignado
-                                </label>
-                                <select
-                                    value={cedulaCliente}
-                                    onChange={(e) => setCedulaCliente(e.target.value)}
-                                    className="w-full border rounded-md px-3 py-2 bg-white"
-                                >
-                                    <option value="">-- Selecciona un Cliente --</option>
-                                    {clientes.map((c) => (
-                                        <option key={c.cedula} value={c.cedula}>
-                                            {c.nombre} — {c.cedula}
-                                        </option>
-                                    ))}
-                                </select>
-
-                                {/* ✅ TECNICO AUTOMÁTICO (Solo lectura) */}
-                                <label className="text-xs font-semibold text-gray-500 uppercase mt-2 block">
-                                    Técnico Responsable (Tú)
-                                </label>
-                                <div className="relative">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <label className="text-sm font-medium text-slate-700">Número de Serie</label>
                                     <Input
-                                        value={nombreTecnicoActual}
-                                        disabled
-                                        className="bg-gray-100 text-gray-600 pl-9 font-medium"
+                                        placeholder="Ej: SN123456"
+                                        value={numeroSerie}
+                                        onChange={(e) => setNumeroSerie(e.target.value)}
                                     />
-                                    <UserCog className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
-                                    <input type="hidden" value={tecnicoId} />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-sm font-medium text-slate-700">Marca</label>
+                                    <Input
+                                        placeholder="Ej: Dell, HP"
+                                        value={marca}
+                                        onChange={(e) => setMarca(e.target.value)}
+                                    />
+                                </div>
+                                <div className="space-y-1.5 md:col-span-2">
+                                    <label className="text-sm font-medium text-slate-700">Modelo</label>
+                                    <Input
+                                        placeholder="Ej: Latitude 5520"
+                                        value={modelo}
+                                        onChange={(e) => setModelo(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-4 pt-2">
+                                <div className="space-y-1.5">
+                                    <label className="text-sm font-medium text-slate-700">Cliente *</label>
+                                    <select
+                                        value={cedulaCliente}
+                                        onChange={(e) => setCedulaCliente(e.target.value)}
+                                        className="w-full h-10 border border-slate-300 rounded-md px-3 bg-white text-sm"
+                                    >
+                                        <option value="">Seleccionar...</option>
+                                        {clientes.map((c) => (
+                                            <option key={c.cedula} value={c.cedula}>
+                                                {c.nombre} — {c.cedula}
+                                            </option>
+                                        ))}
+                                    </select>
                                 </div>
 
-                                <Button
-                                    onClick={crearEquipo}
-                                    disabled={loading}
-                                    className="flex items-center gap-2 w-full mt-4 justify-center"
-                                >
-                                    {loading ? (
-                                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                    ) : (
-                                        <Plus className="h-4 w-4 mr-2" />
-                                    )}
-                                    Crear equipo
-                                </Button>
+                                <div className="space-y-1.5">
+                                    <label className="text-sm font-medium text-slate-700">Técnico Responsable</label>
+                                    <div className="relative">
+                                        <Input
+                                            value={nombreTecnicoActual}
+                                            disabled
+                                            className="bg-slate-100 text-slate-600 pl-9"
+                                        />
+                                        <UserCog className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+                                    </div>
+                                </div>
                             </div>
                         </div>
+
+                        {/* Footer */}
+                        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t bg-slate-50">
+                            <Button variant="outline" onClick={() => setShowForm(false)}>
+                                Cancelar
+                            </Button>
+                            <Button
+                                onClick={crearEquipo}
+                                disabled={loading}
+                                className="bg-slate-800 hover:bg-slate-700"
+                            >
+                                {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                                Crear Equipo
+                            </Button>
+                        </div>
                     </div>
-                )
-            }
+                </div>
+            )}
 
-            {/* MODAL DETALLES */}
-            {
-                detalle && (
-                    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-                        <div className="bg-white rounded-xl w-[90vw] max-w-6xl max-h-[90vh] p-6 relative flex flex-col overflow-y-auto">
-
+            {/* ===== MODAL DETALLES ===== */}
+            {detalle && (
+                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-xl w-full max-w-6xl max-h-[95vh] relative flex flex-col shadow-xl border border-stone-200">
+                        
+                        {/* Header con gradiente indigo/purple */}
+                        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-indigo-50/30 rounded-t-xl flex-shrink-0">
+                            <div className="flex items-center gap-4">
+                                <div className="h-12 w-12 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg shadow-indigo-500/30 flex items-center justify-center flex-shrink-0">
+                                    <Laptop className="h-6 w-6 text-white" />
+                                </div>
+                                <div className="min-w-0">
+                                    <h2 className="text-xl font-semibold text-slate-800">
+                                        Equipo #{detalle.idEquipo || (detalle as any).id || "—"}
+                                    </h2>
+                                    <p className="text-sm text-slate-500 truncate max-w-md">
+                                        {[detalle.marca, detalle.modelo].filter(Boolean).join(" ") || "Sin marca/modelo"} — {detalle.numeroSerie || "S/N"}
+                                    </p>
+                                </div>
+                            </div>
                             <button
                                 onClick={() => {
                                     setDetalle(null);
                                     setShowXml(false);
                                 }}
-                                className="absolute top-2 right-3 text-gray-600 hover:text-gray-900 text-xl"
+                                className="h-8 w-8 rounded-full flex items-center justify-center text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition-colors flex-shrink-0"
                             >
                                 <X className="h-5 w-5" />
                             </button>
+                        </div>
 
-                            <h2 className="text-2xl font-semibold mb-4">
-                                Detalles del Equipo #{detalle.idEquipo}
-                            </h2>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 mb-8">
-                                <div className="space-y-2">
-                                    <p>
-                                        <span className="font-semibold">Número de serie:</span>{" "}
-                                        {detalle.numeroSerie ?? "—"}
+                        {/* Contenido scrolleable */}
+                        <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-stone-50/30">
+                            {/* Info básica en tarjetas */}
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                <div className="bg-white rounded-lg p-4 border border-stone-200 shadow-sm">
+                                    <p className="text-xs text-stone-500 uppercase tracking-wide font-medium mb-1">Número de Serie</p>
+                                    <p className="text-sm font-medium text-stone-800">{detalle.numeroSerie || "—"}</p>
+                                </div>
+                                <div className="bg-white rounded-lg p-4 border border-stone-200 shadow-sm">
+                                    <p className="text-xs text-stone-500 uppercase tracking-wide font-medium mb-1">Marca / Modelo</p>
+                                    <p className="text-sm font-medium text-stone-800">{detalle.marca || "—"} / {detalle.modelo || "—"}</p>
+                                </div>
+                                <div className="bg-white rounded-lg p-4 border border-stone-200 shadow-sm">
+                                    <p className="text-xs text-indigo-600 uppercase tracking-wide font-medium mb-1">Cliente</p>
+                                    <p className="text-sm font-medium text-slate-800">
+                                        {detalle.propietario ? `${detalle.propietario}` : (detalle.cedulaCliente || "Sin asignar")}
                                     </p>
-                                    <p>
-                                        <span className="font-semibold">Modelo:</span>{" "}
-                                        {detalle.modelo ?? "—"}
-                                    </p>
-                                    <p>
-                                        <span className="font-semibold">Marca:</span>{" "}
-                                        {detalle.marca ?? "—"}
-                                    </p>
-                                    <p>
-                                        <span className="font-semibold">Cliente (Cédula):</span>{" "}
-                                        {detalle.propietario ? `${detalle.propietario} (${detalle.cedulaCliente})` : (detalle.cedulaCliente ?? "—")}
-                                    </p>
+                                </div>
+                                <div className="bg-white rounded-lg p-4 border border-slate-200 shadow-sm">
+                                    <p className="text-xs text-indigo-600 uppercase tracking-wide font-medium mb-1">Hostname</p>
+                                    <p className="text-sm font-medium text-slate-800">{detalle.hostname || "—"}</p>
                                 </div>
                             </div>
 
-                            {/* SECTION HARDWARE */}
-                            <div className="mt-4">
-                                <div className="flex items-center justify-between mb-2 gap-2">
-                                    <h3 className="text-lg font-semibold">
-                                        Hardware detectado
-                                    </h3>
+                            {/* Hardware */}
+                            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                                <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-slate-100 to-indigo-50/30 border-b border-slate-200">
+                                    <div className="flex items-center gap-2">
+                                        <CircuitBoard className="h-5 w-5 text-indigo-600" />
+                                        <h3 className="font-semibold text-slate-800">Información de Hardware</h3>
+                                    </div>
                                     <div className="relative w-64">
                                         <Input
                                             value={hardwareSearch}
                                             onChange={(e: ChangeEvent<HTMLInputElement>) =>
                                                 setHardwareSearch(e.target.value)
                                             }
-                                            placeholder="Buscar en hardware..."
-                                            className="pl-8 h-8 text-sm"
+                                            placeholder="Buscar componente..."
+                                            className="pl-9 h-9 text-sm bg-white border-slate-300 focus:border-indigo-400 focus:ring-indigo-400/20"
                                         />
-                                        <Search className="h-4 w-4 text-gray-400 absolute left-2 top-2" />
+                                        <Search className="h-4 w-4 text-slate-400 absolute left-3 top-2.5" />
                                     </div>
                                 </div>
 
                                 {detalle.hardwareJson ? (
-                                    <div className="border rounded-lg max-h-[400px] overflow-y-auto text-sm">
-                                        <table className="w-full">
-                                            <tbody>
-                                                {getHardwareEntries().length === 0 ? (
-                                                    <tr>
-                                                        <td className="py-3 px-3 text-gray-400 italic">
-                                                            Sin coincidencias.
-                                                        </td>
-                                                    </tr>
-                                                ) : (
-                                                    getHardwareEntries().map(([key, value]) => (
-                                                        <tr
-                                                            key={key}
-                                                            className="border-b last:border-b-0"
-                                                        >
-                                                            <td className="py-2 px-3 font-medium w-1/3 text-gray-700">
-                                                                {key}
-                                                            </td>
-                                                            <td className="py-2 px-3 text-gray-600 break-words">
-                                                                {typeof value === "string"
-                                                                    ? value
-                                                                    : JSON.stringify(value)}
-                                                            </td>
-                                                        </tr>
-                                                    ))
-                                                )}
-                                            </tbody>
-                                        </table>
+                                    <div className="max-h-[500px] overflow-y-auto">
+                                        {Object.keys(groupedHardware).length === 0 ? (
+                                            <div className="py-12 text-center text-slate-400">
+                                                <Search className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                                                <p>Sin coincidencias</p>
+                                            </div>
+                                        ) : (
+                                            <div className="divide-y divide-slate-100">
+                                                {Object.entries(groupedHardware).map(([category, items]) => {
+                                                    const catInfo = HARDWARE_CATEGORIES.find(c => c.name === category);
+                                                    const CategoryIcon = catInfo?.icon || Layers;
+                                                    
+                                                    return (
+                                                        <div key={category} className="p-5">
+                                                            <div className="flex items-center gap-2 mb-4">
+                                                                <div className="h-8 w-8 rounded-lg bg-indigo-50 flex items-center justify-center">
+                                                                    <CategoryIcon className="h-4 w-4 text-indigo-600" />
+                                                                </div>
+                                                                <span className="text-sm font-semibold text-slate-700">{category}</span>
+                                                                <span className="text-xs text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">({items.length})</span>
+                                                            </div>
+                                                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+                                                                {items.map(([key, value]) => (
+                                                                    <div
+                                                                        key={key}
+                                                                        className="flex flex-col p-3 rounded-lg bg-slate-50 border border-slate-100 hover:border-indigo-200 transition-colors"
+                                                                    >
+                                                                        <span className="text-xs text-indigo-600 font-medium">{key}</span>
+                                                                        <span className="text-sm text-slate-800 mt-0.5">
+                                                                            {typeof value === "string" ? value : JSON.stringify(value)}
+                                                                        </span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
                                     </div>
                                 ) : (
-                                    <p className="text-gray-500 italic text-sm mt-2">
-                                        Sin información de hardware.
-                                    </p>
+                                    <div className="py-12 text-center text-slate-400">
+                                        <Laptop className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                                        <p>Sin información de hardware</p>
+                                        <p className="text-xs mt-1">Carga un archivo XML para importar datos</p>
+                                    </div>
                                 )}
                             </div>
+                        </div>
 
-                            {/* BOTÓN XML */}
-                            <div className="mt-6 flex justify-end">
-                                <Button
-                                    variant="outline"
-                                    className="flex items-center gap-2"
-                                    onClick={() => setShowXml(true)}
-                                >
-                                    <FileUp className="h-4 w-4" />
-                                    Cargar XML del equipo
-                                </Button>
-                            </div>
-                            {/* MODAL XML */}
-                            {showXml && (
-                                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-                                    <div className="bg-white rounded-xl p-6 w-full max-w-3xl relative shadow-xl">
+                        {/* Footer */}
+                        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-xl flex-shrink-0">
+                            <Button
+                                variant="outline"
+                                onClick={() => {
+                                    setDetalle(null);
+                                    setShowXml(false);
+                                }}
+                                className="border-slate-300 text-slate-700 hover:bg-slate-100"
+                            >
+                                Cerrar
+                            </Button>
+                            <Button
+                                onClick={() => setShowXml(true)}
+                                className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-md shadow-indigo-500/25"
+                            >
+                                <FileUp className="h-4 w-4 mr-2" />
+                                Cargar XML
+                            </Button>
+                        </div>
+
+                        {/* Modal XML */}
+                        {showXml && (
+                            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+                                <div className="bg-white rounded-lg w-full max-w-2xl relative shadow-lg">
+                                    <div className="flex items-center justify-between px-6 py-4 border-b">
+                                        <h3 className="font-semibold text-slate-800">Cargar archivo XML</h3>
                                         <button
                                             onClick={() => setShowXml(false)}
-                                            className="absolute top-2 right-3 text-gray-500 hover:text-gray-800 text-xl"
+                                            className="text-slate-400 hover:text-slate-600"
                                         >
-                                            ✕
+                                            <X className="h-5 w-5" />
                                         </button>
+                                    </div>
+                                    <div className="p-6">
                                         <XmlUploader
                                             equipoId={detalle.idEquipo || (detalle as any).id}
                                         />
                                     </div>
                                 </div>
-                            )}
-                        </div>
+                            </div>
+                        )}
                     </div>
-                )
-            }
-        </div >
+                </div>
+            )}
+        </div>
     );
 }

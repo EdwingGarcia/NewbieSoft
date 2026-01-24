@@ -35,37 +35,35 @@ public class FirmaController {
     @GetMapping("/estado/{numeroOrden}")
     public ResponseEntity<Map<String, Object>> obtenerEstadoFirmas(@PathVariable String numeroOrden) {
         Map<String, Object> resultado = new HashMap<>();
-        
+
         try {
             String carpetaOT = baseUploadDir + "/" + numeroOrden;
             Path carpetaDocumentos = Path.of(carpetaOT, "documentos");
-            
+
             // Verificar firma de conformidad
             boolean tieneConformidad = false;
             if (Files.exists(carpetaDocumentos)) {
                 try (var files = Files.list(carpetaDocumentos)) {
-                    tieneConformidad = files.anyMatch(p -> 
-                        p.getFileName().toString().startsWith("FirmaConformidad_") ||
-                        p.getFileName().toString().startsWith("Conformidad_OT_"));
+                    tieneConformidad = files.anyMatch(p -> p.getFileName().toString().startsWith("FirmaConformidad_") ||
+                            p.getFileName().toString().startsWith("Conformidad_OT_"));
                 }
             }
-            
+
             // Verificar firma de recibo
             boolean tieneRecibo = false;
             if (Files.exists(carpetaDocumentos)) {
                 try (var files = Files.list(carpetaDocumentos)) {
-                    tieneRecibo = files.anyMatch(p -> 
-                        p.getFileName().toString().startsWith("FirmaRecibo_") ||
-                        p.getFileName().toString().startsWith("Recibo_OT_"));
+                    tieneRecibo = files.anyMatch(p -> p.getFileName().toString().startsWith("FirmaRecibo_") ||
+                            p.getFileName().toString().startsWith("Recibo_OT_"));
                 }
             }
-            
+
             resultado.put("conformidadFirmada", tieneConformidad);
             resultado.put("reciboFirmado", tieneRecibo);
             resultado.put("numeroOrden", numeroOrden);
-            
+
             return ResponseEntity.ok(resultado);
-            
+
         } catch (Exception e) {
             resultado.put("conformidadFirmada", false);
             resultado.put("reciboFirmado", false);
@@ -111,7 +109,8 @@ public class FirmaController {
             }
 
             return ResponseEntity.ok()
-                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=Confirmacion_Firma_" + request.ordenId + ".pdf")
+                    .header(HttpHeaders.CONTENT_DISPOSITION,
+                            "attachment; filename=Confirmacion_Firma_" + request.ordenId + ".pdf")
                     .contentType(MediaType.APPLICATION_PDF)
                     .body(pdfBytes);
 
@@ -161,7 +160,8 @@ public class FirmaController {
             }
 
             return ResponseEntity.ok()
-                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=Conformidad_OT_" + request.ordenId + ".pdf")
+                    .header(HttpHeaders.CONTENT_DISPOSITION,
+                            "attachment; filename=Conformidad_OT_" + request.ordenId + ".pdf")
                     .contentType(MediaType.APPLICATION_PDF)
                     .body(pdfBytes);
 
@@ -211,7 +211,8 @@ public class FirmaController {
             }
 
             return ResponseEntity.ok()
-                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=Recibo_OT_" + request.ordenId + ".pdf")
+                    .header(HttpHeaders.CONTENT_DISPOSITION,
+                            "attachment; filename=Recibo_OT_" + request.ordenId + ".pdf")
                     .contentType(MediaType.APPLICATION_PDF)
                     .body(pdfBytes);
 
@@ -240,22 +241,28 @@ public class FirmaController {
                 "<meta charset='UTF-8' />" +
                 "<style>" +
                 "@page { size: A4; margin: 2.5cm; }" +
-                "body { font-family: 'Helvetica', 'Arial', sans-serif; color: #333; line-height: 1.5; font-size: 12px; }" +
-                ".header-table { width: 100%; border-bottom: 2px solid #0056b3; padding-bottom: 10px; margin-bottom: 30px; }" +
+                "body { font-family: 'Helvetica', 'Arial', sans-serif; color: #333; line-height: 1.5; font-size: 12px; }"
+                +
+                ".header-table { width: 100%; border-bottom: 2px solid #0056b3; padding-bottom: 10px; margin-bottom: 30px; }"
+                +
                 ".header-logo { width: 30%; vertical-align: middle; }" +
                 ".header-info { width: 70%; text-align: right; vertical-align: middle; }" +
                 ".header-info h1 { margin: 0; font-size: 20px; color: #0056b3; text-transform: uppercase; }" +
                 ".header-info p { margin: 2px 0; color: #666; font-size: 11px; }" +
-                ".section-title { background-color: #f0f4f8; padding: 8px; font-weight: bold; border-left: 4px solid #0056b3; margin-top: 20px; margin-bottom: 10px; font-size: 13px; }" +
+                ".section-title { background-color: #f0f4f8; padding: 8px; font-weight: bold; border-left: 4px solid #0056b3; margin-top: 20px; margin-bottom: 10px; font-size: 13px; }"
+                +
                 ".info-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }" +
                 ".info-table td { padding: 6px; border-bottom: 1px solid #eee; }" +
                 ".label { font-weight: bold; color: #555; width: 30%; }" +
                 ".value { color: #000; }" +
-                ".legal-box { border: 1px solid #ddd; background-color: #fafafa; padding: 15px; font-size: 10px; text-align: justify; color: #555; margin-top: 20px; border-radius: 4px; }" +
+                ".legal-box { border: 1px solid #ddd; background-color: #fafafa; padding: 15px; font-size: 10px; text-align: justify; color: #555; margin-top: 20px; border-radius: 4px; }"
+                +
                 ".signature-section { margin-top: 50px; page-break-inside: avoid; }" +
                 ".signature-box { width: 250px; margin: 0 auto; text-align: center; }" +
-                ".signature-line { border-top: 1px solid #333; margin-top: 5px; padding-top: 5px; font-weight: bold; font-size: 11px; }" +
-                ".footer { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 9px; color: #999; border-top: 1px solid #eee; padding-top: 10px; }" +
+                ".signature-line { border-top: 1px solid #333; margin-top: 5px; padding-top: 5px; font-weight: bold; font-size: 11px; }"
+                +
+                ".footer { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 9px; color: #999; border-top: 1px solid #eee; padding-top: 10px; }"
+                +
                 "</style>" +
                 "</head>" +
                 "<body>" +
@@ -273,11 +280,13 @@ public class FirmaController {
                 "<table class='info-table'>" +
                 "<tr><td class='label'>Cliente:</td><td class='value'>" + escaparHtml(request.cliente) + "</td></tr>" +
                 "<tr><td class='label'>Equipo:</td><td class='value'>" + escaparHtml(request.equipo) + "</td></tr>" +
-                "<tr><td class='label'>Procedimiento:</td><td class='value'>" + escaparHtml(request.procedimiento) + "</td></tr>" +
+                "<tr><td class='label'>Procedimiento:</td><td class='value'>" + escaparHtml(request.procedimiento)
+                + "</td></tr>" +
                 "</table>" +
                 "<div class='legal-box'>" +
                 "<p><b>CONFORMIDAD CON EL PROCESO</b></p>" +
-                "<p>El cliente declara estar conforme con el procedimiento técnico propuesto para la resolución del inconveniente reportado en el equipo y se compromete a permitir que sea realizado. El presente documento sirve como constancia de aceptación y autorización para proceder con el servicio técnico.</p>" +
+                "<p>El cliente declara estar conforme con el procedimiento técnico propuesto para la resolución del inconveniente reportado en el equipo y se compromete a permitir que sea realizado. El presente documento sirve como constancia de aceptación y autorización para proceder con el servicio técnico.</p>"
+                +
                 "</div>" +
                 "<div class='signature-section'>" +
                 "<div class='signature-box'>" +
@@ -310,22 +319,28 @@ public class FirmaController {
                 "<meta charset='UTF-8' />" +
                 "<style>" +
                 "@page { size: A4; margin: 2.5cm; }" +
-                "body { font-family: 'Helvetica', 'Arial', sans-serif; color: #333; line-height: 1.5; font-size: 12px; }" +
-                ".header-table { width: 100%; border-bottom: 2px solid #0056b3; padding-bottom: 10px; margin-bottom: 30px; }" +
+                "body { font-family: 'Helvetica', 'Arial', sans-serif; color: #333; line-height: 1.5; font-size: 12px; }"
+                +
+                ".header-table { width: 100%; border-bottom: 2px solid #0056b3; padding-bottom: 10px; margin-bottom: 30px; }"
+                +
                 ".header-logo { width: 30%; vertical-align: middle; }" +
                 ".header-info { width: 70%; text-align: right; vertical-align: middle; }" +
                 ".header-info h1 { margin: 0; font-size: 20px; color: #0056b3; text-transform: uppercase; }" +
                 ".header-info p { margin: 2px 0; color: #666; font-size: 11px; }" +
-                ".section-title { background-color: #f0f4f8; padding: 8px; font-weight: bold; border-left: 4px solid #0056b3; margin-top: 20px; margin-bottom: 10px; font-size: 13px; }" +
+                ".section-title { background-color: #f0f4f8; padding: 8px; font-weight: bold; border-left: 4px solid #0056b3; margin-top: 20px; margin-bottom: 10px; font-size: 13px; }"
+                +
                 ".info-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }" +
                 ".info-table td { padding: 6px; border-bottom: 1px solid #eee; }" +
                 ".label { font-weight: bold; color: #555; width: 30%; }" +
                 ".value { color: #000; }" +
-                ".legal-box { border: 1px solid #ddd; background-color: #f0f8f4; padding: 15px; font-size: 10px; text-align: justify; color: #555; margin-top: 20px; border-radius: 4px; }" +
+                ".legal-box { border: 1px solid #ddd; background-color: #f0f8f4; padding: 15px; font-size: 10px; text-align: justify; color: #555; margin-top: 20px; border-radius: 4px; }"
+                +
                 ".signature-section { margin-top: 50px; page-break-inside: avoid; }" +
                 ".signature-box { width: 250px; margin: 0 auto; text-align: center; }" +
-                ".signature-line { border-top: 1px solid #333; margin-top: 5px; padding-top: 5px; font-weight: bold; font-size: 11px; }" +
-                ".footer { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 9px; color: #999; border-top: 1px solid #eee; padding-top: 10px; }" +
+                ".signature-line { border-top: 1px solid #333; margin-top: 5px; padding-top: 5px; font-weight: bold; font-size: 11px; }"
+                +
+                ".footer { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 9px; color: #999; border-top: 1px solid #eee; padding-top: 10px; }"
+                +
                 "</style>" +
                 "</head>" +
                 "<body>" +
@@ -343,11 +358,13 @@ public class FirmaController {
                 "<table class='info-table'>" +
                 "<tr><td class='label'>Cliente:</td><td class='value'>" + escaparHtml(request.cliente) + "</td></tr>" +
                 "<tr><td class='label'>Equipo:</td><td class='value'>" + escaparHtml(request.equipo) + "</td></tr>" +
-                "<tr><td class='label'>Procedimiento:</td><td class='value'>" + escaparHtml(request.procedimiento) + "</td></tr>" +
+                "<tr><td class='label'>Procedimiento:</td><td class='value'>" + escaparHtml(request.procedimiento)
+                + "</td></tr>" +
                 "</table>" +
                 "<div class='legal-box'>" +
                 "<p><b>CONFORMIDAD CON EL PROCESO</b></p>" +
-                "<p>El cliente declara estar conforme con el procedimiento técnico propuesto para la resolución del inconveniente reportado en el equipo y se compromete a permitir que sea realizado. El presente documento sirve como constancia de aceptación y autorización para proceder con el servicio técnico.</p>" +
+                "<p>El cliente declara estar conforme con el procedimiento técnico propuesto para la resolución del inconveniente reportado en el equipo y se compromete a permitir que sea realizado. El presente documento sirve como constancia de aceptación y autorización para proceder con el servicio técnico.</p>"
+                +
                 "</div>" +
                 "<div class='signature-section'>" +
                 "<div class='signature-box'>" +
@@ -380,22 +397,28 @@ public class FirmaController {
                 "<meta charset='UTF-8' />" +
                 "<style>" +
                 "@page { size: A4; margin: 2.5cm; }" +
-                "body { font-family: 'Helvetica', 'Arial', sans-serif; color: #333; line-height: 1.5; font-size: 12px; }" +
-                ".header-table { width: 100%; border-bottom: 2px solid #28a745; padding-bottom: 10px; margin-bottom: 30px; }" +
+                "body { font-family: 'Helvetica', 'Arial', sans-serif; color: #333; line-height: 1.5; font-size: 12px; }"
+                +
+                ".header-table { width: 100%; border-bottom: 2px solid #28a745; padding-bottom: 10px; margin-bottom: 30px; }"
+                +
                 ".header-logo { width: 30%; vertical-align: middle; }" +
                 ".header-info { width: 70%; text-align: right; vertical-align: middle; }" +
                 ".header-info h1 { margin: 0; font-size: 20px; color: #28a745; text-transform: uppercase; }" +
                 ".header-info p { margin: 2px 0; color: #666; font-size: 11px; }" +
-                ".section-title { background-color: #f0f8f4; padding: 8px; font-weight: bold; border-left: 4px solid #28a745; margin-top: 20px; margin-bottom: 10px; font-size: 13px; }" +
+                ".section-title { background-color: #f0f8f4; padding: 8px; font-weight: bold; border-left: 4px solid #28a745; margin-top: 20px; margin-bottom: 10px; font-size: 13px; }"
+                +
                 ".info-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }" +
                 ".info-table td { padding: 6px; border-bottom: 1px solid #eee; }" +
                 ".label { font-weight: bold; color: #555; width: 30%; }" +
                 ".value { color: #000; }" +
-                ".legal-box { border: 1px solid #28a745; background-color: #f0f8f4; padding: 15px; font-size: 10px; text-align: justify; color: #555; margin-top: 20px; border-radius: 4px; }" +
+                ".legal-box { border: 1px solid #28a745; background-color: #f0f8f4; padding: 15px; font-size: 10px; text-align: justify; color: #555; margin-top: 20px; border-radius: 4px; }"
+                +
                 ".signature-section { margin-top: 50px; page-break-inside: avoid; }" +
                 ".signature-box { width: 250px; margin: 0 auto; text-align: center; }" +
-                ".signature-line { border-top: 1px solid #333; margin-top: 5px; padding-top: 5px; font-weight: bold; font-size: 11px; }" +
-                ".footer { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 9px; color: #999; border-top: 1px solid #eee; padding-top: 10px; }" +
+                ".signature-line { border-top: 1px solid #333; margin-top: 5px; padding-top: 5px; font-weight: bold; font-size: 11px; }"
+                +
+                ".footer { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 9px; color: #999; border-top: 1px solid #eee; padding-top: 10px; }"
+                +
                 "</style>" +
                 "</head>" +
                 "<body>" +
@@ -413,11 +436,13 @@ public class FirmaController {
                 "<table class='info-table'>" +
                 "<tr><td class='label'>Cliente:</td><td class='value'>" + escaparHtml(request.cliente) + "</td></tr>" +
                 "<tr><td class='label'>Equipo:</td><td class='value'>" + escaparHtml(request.equipo) + "</td></tr>" +
-                "<tr><td class='label'>Procedimiento Realizado:</td><td class='value'>" + escaparHtml(request.procedimiento) + "</td></tr>" +
+                "<tr><td class='label'>Procedimiento Realizado:</td><td class='value'>"
+                + escaparHtml(request.procedimiento) + "</td></tr>" +
                 "</table>" +
                 "<div class='legal-box'>" +
                 "<p><b>RECIBO DE CONFORMIDAD</b></p>" +
-                "<p>El cliente declara haber recibido el equipo en perfecto estado y estar conforme con el servicio técnico realizado. El equipo ha sido reparado/revisado de acuerdo con el procedimiento acordado y se entrega en condiciones de funcionamiento. El presente documento sirve como constancia de conformidad y aceptación del servicio prestado.</p>" +
+                "<p>El cliente declara haber recibido el equipo en perfecto estado y estar conforme con el servicio técnico realizado. El equipo ha sido reparado/revisado de acuerdo con el procedimiento acordado y se entrega en condiciones de funcionamiento. El presente documento sirve como constancia de conformidad y aceptación del servicio prestado.</p>"
+                +
                 "</div>" +
                 "<div class='signature-section'>" +
                 "<div class='signature-box'>" +
@@ -438,7 +463,8 @@ public class FirmaController {
             if (resource.exists()) {
                 byte[] imageBytes = resource.getInputStream().readAllBytes();
                 String base64 = Base64.getEncoder().encodeToString(imageBytes);
-                return "<img src='data:image/png;base64," + base64 + "' alt='Logo' style='max-height: 60px; max-width: 180px;' />";
+                return "<img src='data:image/png;base64," + base64
+                        + "' alt='Logo' style='max-height: 60px; max-width: 180px;' />";
             }
         } catch (Exception e) {
             System.err.println("Error cargando logo para PDF: " + e.getMessage());
@@ -457,7 +483,8 @@ public class FirmaController {
     }
 
     private String escaparHtml(String s) {
-        if (s == null) return "";
+        if (s == null)
+            return "";
         return s.replace("&", "&amp;")
                 .replace("<", "&lt;")
                 .replace(">", "&gt;")

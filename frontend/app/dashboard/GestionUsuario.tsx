@@ -296,40 +296,40 @@ export default function GestionUsuario(): JSX.Element {
     }), [usuarios]);
 
     return (
-        // ✅ CAMBIO 1: h-auto y min-h-screen en lugar de h-fixed. 
-        // Esto permite que el fondo crezca pero no fuerza a que las columnas sean gigantes.
-        <div className="flex flex-col min-h-screen bg-slate-50 p-4 lg:p-6 gap-6">
+        <div className="flex flex-col min-h-full h-full bg-gradient-to-br from-slate-50 to-purple-50/30 p-4 lg:p-6 gap-6">
 
             {/* HEADER */}
-            <div className="flex-none flex flex-col gap-4 md:flex-row md:items-center justify-between">
+            <div className="flex-none flex flex-col gap-4 md:flex-row md:items-center justify-between rounded-xl border border-purple-100 bg-white px-5 py-4 shadow-sm">
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
-                        <LayoutGrid className="h-6 w-6 text-slate-600" />
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-purple-600 to-indigo-700 shadow-lg shadow-purple-500/30">
+                            <LayoutGrid className="h-5 w-5 text-white" />
+                        </div>
                         Gestión de Usuarios
                     </h1>
-                    <div className="flex items-center gap-3 mt-1 text-sm text-slate-500">
+                    <div className="flex items-center gap-3 mt-1 text-sm text-purple-600 font-medium">
                         <span>Total: <b>{stats.total}</b></span>
-                        <span className="w-1 h-1 rounded-full bg-slate-300" />
-                        <span className="text-emerald-600">Activos: <b>{stats.active}</b></span>
+                        <span className="w-1 h-1 rounded-full bg-purple-300" />
+                        <span className="text-purple-700">Activos: <b>{stats.active}</b></span>
                     </div>
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
                     <div className="relative w-full sm:w-64">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-purple-400" />
                         <Input
                             placeholder="Buscar..."
-                            className="pl-9 bg-white shadow-sm border-slate-200"
+                            className="pl-9 bg-purple-50/50 shadow-sm border-purple-200 focus-visible:ring-purple-400"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                         />
                         {search && (
-                            <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                            <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-purple-400 hover:text-purple-600">
                                 <X className="h-3 w-3" />
                             </button>
                         )}
                     </div>
-                    <Button onClick={openCreate} className="bg-slate-900 hover:bg-slate-800 shadow-sm shrink-0">
+                    <Button onClick={openCreate} className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-md shadow-purple-500/25 shrink-0">
                         <Plus className="mr-2 h-4 w-4" /> Nuevo Usuario
                     </Button>
                 </div>
@@ -345,10 +345,10 @@ export default function GestionUsuario(): JSX.Element {
             <div className="flex-1 w-full">
                 {loading && usuarios.length === 0 ? (
                     <div className="flex h-64 items-center justify-center">
-                        <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+                        <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
                     </div>
                 ) : Object.keys(filteredData).length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-64 text-slate-400 border-2 border-dashed border-slate-200 rounded-xl bg-white/50">
+                    <div className="flex flex-col items-center justify-center h-64 text-purple-500 border-2 border-dashed border-purple-200 rounded-xl bg-white/50">
                         <FilterX className="h-10 w-10 mb-2 opacity-50" />
                         <p>No se encontraron resultados</p>
                         {search && <Button variant="link" onClick={() => setSearch("")}>Limpiar búsqueda</Button>}
@@ -368,13 +368,12 @@ export default function GestionUsuario(): JSX.Element {
                             return (
                                 <div
                                     key={roleName}
-                                    // ✅ CAMBIO 2: Eliminé h-full para que el contenedor se encoja al contenido.
-                                    className={`flex flex-col rounded-xl border border-slate-100 overflow-hidden shadow-sm ${theme.bgColumn || 'bg-slate-50'}`}
+                                    className={`flex flex-col rounded-xl border border-purple-100 overflow-hidden shadow-sm ${theme.bgColumn || 'bg-purple-50/30'}`}
                                 >
                                     {/* Header de Columna */}
-                                    <div className="flex-none flex items-center justify-between p-3 bg-white border-b border-slate-100">
+                                    <div className="flex-none flex items-center justify-between p-3 bg-white border-b border-purple-100">
                                         <div className="flex items-center gap-2">
-                                            <div className={`p-1.5 rounded-md bg-slate-50 ${theme.textTitle}`}>
+                                            <div className={`p-1.5 rounded-md bg-purple-50 ${theme.textTitle}`}>
                                                 <RoleIcon />
                                             </div>
                                             <h3 className={`font-bold text-sm uppercase tracking-wide ${theme.textTitle}`}>
@@ -575,7 +574,7 @@ export default function GestionUsuario(): JSX.Element {
 
                         <div className="p-4 bg-slate-50 rounded-b-xl flex justify-end gap-3 border-t border-slate-100">
                             <Button variant="outline" onClick={() => setShowForm(false)}>Cancelar</Button>
-                            <Button onClick={saveUsuario} disabled={loading} className="bg-slate-900 text-white hover:bg-slate-800 shadow-md">
+                            <Button onClick={saveUsuario} disabled={loading} className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700 shadow-md shadow-indigo-500/25">
                                 {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />} Guardar
                             </Button>
                         </div>

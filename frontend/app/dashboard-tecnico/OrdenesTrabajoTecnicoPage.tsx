@@ -18,8 +18,9 @@ import {
     ChevronsUpDown,
     ChevronLeft,
     ChevronRight,
-    ArrowUpDown, // Nuevo icono
-    PenTool // Icono para firma
+    ArrowUpDown,
+    PenTool,
+    Camera
 } from "lucide-react";
 
 import ModalNotificacion from "../components/ModalNotificacion";
@@ -494,29 +495,46 @@ const pasoToEstado = (p: Paso): string => {
 const estadoBadgeClasses = (estado: string | null) => {
     const e = (estado || "").toUpperCase();
     if (e === "EN_DIAGNOSTICO" || e === "COSTOS")
-        return "bg-blue-50 text-blue-700 border border-blue-200";
+        return "bg-indigo-50 text-indigo-700 border border-indigo-200";
     if (e === "INGRESO" || e === "PENDIENTE")
-        return "bg-amber-50 text-amber-700 border border-amber-200";
+        return "bg-purple-50 text-purple-700 border border-purple-200";
     if (e === "CERRADO" || e === "LISTA_ENTREGA")
         return "bg-emerald-50 text-emerald-700 border border-emerald-200";
     return "bg-slate-50 text-slate-700 border border-slate-200";
 };
 
-const StepPill: React.FC<{ active: boolean; label: string; desc: string }> = ({
+const StepPill: React.FC<{ active: boolean; label: string; desc: string; step: number }> = ({
     active,
     label,
     desc,
+    step,
 }) => (
     <div
         className={[
-            "flex items-center gap-2 rounded-full border px-3 py-1 transition select-none",
+            "group flex items-center gap-2.5 rounded-xl px-4 py-2 transition-all duration-200 select-none cursor-pointer",
             active
-                ? "border-white bg-white/20 text-white"
-                : "border-white/30 bg-slate-800/40 text-slate-200",
+                ? "bg-white shadow-lg shadow-white/20 scale-[1.02]"
+                : "bg-white/10 hover:bg-white/15 border border-white/20",
         ].join(" ")}
     >
-        <span className="text-[10px] font-semibold">{label}</span>
-        <span className="hidden sm:inline text-[10px] opacity-80">{desc}</span>
+        <div className={[
+            "flex h-7 w-7 items-center justify-center rounded-lg text-xs font-bold transition-all",
+            active
+                ? "bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-md"
+                : "bg-white/20 text-white/80 group-hover:bg-white/30",
+        ].join(" ")}>
+            {step}
+        </div>
+        <div>
+            <span className={[
+                "block text-[11px] font-semibold leading-tight transition-colors",
+                active ? "text-slate-900" : "text-white",
+            ].join(" ")}>{label}</span>
+            <span className={[
+                "hidden sm:block text-[10px] leading-tight",
+                active ? "text-slate-500" : "text-white/60",
+            ].join(" ")}>{desc}</span>
+        </div>
     </div>
 );
 
@@ -816,6 +834,9 @@ export default function OrdenesTrabajoPage() {
     const [isDrawingFirma, setIsDrawingFirma] = useState(false);
     const [conformidadFirmada, setConformidadFirmada] = useState(false);
     const [reciboFirmado, setReciboFirmado] = useState(false);
+
+    // ✅ NUEVO: Estado para modal de documentos
+    const [showModalDocumentos, setShowModalDocumentos] = useState(false);
 
     // === BUSCADOR Y FILTROS ===
     const [searchTerm, setSearchTerm] = useState("");
@@ -1351,12 +1372,47 @@ export default function OrdenesTrabajoPage() {
         }
     };
 
+    /* ===== Visualizar documento seguro (con autenticación) ===== */
+    const abrirDocumentoSeguro = async (numeroOrden: string, nombreArchivo: string) => {
+        if (!token) {
+            alert("Tu sesión ha expirado. Por favor inicia sesión nuevamente.");
+            return;
+        }
+        try {
+            const url = `${API_BASE_URL}/api/documentos/${numeroOrden}/documentos/${nombreArchivo}`;
+            const res = await fetch(url, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            if (!res.ok) {
+                if (res.status === 401) {
+                    alert("Tu sesión ha expirado. Por favor inicia sesión nuevamente.");
+                } else if (res.status === 404) {
+                    alert("El documento no fue encontrado.");
+                } else {
+                    alert(`Error al cargar el documento (HTTP ${res.status})`);
+                }
+                return;
+            }
+
+            const blob = await res.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            window.open(blobUrl, '_blank');
+
+            // Limpiar URL después de un tiempo
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+        } catch (err) {
+            console.error("Error al abrir documento:", err);
+            alert("Error al cargar el documento");
+        }
+    };
+
     /* ===== Firma de Conformidad Modal ===== */
     const iniciarFirmaConformidad = (modo: "conformidad" | "aceptacion" = "conformidad") => {
         setModoFirma(modo);
         setShowModalFirmaConformidad(true);
         setIsDrawingFirma(false);
-        
+
         // Inicializar canvas cuando se abre
         setTimeout(() => {
             if (firmaCanvasRef) {
@@ -1766,28 +1822,33 @@ export default function OrdenesTrabajoPage() {
        RENDER
     ========================= */
     return (
-        <div className="min-h-screen bg-slate-50 px-4 py-6 lg:px-8">
-            <div className="mx-auto max-w-7xl space-y-6">
+        <div className="min-h-full h-full bg-gradient-to-br from-slate-50 to-purple-50/30 px-4 py-6 lg:px-8">
+            <div className="h-full space-y-6">
                 {/* HEADER CON BUSCADOR Y RANGO DE FECHAS */}
-                <div className="flex flex-col gap-4 rounded-md border border-slate-200 bg-white px-4 py-3 shadow-sm md:flex-row md:items-center md:justify-between">
-                    <div>
-                        <h1 className="text-xl font-semibold tracking-tight text-slate-900">Órdenes de Trabajo</h1>
-                        <p className="mt-1 text-sm text-slate-500">Gestiona los ingresos, diagnósticos y entregas.</p>
+                <div className="flex flex-col gap-4 rounded-xl border border-purple-100 bg-white px-5 py-4 shadow-sm md:flex-row md:items-center md:justify-between">
+                    <div className="flex items-center gap-4">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-br from-purple-600 to-indigo-700 shadow-lg shadow-purple-500/30 flex-shrink-0">
+                            <FileText className="h-6 w-6 text-white" />
+                        </div>
+                        <div>
+                            <h1 className="text-xl font-bold text-slate-800">Órdenes de Trabajo</h1>
+                            <p className="text-sm text-purple-600 font-medium">{ordenes.length} órdenes registradas</p>
+                        </div>
                     </div>
 
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
                         <div className="relative min-w-[220px]">
-                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-purple-400" />
                             <Input
                                 placeholder="Buscar OT, cliente, equipo..."
-                                className="h-9 w-full pl-9 text-sm bg-slate-50 border-slate-200 focus-visible:ring-slate-400"
+                                className="h-9 w-full pl-9 text-sm bg-purple-50/50 border-purple-200 focus-visible:ring-purple-400"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
                             {searchTerm && (
                                 <button
                                     onClick={() => setSearchTerm("")}
-                                    className="absolute right-2 top-2.5 text-slate-400 hover:text-slate-600"
+                                    className="absolute right-2 top-2.5 text-purple-400 hover:text-purple-600"
                                 >
                                     <X className="h-4 w-4" />
                                 </button>
@@ -1796,20 +1857,20 @@ export default function OrdenesTrabajoPage() {
 
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                             <div className="relative flex items-center gap-1">
-                                <span className="text-xs text-slate-500 font-medium">Desde:</span>
+                                <span className="text-xs text-purple-600 font-medium">Desde:</span>
                                 <Input
                                     type="date"
-                                    className="h-9 w-36 text-sm bg-slate-50 border-slate-200"
+                                    className="h-9 w-36 text-sm bg-purple-50/50 border-purple-200"
                                     value={dateStart}
                                     onChange={(e) => setDateStart(e.target.value)}
                                 />
                             </div>
 
                             <div className="relative flex items-center gap-1">
-                                <span className="text-xs text-slate-500 font-medium">Hasta:</span>
+                                <span className="text-xs text-purple-600 font-medium">Hasta:</span>
                                 <Input
                                     type="date"
-                                    className="h-9 w-36 text-sm bg-slate-50 border-slate-200"
+                                    className="h-9 w-36 text-sm bg-purple-50/50 border-purple-200"
                                     value={dateEnd}
                                     onChange={(e) => setDateEnd(e.target.value)}
                                 />
@@ -1822,8 +1883,8 @@ export default function OrdenesTrabajoPage() {
                                 value={sortOrder}
                                 onValueChange={(val) => setSortOrder(val as "asc" | "desc")}
                             >
-                                <SelectTrigger className="h-9 w-full bg-slate-50 border-slate-200 text-xs">
-                                    <div className="flex items-center gap-2 text-slate-600">
+                                <SelectTrigger className="h-9 w-full bg-purple-50/50 border-purple-200 text-xs">
+                                    <div className="flex items-center gap-2 text-purple-600">
                                         <ArrowUpDown className="h-3.5 w-3.5" />
                                         <SelectValue placeholder="Orden" />
                                     </div>
@@ -1837,7 +1898,7 @@ export default function OrdenesTrabajoPage() {
 
                         <Button
                             size="sm"
-                            className="flex items-center gap-2 bg-slate-900 text-slate-50 hover:bg-slate-800 whitespace-nowrap"
+                            className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-md shadow-purple-500/25 whitespace-nowrap"
                             onClick={() => setShowCrear((prev) => !prev)}
                         >
                             <Plus className="h-4 w-4" />
@@ -2045,12 +2106,12 @@ export default function OrdenesTrabajoPage() {
                 {/* LISTA FILTRADA Y PAGINADA */}
                 {loading ? (
                     <div className="flex justify-center py-10">
-                        <Loader2 className="h-6 w-6 animate-spin text-slate-500" />
+                        <Loader2 className="h-6 w-6 animate-spin text-indigo-500" />
                     </div>
                 ) : ordenesFiltradas.length === 0 ? (
-                    <div className="rounded-md border border-dashed border-slate-300 bg-slate-100 px-4 py-12 text-center">
+                    <div className="rounded-xl border border-dashed border-slate-300 bg-slate-100/50 px-4 py-12 text-center">
                         <Search className="mx-auto h-8 w-8 text-slate-400 mb-2" />
-                        <p className="text-sm font-medium text-slate-900">No se encontraron órdenes</p>
+                        <p className="text-sm font-medium text-slate-800">No se encontraron órdenes</p>
                         <p className="text-xs text-slate-500">
                             {(searchTerm || dateStart || dateEnd)
                                 ? `No hay resultados para tus filtros.`
@@ -2059,7 +2120,7 @@ export default function OrdenesTrabajoPage() {
                         {(searchTerm || dateStart || dateEnd) && (
                             <Button
                                 variant="link"
-                                className="mt-2 h-auto p-0 text-xs text-indigo-600"
+                                className="mt-2 h-auto p-0 text-xs text-indigo-600 hover:text-indigo-700"
                                 onClick={() => {
                                     setSearchTerm("");
                                     setDateStart("");
@@ -2077,12 +2138,12 @@ export default function OrdenesTrabajoPage() {
                                 <Card
                                     key={ot.id}
                                     onDoubleClick={() => abrirDetalle(ot.id)}
-                                    className="cursor-pointer border border-slate-200 bg-white shadow-sm transition hover:-translate-y-[1px] hover:shadow-md"
+                                    className="cursor-pointer border border-slate-200 bg-white shadow-sm transition-all hover:shadow-lg hover:shadow-indigo-500/10 hover:border-indigo-300 hover:-translate-y-0.5"
                                 >
                                     <CardHeader className="pb-3">
                                         <CardTitle className="flex items-start justify-between gap-2 text-sm">
                                             <div className="space-y-1">
-                                                <span className="block font-semibold text-slate-900">{ot.numeroOrden}</span>
+                                                <span className="block font-bold text-slate-800">{ot.numeroOrden}</span>
                                                 <span className="text-[11px] text-slate-500">
                                                     {fmt(ot.equipoModelo)} {ot.equipoHostname ? `(${ot.equipoHostname})` : ""}
                                                 </span>
@@ -2091,7 +2152,7 @@ export default function OrdenesTrabajoPage() {
                                             <div className="flex flex-col items-end gap-1">
                                                 {ot.estado && (
                                                     <span
-                                                        className={`rounded-full px-2 py-[2px] text-[10px] font-semibold uppercase ${estadoBadgeClasses(
+                                                        className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase ${estadoBadgeClasses(
                                                             ot.estado
                                                         )}`}
                                                     >
@@ -2100,12 +2161,12 @@ export default function OrdenesTrabajoPage() {
                                                 )}
                                                 <div className="flex gap-1">
                                                     {ot.tipoServicio && (
-                                                        <span className="rounded-full bg-slate-50 px-2 py-[2px] text-[10px] uppercase text-slate-700">
+                                                        <span className="rounded-full bg-indigo-50 px-2 py-[2px] text-[10px] uppercase text-indigo-600 font-medium">
                                                             {ot.tipoServicio}
                                                         </span>
                                                     )}
                                                     {ot.prioridad && (
-                                                        <span className="rounded-full bg-emerald-50 px-2 py-[2px] text-[10px] uppercase text-emerald-700">
+                                                        <span className="rounded-full bg-purple-50 px-2 py-[2px] text-[10px] uppercase text-purple-600 font-medium">
                                                             {ot.prioridad}
                                                         </span>
                                                     )}
@@ -2114,16 +2175,18 @@ export default function OrdenesTrabajoPage() {
                                         </CardTitle>
 
                                         <CardDescription>
-                                            <div className="mt-1 flex flex-col gap-1 text-xs text-slate-600">
-                                                <div>
-                                                    <span className="font-semibold text-slate-700">Cliente: </span>
-                                                    {fmt(ot.clienteNombre)} {ot.clienteCedula ? `(${ot.clienteCedula})` : ""}
+                                            <div className="mt-2 flex flex-col gap-1.5 text-xs text-slate-600">
+                                                <div className="flex items-center gap-1.5">
+                                                    <User className="h-3 w-3 text-indigo-400" />
+                                                    <span className="font-medium text-slate-700">Cliente:</span>
+                                                    {fmt(ot.clienteNombre)}
                                                 </div>
-                                                <div>
-                                                    <span className="font-semibold text-slate-700">Técnico: </span>
+                                                <div className="flex items-center gap-1.5">
+                                                    <User className="h-3 w-3 text-purple-400" />
+                                                    <span className="font-medium text-slate-700">Técnico:</span>
                                                     {fmt(ot.tecnicoNombre) || fmt(ot.tecnicoCedula)}
                                                 </div>
-                                                <div className="mt-1 flex items-center gap-1 text-[11px] text-slate-500">
+                                                <div className="mt-1 flex items-center gap-1.5 text-[11px] text-slate-500">
                                                     <CalendarDays className="h-3 w-3" />
                                                     {fmtFecha(ot.fechaHoraIngreso)}
                                                 </div>
@@ -2132,13 +2195,13 @@ export default function OrdenesTrabajoPage() {
                                     </CardHeader>
 
                                     <CardContent className="space-y-3 pt-0">
-                                        <div className="text-xs text-slate-600 line-clamp-3">
+                                        <div className="text-xs text-slate-600 line-clamp-2 bg-slate-50 rounded-lg p-2 border border-slate-100">
                                             <span className="font-semibold text-slate-700">Problema: </span>
                                             {fmt(ot.problemaReportado)}
                                         </div>
 
-                                        <div className="flex items-center justify-between pt-1">
-                                            <span className="text-[11px] text-slate-500">Doble clic para ver detalle</span>
+                                        <div className="flex items-center justify-center pt-1">
+                                            <span className="text-[10px] text-slate-400 italic">Doble clic para ver detalle</span>
                                         </div>
                                     </CardContent>
                                 </Card>
@@ -2146,82 +2209,106 @@ export default function OrdenesTrabajoPage() {
                         </div>
 
                         {/* --- PAGINACIÓN --- */}
-                        {ordenesFiltradas.length > ITEMS_PER_PAGE && (
-                            <div className="mt-6 flex items-center justify-center gap-4">
-                                <Button
-                                    variant="outline"
-                                    size="icon"
-                                    className="h-8 w-8 border-slate-300"
-                                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                                    disabled={currentPage === 1}
-                                >
-                                    <ChevronLeft className="h-4 w-4" />
-                                </Button>
-                                <span className="text-xs text-slate-500">
-                                    Página <span className="font-semibold text-slate-900">{currentPage}</span> de{" "}
-                                    <span className="font-semibold text-slate-900">{totalPages}</span>
-                                </span>
-                                <Button
-                                    variant="outline"
-                                    size="icon"
-                                    className="h-8 w-8 border-slate-300"
-                                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                                    disabled={currentPage === totalPages}
-                                >
-                                    <ChevronRight className="h-4 w-4" />
-                                </Button>
-                            </div>
-                        )}
+                        <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 px-2">
+                            <span className="text-xs text-slate-500 italic">Doble clic en una tarjeta para ver detalles</span>
+                            
+                            {ordenesFiltradas.length > ITEMS_PER_PAGE && (
+                                <div className="flex items-center gap-3">
+                                    <span className="text-sm text-slate-600">
+                                        {startIndex + 1} - {Math.min(startIndex + ITEMS_PER_PAGE, ordenesFiltradas.length)} de {ordenesFiltradas.length}
+                                    </span>
+                                    <div className="flex items-center gap-1">
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="h-8 w-8 border-indigo-200 hover:bg-indigo-50 hover:border-indigo-300"
+                                            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                                            disabled={currentPage === 1}
+                                        >
+                                            <ChevronLeft className="h-4 w-4" />
+                                        </Button>
+                                        <span className="px-3 text-sm text-indigo-600 font-medium min-w-[60px] text-center">
+                                            {currentPage} / {totalPages}
+                                        </span>
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="h-8 w-8 border-indigo-200 hover:bg-indigo-50 hover:border-indigo-300"
+                                            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                                            disabled={currentPage === totalPages}
+                                        >
+                                            <ChevronRight className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </>
                 )}
 
                 {/* ===== MODAL DETALLE OT ===== */}
                 {detalle && (
                     <div
-                        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+                        className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-slate-900/80 via-slate-800/70 to-slate-900/80 backdrop-blur-md"
                         onMouseDown={(e) => {
                             if (e.target === e.currentTarget) closeDetalle();
                         }}
                     >
-                        <div className="relative mx-3 flex h-[92vh] w-full max-w-7xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+                        <div className="relative mx-3 flex h-[94vh] w-full max-w-7xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-white shadow-2xl shadow-black/30">
                             {/* Header */}
-                            <header className="sticky top-0 z-20 border-b border-slate-200 bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 px-5 py-4">
-                                <div className="flex flex-wrap items-start justify-between gap-3">
-                                    <div className="space-y-1 pr-10">
-                                        <h2 className="text-base font-semibold leading-tight text-white">
-                                            Orden #{detalle.numeroOrden} <span className="text-slate-300">·</span> Equipo{" "}
-                                            <span className="font-bold">{detalle.equipoModelo ?? detalle.equipoId}</span>
-                                        </h2>
-                                        <p className="text-[11px] text-slate-200">
-                                            Cliente: <span className="font-medium text-white">{fmt(detalle.clienteNombre)}</span>{" "}
-                                            {detalle.clienteCedula ? `(${detalle.clienteCedula})` : ""} · Técnico:{" "}
-                                            <span className="font-medium text-white">
-                                                {fmt(detalle.tecnicoNombre) || fmt(detalle.tecnicoCedula)}
-                                            </span>
-                                        </p>
+                            <header className="sticky top-0 z-20 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 px-6 py-5">
+                                <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSA2MCAwIEwgMCAwIDAgNjAiIGZpbGw9Im5vbmUiIHN0cm9rZT0icmdiYSgyNTUsMjU1LDI1NSwwLjAzKSIgc3Ryb2tlLXdpZHRoPSIxIi8+PC9wYXR0ZXJuPjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2dyaWQpIi8+PC9zdmc+')] opacity-50"></div>
+                                <div className="relative flex flex-wrap items-start justify-between gap-4">
+                                    <div className="space-y-2 pr-10">
+                                        <div className="flex items-center gap-3">
+                                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg shadow-indigo-500/30">
+                                                <FileText className="h-5 w-5 text-white" />
+                                            </div>
+                                            <div>
+                                                <h2 className="text-lg font-bold leading-tight text-white">
+                                                    Orden #{detalle.numeroOrden}
+                                                </h2>
+                                                <p className="text-[12px] text-indigo-200">
+                                                    {detalle.equipoModelo ?? `Equipo #${detalle.equipoId}`}
+                                                </p>
+                                            </div>
+                                        </div>
 
-                                        <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-slate-200">
-                                            <span>
-                                                <span className="font-semibold text-white">Ingreso:</span> {fmtFecha(detalle.fechaHoraIngreso)}
+                                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px]">
+                                            <div className="flex items-center gap-1.5">
+                                                <User className="h-3.5 w-3.5 text-slate-400" />
+                                                <span className="text-slate-300">Cliente:</span>
+                                                <span className="font-medium text-white">{fmt(detalle.clienteNombre)}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1.5">
+                                                <User className="h-3.5 w-3.5 text-slate-400" />
+                                                <span className="text-slate-300">Técnico:</span>
+                                                <span className="font-medium text-white">{fmt(detalle.tecnicoNombre) || fmt(detalle.tecnicoCedula)}</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex flex-wrap gap-2 text-[10px]">
+                                            <span className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-2.5 py-1 text-slate-200">
+                                                <CalendarDays className="h-3 w-3" />
+                                                Ingreso: {fmtFecha(detalle.fechaHoraIngreso)}
                                             </span>
-                                            <span className="hidden sm:inline text-slate-500">·</span>
-                                            <span>
-                                                <span className="font-semibold text-white">Entrega:</span> {fmtFecha(detalle.fechaHoraEntrega)}
+                                            <span className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-2.5 py-1 text-slate-200">
+                                                <CalendarDays className="h-3 w-3" />
+                                                Entrega: {fmtFecha(detalle.fechaHoraEntrega)}
                                             </span>
                                             {detalle.medioContacto && (
-                                                <>
-                                                    <span className="hidden sm:inline text-slate-500">·</span>
-                                                    <span>
-                                                        <span className="font-semibold text-white">Medio:</span> {detalle.medioContacto}
-                                                    </span>
-                                                </>
+                                                <span className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-2.5 py-1 text-slate-200">
+                                                    <MessageCircle className="h-3 w-3" />
+                                                    {detalle.medioContacto}
+                                                </span>
                                             )}
                                         </div>
                                     </div>
 
                                     <div className="flex flex-wrap items-center gap-2">
                                         {esEnGarantia && (
-                                            <span className="inline-flex items-center rounded-full border border-amber-300/70 bg-amber-500/25 px-3 py-1 text-[11px] font-semibold text-amber-50">
+                                            <span className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-purple-500/30 to-indigo-500/30 px-3 py-1.5 text-[11px] font-semibold text-purple-100 shadow-inner">
+                                                <span className="h-2 w-2 animate-pulse rounded-full bg-purple-400"></span>
                                                 Garantía
                                             </span>
                                         )}
@@ -2229,11 +2316,11 @@ export default function OrdenesTrabajoPage() {
                                         <Button
                                             variant="ghost"
                                             size="sm"
-                                            onClick={() => irAAprobacionProcedimiento(detalle.ordenId)}
-                                            className="flex items-center gap-2 border border-white/40 bg-white/10 px-3 text-[11px] text-white hover:bg-white/20"
+                                            onClick={() => setShowModalDocumentos(true)}
+                                            className="flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-[11px] font-medium text-white backdrop-blur-sm transition-all hover:bg-white/20 hover:shadow-lg"
                                         >
-                                            <Signature className="h-4 w-4" />
-                                            Firma
+                                            <FileText className="h-4 w-4" />
+                                            Documentos
                                         </Button>
 
                                         <Button
@@ -2243,7 +2330,7 @@ export default function OrdenesTrabajoPage() {
                                                 setNotifOtId(detalle.ordenId);
                                                 setShowNotifModal(true);
                                             }}
-                                            className="flex items-center gap-2 border border-white/40 bg-white/10 px-3 text-[11px] text-white hover:bg-white/20"
+                                            className="flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-[11px] font-medium text-white backdrop-blur-sm transition-all hover:bg-white/20 hover:shadow-lg"
                                         >
                                             <MessageCircle className="h-4 w-4" />
                                             Notificar
@@ -2251,7 +2338,7 @@ export default function OrdenesTrabajoPage() {
 
                                         <button
                                             onClick={closeDetalle}
-                                            className="ml-1 inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/35 text-white hover:bg-black/60"
+                                            className="ml-2 inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-white/80 backdrop-blur-sm transition-all hover:bg-red-500/80 hover:text-white hover:shadow-lg"
                                             aria-label="Cerrar"
                                         >
                                             <X className="h-4 w-4" />
@@ -2259,18 +2346,19 @@ export default function OrdenesTrabajoPage() {
                                     </div>
                                 </div>
 
-                                <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+                                <div className="mt-4 flex flex-wrap gap-2">
                                     {[
-                                        { paso: 1, label: "1. Contexto", desc: "Datos de ingreso" },
-                                        { paso: 2, label: "2. Diagnóstico", desc: "Trabajo realizado" },
-                                        { paso: 3, label: "3. Costos", desc: "Valores económicos" },
-                                        { paso: 4, label: "4. Cierre / OTP", desc: "Motivo y firma" },
+                                        { paso: 1, label: "Contexto", desc: "Datos de ingreso" },
+                                        { paso: 2, label: "Diagnóstico", desc: "Trabajo realizado" },
+                                        { paso: 3, label: "Costos", desc: "Valores económicos" },
+                                        { paso: 4, label: "Entrega", desc: "Firma y cierre" },
                                     ].map((p) => (
                                         <StepPill
                                             key={p.paso}
                                             active={pasoActivo === (p.paso as Paso)}
                                             label={p.label}
                                             desc={p.desc}
+                                            step={p.paso}
                                         />
                                     ))}
                                 </div>
@@ -2555,23 +2643,23 @@ export default function OrdenesTrabajoPage() {
                                                             ) : (
                                                                 <>
                                                                     <PenTool className="mb-3 h-8 w-8 text-emerald-600" />
-                                                            <p className="mb-4 text-center text-[13px] font-medium text-emerald-900">
-                                                                Compartir enlace de firma con el cliente
-                                                            </p>
-                                                            <Button
-                                                                type="button"
-                                                                onClick={() => {
-                                                                    const ordenId = detalle.numeroOrden?.split('-')[1] || '0';
-                                                                    window.open(`/firma?ordenId=${ordenId}&modo=recibo`, '_blank');
-                                                                }}
-                                                                className="flex items-center gap-2 bg-emerald-600 text-sm text-white hover:bg-emerald-700"
-                                                            >
-                                                                <PenTool className="h-4 w-4" />
-                                                                Abrir Formulario de Firma
-                                                            </Button>
-                                                            <p className="mt-3 text-center text-[10px] text-slate-600">
-                                                                Se abrirá en una nueva ventana donde el cliente podrá firmar digitalmente.
-                                                            </p>
+                                                                    <p className="mb-4 text-center text-[13px] font-medium text-emerald-900">
+                                                                        Compartir enlace de firma con el cliente
+                                                                    </p>
+                                                                    <Button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            const ordenId = detalle.numeroOrden?.split('-')[1] || '0';
+                                                                            window.open(`/firma?ordenId=${ordenId}&modo=recibo`, '_blank');
+                                                                        }}
+                                                                        className="flex items-center gap-2 bg-emerald-600 text-sm text-white hover:bg-emerald-700"
+                                                                    >
+                                                                        <PenTool className="h-4 w-4" />
+                                                                        Abrir Formulario de Firma
+                                                                    </Button>
+                                                                    <p className="mt-3 text-center text-[10px] text-slate-600">
+                                                                        Se abrirá en una nueva ventana donde el cliente podrá firmar digitalmente.
+                                                                    </p>
                                                                 </>
                                                             )}
                                                         </div>
@@ -2697,73 +2785,150 @@ export default function OrdenesTrabajoPage() {
                                                     )}
                                                 </div>
 
-                                                <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-3">
-                                                    <p className="flex items-center gap-2 text-[11px] font-medium text-slate-700">
-                                                        <Upload className="h-3 w-3" />
-                                                        Subir nuevas imágenes
-                                                    </p>
-
-                                                    <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                                                <div className="rounded-xl border-2 border-dashed border-slate-200 bg-gradient-to-br from-slate-50 to-white p-4 transition-all hover:border-blue-300 hover:bg-blue-50/30">
+                                                    <div className="mb-3 flex items-center justify-between">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100">
+                                                                <Upload className="h-4 w-4 text-blue-600" />
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-xs font-semibold text-slate-700">Subir nuevas imágenes</p>
+                                                                <p className="text-[10px] text-slate-400">Arrastra o selecciona archivos</p>
+                                                            </div>
+                                                        </div>
                                                         <Select value={categoriaImg} onValueChange={setCategoriaImg}>
-                                                            <SelectTrigger className="h-9 text-xs">
+                                                            <SelectTrigger className="h-8 w-[130px] border-slate-200 bg-white text-xs shadow-sm">
                                                                 <SelectValue placeholder="Categoría" />
                                                             </SelectTrigger>
                                                             <SelectContent>
-                                                                <SelectItem value="INGRESO">INGRESO</SelectItem>
-                                                                <SelectItem value="DIAGNOSTICO">DIAGNOSTICO</SelectItem>
-                                                                <SelectItem value="REPARACION">REPARACION</SelectItem>
-                                                                <SelectItem value="ENTREGA">ENTREGA</SelectItem>
-                                                                <SelectItem value="OTRO">OTRO</SelectItem>
+                                                                <SelectItem value="INGRESO">
+                                                                    <span className="flex items-center gap-2">
+                                                                        <span className="h-2 w-2 rounded-full bg-green-500"></span> Ingreso
+                                                                    </span>
+                                                                </SelectItem>
+                                                                <SelectItem value="DIAGNOSTICO">
+                                                                    <span className="flex items-center gap-2">
+                                                                        <span className="h-2 w-2 rounded-full bg-blue-500"></span> Diagnóstico
+                                                                    </span>
+                                                                </SelectItem>
+                                                                <SelectItem value="REPARACION">
+                                                                    <span className="flex items-center gap-2">
+                                                                        <span className="h-2 w-2 rounded-full bg-orange-500"></span> Reparación
+                                                                    </span>
+                                                                </SelectItem>
+                                                                <SelectItem value="ENTREGA">
+                                                                    <span className="flex items-center gap-2">
+                                                                        <span className="h-2 w-2 rounded-full bg-purple-500"></span> Entrega
+                                                                    </span>
+                                                                </SelectItem>
+                                                                <SelectItem value="OTRO">
+                                                                    <span className="flex items-center gap-2">
+                                                                        <span className="h-2 w-2 rounded-full bg-slate-400"></span> Otro
+                                                                    </span>
+                                                                </SelectItem>
                                                             </SelectContent>
                                                         </Select>
+                                                    </div>
 
-                                                        <Input
+                                                    <label
+                                                        className="group relative flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-200 bg-white py-6 transition-all hover:border-blue-400 hover:bg-blue-50/50"
+                                                        onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('border-blue-400', 'bg-blue-50'); }}
+                                                        onDragLeave={(e) => { e.currentTarget.classList.remove('border-blue-400', 'bg-blue-50'); }}
+                                                        onDrop={(e) => {
+                                                            e.preventDefault();
+                                                            e.currentTarget.classList.remove('border-blue-400', 'bg-blue-50');
+                                                            const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+                                                            if (files.length > 0) setImagenesNuevas(prev => [...prev, ...files]);
+                                                        }}
+                                                    >
+                                                        <input
                                                             type="file"
                                                             accept="image/*"
                                                             multiple
-                                                            onChange={(e) => setImagenesNuevas(Array.from(e.target.files || []))}
-                                                            className="h-9 text-xs file:text-xs"
+                                                            onChange={(e) => setImagenesNuevas(prev => [...prev, ...Array.from(e.target.files || [])])}
+                                                            className="absolute inset-0 cursor-pointer opacity-0"
                                                         />
+                                                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 transition-all group-hover:bg-blue-100 group-hover:scale-110">
+                                                            <Camera className="h-6 w-6 text-slate-400 transition-colors group-hover:text-blue-500" />
+                                                        </div>
+                                                        <p className="mt-2 text-xs font-medium text-slate-600">Haz clic o arrastra imágenes aquí</p>
+                                                        <p className="text-[10px] text-slate-400">PNG, JPG hasta 10MB cada una</p>
+                                                    </label>
+
+                                                    {/* Botón para tomar foto con cámara (móviles) */}
+                                                    <div className="mt-3 flex justify-center">
+                                                        <label className="group flex cursor-pointer items-center gap-2 rounded-lg border border-emerald-200 bg-gradient-to-r from-emerald-50 to-green-50 px-4 py-2.5 transition-all hover:border-emerald-400 hover:from-emerald-100 hover:to-green-100 hover:shadow-md">
+                                                            <input
+                                                                type="file"
+                                                                accept="image/*"
+                                                                capture="environment"
+                                                                onChange={(e) => {
+                                                                    const files = Array.from(e.target.files || []);
+                                                                    if (files.length > 0) setImagenesNuevas(prev => [...prev, ...files]);
+                                                                    e.target.value = '';
+                                                                }}
+                                                                className="hidden"
+                                                            />
+                                                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 transition-all group-hover:bg-emerald-200 group-hover:scale-110">
+                                                                <Camera className="h-4 w-4 text-emerald-600" />
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-xs font-semibold text-emerald-700">Tomar foto</p>
+                                                                <p className="text-[10px] text-emerald-500">Usar cámara del dispositivo</p>
+                                                            </div>
+                                                        </label>
                                                     </div>
 
                                                     {imagenesNuevas.length > 0 && (
-                                                        <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
-                                                            {imagenesNuevas.map((file, index) => (
-                                                                <div
-                                                                    key={index}
-                                                                    className="relative group aspect-square rounded-md border border-slate-200 overflow-hidden bg-slate-100"
+                                                        <div className="mt-4">
+                                                            <div className="mb-2 flex items-center justify-between">
+                                                                <span className="text-[11px] font-medium text-slate-600">
+                                                                    {imagenesNuevas.length} imagen{imagenesNuevas.length > 1 ? 'es' : ''} seleccionada{imagenesNuevas.length > 1 ? 's' : ''}
+                                                                </span>
+                                                                <button
+                                                                    onClick={() => setImagenesNuevas([])}
+                                                                    className="text-[10px] text-red-500 hover:text-red-600 hover:underline"
                                                                 >
-                                                                    <img
-                                                                        src={URL.createObjectURL(file)}
-                                                                        alt="Previsualización"
-                                                                        className="h-full w-full object-cover"
-                                                                    />
-
-                                                                    <button
-                                                                        onClick={() => {
-                                                                            setImagenesNuevas((prev) => prev.filter((_, i) => i !== index));
-                                                                        }}
-                                                                        className="absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white opacity-90 hover:bg-red-600 shadow-sm"
-                                                                        title="Quitar imagen"
+                                                                    Quitar todas
+                                                                </button>
+                                                            </div>
+                                                            <div className="grid grid-cols-4 gap-2 sm:grid-cols-5 md:grid-cols-6">
+                                                                {imagenesNuevas.map((file, index) => (
+                                                                    <div
+                                                                        key={index}
+                                                                        className="group relative aspect-square overflow-hidden rounded-lg border border-slate-200 bg-slate-100 shadow-sm transition-all hover:shadow-md hover:scale-[1.02]"
                                                                     >
-                                                                        <X className="h-3 w-3" />
-                                                                    </button>
-
-                                                                    <div className="absolute bottom-0 w-full bg-black/60 px-1 py-0.5">
-                                                                        <p className="truncate text-[9px] text-white text-center">
-                                                                            {(file.size / 1024).toFixed(0)} KB
-                                                                        </p>
+                                                                        <img
+                                                                            src={URL.createObjectURL(file)}
+                                                                            alt="Previsualización"
+                                                                            className="h-full w-full object-cover"
+                                                                        />
+                                                                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+                                                                        <button
+                                                                            onClick={() => setImagenesNuevas((prev) => prev.filter((_, i) => i !== index))}
+                                                                            className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-red-500/90 text-white opacity-0 shadow-lg transition-all hover:bg-red-600 hover:scale-110 group-hover:opacity-100"
+                                                                            title="Quitar imagen"
+                                                                        >
+                                                                            <X className="h-3.5 w-3.5" />
+                                                                        </button>
+                                                                        <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-1.5 py-1">
+                                                                            <p className="truncate text-[9px] font-medium text-white">{file.name}</p>
+                                                                            <p className="text-[8px] text-slate-300">{(file.size / 1024).toFixed(0)} KB</p>
+                                                                        </div>
                                                                     </div>
-                                                                </div>
-                                                            ))}
+                                                                ))}
+                                                            </div>
                                                         </div>
                                                     )}
 
-                                                    <div className="mt-2 flex justify-end">
+                                                    <div className="mt-4 flex items-center justify-between">
+                                                        <p className="text-[10px] text-slate-400">
+                                                            {imagenesNuevas.length === 0 ? 'Selecciona imágenes para subir' : `Listo para subir ${imagenesNuevas.length} archivo${imagenesNuevas.length > 1 ? 's' : ''}`}
+                                                        </p>
                                                         <Button
                                                             onClick={subirImagenes}
                                                             disabled={imagenesNuevas.length === 0}
-                                                            className="flex h-9 items-center gap-2 bg-slate-900 text-xs text-slate-50 hover:bg-slate-800"
+                                                            className="flex h-9 items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-500 px-4 text-xs font-medium text-white shadow-md transition-all hover:from-blue-700 hover:to-blue-600 hover:shadow-lg disabled:from-slate-300 disabled:to-slate-300 disabled:shadow-none"
                                                         >
                                                             <Upload className="h-4 w-4" />
                                                             Subir imágenes
@@ -2974,6 +3139,158 @@ export default function OrdenesTrabajoPage() {
                                     className="flex-1 bg-blue-600 text-white hover:bg-blue-700"
                                 >
                                     Guardar Firma
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* ✅ MODAL DOCUMENTOS */}
+                {showModalDocumentos && detalle && (
+                    <div
+                        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm"
+                        onMouseDown={(e) => {
+                            if (e.target === e.currentTarget) setShowModalDocumentos(false);
+                        }}
+                    >
+                        <div className="relative mx-3 w-full max-w-2xl rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden">
+                            {/* Header */}
+                            <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-6 py-4">
+                                <div className="flex items-center gap-3">
+                                    <FileText className="h-5 w-5 text-slate-600" />
+                                    <div>
+                                        <p className="text-sm font-semibold text-slate-900">
+                                            Documentos de la Orden #{detalle.numeroOrden}
+                                        </p>
+                                        <p className="text-xs text-slate-500">Firmas y documentos generados</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setShowModalDocumentos(false)}
+                                    className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-slate-700 hover:bg-slate-300"
+                                    aria-label="Cerrar"
+                                >
+                                    <X className="h-4 w-4" />
+                                </button>
+                            </div>
+
+                            {/* Contenido */}
+                            <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+                                {/* Sección Firmas */}
+                                <div className="space-y-3">
+                                    <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Documentos de Firmas</h4>
+
+                                    <div className="grid gap-3">
+                                        {/* Conformidad */}
+                                        <div className={`flex items-center justify-between rounded-lg border p-3 ${conformidadFirmada ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-slate-50'}`}>
+                                            <div className="flex items-center gap-3">
+                                                <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${conformidadFirmada ? 'bg-emerald-100' : 'bg-slate-200'}`}>
+                                                    <FileText className={`h-5 w-5 ${conformidadFirmada ? 'text-emerald-600' : 'text-slate-400'}`} />
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-medium text-slate-900">Conformidad de Procedimiento</p>
+                                                    <p className="text-xs text-slate-500">
+                                                        {conformidadFirmada ? '✅ Documento firmado' : 'Pendiente de firma'}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            {conformidadFirmada && (
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => abrirDocumentoSeguro(detalle.numeroOrden || '', `Conformidad_OT_${detalle.ordenId}.pdf`)}
+                                                    className="text-xs"
+                                                >
+                                                    Ver PDF
+                                                </Button>
+                                            )}
+                                        </div>
+
+                                        {/* Recibo */}
+                                        <div className={`flex items-center justify-between rounded-lg border p-3 ${reciboFirmado ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-slate-50'}`}>
+                                            <div className="flex items-center gap-3">
+                                                <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${reciboFirmado ? 'bg-emerald-100' : 'bg-slate-200'}`}>
+                                                    <FileText className={`h-5 w-5 ${reciboFirmado ? 'text-emerald-600' : 'text-slate-400'}`} />
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-medium text-slate-900">Recibo de Entrega</p>
+                                                    <p className="text-xs text-slate-500">
+                                                        {reciboFirmado ? '✅ Documento firmado' : 'Pendiente de firma'}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            {reciboFirmado && (
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => abrirDocumentoSeguro(detalle.numeroOrden || '', `Recibo_OT_${detalle.ordenId}.pdf`)}
+                                                    className="text-xs"
+                                                >
+                                                    Ver PDF
+                                                </Button>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Sección Ficha Técnica */}
+                                <div className="space-y-3 pt-2 border-t border-slate-100">
+                                    <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Fichas Técnicas</h4>
+
+                                    {fichasAnexas.length === 0 ? (
+                                        <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                            <div className="flex items-center gap-3">
+                                                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-200">
+                                                    <FileText className="h-5 w-5 text-slate-400" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-medium text-slate-900">Ficha Técnica</p>
+                                                    <p className="text-xs text-slate-500">No hay fichas técnicas generadas</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="grid gap-3">
+                                            {fichasAnexas.map((ficha) => (
+                                                <div key={ficha.id} className="flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 p-3">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
+                                                            <FileText className="h-5 w-5 text-blue-600" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-sm font-medium text-slate-900">Ficha Técnica #{ficha.id}</p>
+                                                            <p className="text-xs text-slate-500">
+                                                                {ficha.tecnicoNombre || 'Sin técnico'} · {new Date(ficha.fechaCreacion).toLocaleDateString()}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => abrirDocumentoSeguro(detalle.numeroOrden || '', `Ficha_Tecnica_${ficha.id}.pdf`)}
+                                                        className="text-xs"
+                                                    >
+                                                        Ver PDF
+                                                    </Button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Footer */}
+                            <div className="border-t border-slate-100 bg-slate-50 px-6 py-3">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => setShowModalDocumentos(false)}
+                                    className="w-full"
+                                >
+                                    Cerrar
                                 </Button>
                             </div>
                         </div>

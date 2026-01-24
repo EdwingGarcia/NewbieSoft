@@ -1,9 +1,13 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import styles from "../styles/Dashboard.module.css";
+
+// Importar sistema de configuración
+import { useSidebarStyle, useAppName, useSessionMonitor, useAutoRefresh, useItemsPerPage } from "../lib/useConfig";
+import { formatDate, formatDateTime, showNotification } from "../lib/config";
 
 /* =========================
    Dynamic Modules (no SSR)
@@ -121,6 +125,18 @@ export default function DashboardPage() {
     const router = useRouter();
 
     const [activeSection, setActiveSection] = useState<Section>("dashboard");
+    
+    // Usar hooks de configuración
+    const sidebarStyle = useSidebarStyle();
+    const appName = useAppName();
+    const itemsPerPage = useItemsPerPage();
+    const [sidebarHovered, setSidebarHovered] = useState(false);
+    
+    // Calcular si el sidebar está expandido basado en el estilo configurado
+    const isSidebarExpanded = 
+        sidebarStyle === "expanded" ? true : 
+        sidebarStyle === "collapsed" ? false : 
+        sidebarHovered; // "auto" mode: expandir solo en hover
 
     const [dashboardData, setDashboardData] = useState<DashboardResumen | null>(null);
     const [dashboardError, setDashboardError] = useState<string | null>(null);
@@ -133,6 +149,37 @@ export default function DashboardPage() {
     const [citasActionError, setCitasActionError] = useState<string | null>(null);
 
     const [citasView, setCitasView] = useState<"PENDIENTES" | "COMPLETADAS">("PENDIENTES");
+    
+    // Monitor de sesión - cierra sesión por inactividad
+    const handleSessionTimeout = useCallback(() => {
+        localStorage.removeItem("token");
+        localStorage.removeItem("nb.auth");
+        localStorage.removeItem("nb.auth.token");
+        router.push("/?timeout=1");
+    }, [router]);
+    
+    useSessionMonitor(handleSessionTimeout);
+    
+    // Función para recargar datos del dashboard
+    const reloadDashboardData = useCallback(async () => {
+        const token = getAuthToken();
+        if (!token) return;
+        
+        try {
+            const res = await fetch(DASHBOARD_API, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (res.ok) {
+                const json: DashboardResumen = await res.json();
+                setDashboardData(json);
+            }
+        } catch (err) {
+            console.error("Error en auto-refresh:", err);
+        }
+    }, []);
+    
+    // Auto-refresh del dashboard
+    useAutoRefresh(reloadDashboardData, activeSection === "dashboard");
 
     /* =========================
        Fetch: Dashboard + Citas
@@ -294,8 +341,8 @@ export default function DashboardPage() {
     const chartData = useMemo(() => {
         if (!dashboardData) return [];
         return [
-            { label: "Abiertas", value: dashboardData.ordenesAbiertas, color: "#f97316" },
-            { label: "En proceso", value: dashboardData.ordenesEnProceso, color: "#3b82f6" },
+            { label: "Abiertas", value: dashboardData.ordenesAbiertas, color: "#9333ea" },
+            { label: "En proceso", value: dashboardData.ordenesEnProceso, color: "#7c3aed" },
             { label: "Cerradas", value: dashboardData.ordenesCerradas, color: "#22c55e" },
         ];
     }, [dashboardData]);
@@ -356,9 +403,7 @@ export default function DashboardPage() {
     const formatCitaDate = (c: Cita) => {
         const raw = c.fechaProgramada ?? c.fechaCreacion;
         if (!raw) return "Sin fecha";
-        const d = new Date(raw);
-        if (Number.isNaN(d.getTime())) return String(raw);
-        return d.toLocaleString();
+        return formatDateTime(raw);
     };
 
     const getCitaTitle = (c: Cita) => c.motivo || `Cita #${c.id}`;
@@ -437,16 +482,37 @@ export default function DashboardPage() {
         >
             {/* ===== Sidebar ===== */}
             <aside
-                className={styles.sidebar}
+                onMouseEnter={() => setSidebarHovered(true)}
+                onMouseLeave={() => setSidebarHovered(false)}
                 style={{
-                    background: "linear-gradient(180deg, #111827, #1f2937)",
+                    width: isSidebarExpanded ? "220px" : "70px",
+                    background: "linear-gradient(180deg, #1e1b4b, #312e81)",
                     color: "#f9fafb",
-                    borderRight: "1px solid rgba(15,23,42,0.5)",
+                    borderRight: "1px solid rgba(99,102,241,0.2)",
+                    display: "flex",
+                    flexDirection: "column",
+                    padding: isSidebarExpanded ? "1.25rem" : "1rem 0.5rem",
+                    transition: "all 0.3s ease",
+                    position: "relative",
+                    overflow: "hidden",
                 }}
             >
-                <h2 style={{ fontSize: "1.1rem", fontWeight: 700, marginBottom: "1.5rem" }}>
-                    Newbie Data Control
-                </h2>
+                {/* Logo/Título */}
+                <div style={{ 
+                    marginTop: "0.5rem", 
+                    marginBottom: "1.5rem", 
+                    textAlign: isSidebarExpanded ? "left" : "center",
+                    overflow: "hidden",
+                    whiteSpace: "nowrap",
+                }}>
+                    {isSidebarExpanded ? (
+                        <h2 style={{ fontSize: "1rem", fontWeight: 700, color: "#ffffff", margin: 0 }}>
+                            {appName}
+                        </h2>
+                    ) : (
+                        <span style={{ fontSize: "1.5rem" }}>🔧</span>
+                    )}
+                </div>
 
                 <nav style={{ flex: 1, display: "flex", flexDirection: "column" }}>
                     <ul
@@ -455,97 +521,105 @@ export default function DashboardPage() {
                             padding: 0,
                             display: "flex",
                             flexDirection: "column",
-                            gap: "0.4rem",
+                            gap: "0.35rem",
                             flex: 1,
                         }}
                     >
                         <SidebarItem
                             label="Dashboard"
-                            icon="📊"
+                            iconSvg={<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>}
                             isActive={activeSection === "dashboard"}
                             onClick={() => setActiveSection("dashboard")}
+                            collapsed={!isSidebarExpanded}
                         />
 
                         <SidebarItem
                             label="Citas"
-                            icon="📅"
+                            iconSvg={<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>}
                             isActive={activeSection === "citas"}
                             onClick={() => setActiveSection("citas")}
+                            collapsed={!isSidebarExpanded}
                         />
 
                         <SidebarItem
                             label="Órdenes de Trabajo"
-                            icon="📋"
+                            iconSvg={<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>}
                             isActive={activeSection === "ordenes"}
                             onClick={() => setActiveSection("ordenes")}
+                            collapsed={!isSidebarExpanded}
                         />
 
                         <SidebarItem
                             label="Equipos"
-                            icon="🖥️"
+                            iconSvg={<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>}
                             isActive={activeSection === "equipo"}
                             onClick={() => setActiveSection("equipo")}
+                            collapsed={!isSidebarExpanded}
                         />
 
                         <SidebarItem
                             label="Catálogo"
-                            icon="📦"
+                            iconSvg={<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m7.5 4.27 9 5.15"></path><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"></path><path d="m3.3 7 8.7 5 8.7-5"></path><path d="M12 22V12"></path></svg>}
                             isActive={activeSection === "catalogo"}
                             onClick={() => setActiveSection("catalogo")}
+                            collapsed={!isSidebarExpanded}
                         />
 
                         <SidebarItem
                             label="Usuarios"
-                            icon="👥"
+                            iconSvg={<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>}
                             isActive={activeSection === "usuarios"}
                             onClick={() => setActiveSection("usuarios")}
+                            collapsed={!isSidebarExpanded}
                         />
 
-                        {/* ✅ NUEVO: Separador visual */}
+                        {/* Separador visual */}
                         <li style={{ flex: 1 }} />
 
-                        {/* ✅ NUEVO: Configuraciones al final del sidebar */}
+                        {/* Configuraciones al final del sidebar */}
                         <SidebarItem
                             label="Configuraciones"
-                            icon="⚙️"
+                            iconSvg={<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>}
                             isActive={activeSection === "configuraciones"}
                             onClick={() => setActiveSection("configuraciones")}
+                            collapsed={!isSidebarExpanded}
                         />
                     </ul>
                 </nav>
             </aside>
 
             {/* ===== Main content ===== */}
-            <main className={styles.main}>
+            <main className={styles.main} style={{ flex: 1, overflow: "auto" }}>
                 <header
-                    className={styles.header}
                     style={{
                         display: "flex",
                         justifyContent: "space-between",
                         alignItems: "center",
-                        marginBottom: "1rem",
-                        padding: "0.8rem 1rem",
-                        background: "linear-gradient(90deg, #111827, #1f2937)",
+                        padding: "0.75rem 1.5rem",
+                        background: "linear-gradient(90deg, #1e1b4b, #312e81)",
                         color: "#f9fafb",
-                        boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                        boxShadow: "0 2px 10px rgba(30,27,75,0.3)",
+                        position: "sticky",
+                        top: 0,
+                        zIndex: 20,
                     }}
                 >
-                    <div>
-                        <span style={{ fontWeight: 600, fontSize: "0.95rem", color: "#f9fafb" }}>
-                            Administrador
+                    <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+                        <span style={{ fontWeight: 600, fontSize: "0.95rem", color: "#e0e7ff" }}>
+                            🎛️ Panel de Administración
                         </span>
                     </div>
 
                     <button
                         onClick={handleLogout}
                         style={{
-                            background: "rgba(255,255,255,0.1)",
-                            borderRadius: "999px",
-                            border: "1px solid rgba(255,255,255,0.3)",
-                            color: "#f9fafb",
+                            background: "rgba(255,255,255,0.08)",
+                            borderRadius: "8px",
+                            border: "1px solid rgba(255,255,255,0.15)",
+                            color: "#e0e7ff",
                             cursor: "pointer",
-                            padding: "0.35rem 0.9rem",
-                            fontSize: "0.85rem",
+                            padding: "0.4rem 1rem",
+                            fontSize: "0.8rem",
                             display: "flex",
                             alignItems: "center",
                             gap: "0.35rem",
@@ -570,24 +644,46 @@ export default function DashboardPage() {
                                 gap: "1.25rem",
                             }}
                         >
-                            {/* Título + fecha */}
+                            {/* Título + fecha + resumen rápido */}
                             <div
                                 style={{
                                     display: "flex",
                                     justifyContent: "space-between",
-                                    alignItems: "center",
+                                    alignItems: "flex-start",
                                     flexWrap: "wrap",
-                                    gap: "0.5rem",
+                                    gap: "1rem",
+                                    padding: "1rem 1.25rem",
+                                    background: "linear-gradient(135deg, #1e1b4b, #312e81)",
+                                    borderRadius: "16px",
+                                    boxShadow: "0 8px 24px rgba(30,27,75,0.15)",
                                 }}
                             >
-                                <h1 style={{ fontSize: "1.6rem", fontWeight: 700, color: "#0f172a" }}>
-                                    Resumen de técnicos
-                                </h1>
+                                <div>
+                                    <h1 style={{ fontSize: "1.6rem", fontWeight: 700, color: "#ffffff", marginBottom: "0.25rem" }}>
+                                        📊 Resumen de Operaciones
+                                    </h1>
+                                    <p style={{ fontSize: "0.85rem", color: "#c4b5fd", margin: 0 }}>
+                                        Panel centralizado de métricas y gestión técnica
+                                    </p>
+                                </div>
                                 {dashboardData && (
-                                    <span style={{ fontSize: "0.8rem", color: "#6b7280" }}>
-                                        Actualizado:{" "}
-                                        {new Date(dashboardData.fechaGeneracion).toLocaleDateString()}
-                                    </span>
+                                    <div style={{ textAlign: "right" }}>
+                                        <span style={{ 
+                                            fontSize: "0.75rem", 
+                                            color: "#a5b4fc",
+                                            display: "block",
+                                            marginBottom: "0.25rem"
+                                        }}>
+                                            Última actualización
+                                        </span>
+                                        <span style={{ 
+                                            fontSize: "0.9rem", 
+                                            color: "#ffffff",
+                                            fontWeight: 600
+                                        }}>
+                                            {formatDateTime(dashboardData.fechaGeneracion)}
+                                        </span>
+                                    </div>
                                 )}
                             </div>
 
@@ -608,92 +704,196 @@ export default function DashboardPage() {
 
                             {dashboardData && (
                                 <>
-                                    {/* KPIs principales */}
+                                    {/* KPIs principales - Primera fila */}
                                     <div
                                         style={{
                                             display: "grid",
-                                            gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                                            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
                                             gap: "1rem",
                                         }}
                                     >
-                                        <DashboardCard title="Total órdenes" value={dashboardData.totalOrdenes} />
+                                        <DashboardCard 
+                                            title="Total órdenes" 
+                                            value={dashboardData.totalOrdenes}
+                                            icon="📊"
+                                            chipColor="#6d28d9"
+                                        />
                                         <DashboardCard
                                             title="Órdenes abiertas"
                                             value={dashboardData.ordenesAbiertas}
-                                            chipColor="#f97316"
+                                            chipColor="#9333ea"
+                                            icon="📂"
                                         />
                                         <DashboardCard
                                             title="En proceso"
                                             value={dashboardData.ordenesEnProceso}
-                                            chipColor="#3b82f6"
+                                            chipColor="#7c3aed"
+                                            icon="🔧"
                                         />
                                         <DashboardCard
-                                            title="Cerradas"
+                                            title="Completadas"
                                             value={dashboardData.ordenesCerradas}
                                             chipColor="#22c55e"
+                                            icon="✅"
                                         />
-                                        <DashboardCard title="Técnicos con órdenes" value={dashboardData.totalTecnicos} />
+                                    </div>
+
+                                    {/* KPIs secundarios - Segunda fila */}
+                                    <div
+                                        style={{
+                                            display: "grid",
+                                            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                                            gap: "1rem",
+                                        }}
+                                    >
+                                        <DashboardCard 
+                                            title="Técnicos activos" 
+                                            value={dashboardData.totalTecnicos}
+                                            icon="👨‍🔧"
+                                            chipColor="#4c1d95"
+                                        />
                                         <DashboardCard
-                                            title="Técnicos con OT abiertas"
+                                            title="Técnicos ocupados"
                                             value={dashboardData.tecnicosConOrdenesAbiertas}
-                                            chipColor="#f97316"
+                                            chipColor="#7e22ce"
+                                            icon="🛠️"
                                         />
-                                        <DashboardCard title="Órdenes hoy" value={dashboardData.ordenesHoy} />
-                                        <DashboardCard title="Órdenes este mes" value={dashboardData.ordenesMes} />
+                                        <DashboardCard 
+                                            title="Órdenes hoy" 
+                                            value={dashboardData.ordenesHoy}
+                                            icon="📆"
+                                            chipColor="#8b5cf6"
+                                        />
+                                        <DashboardCard 
+                                            title="Órdenes este mes" 
+                                            value={dashboardData.ordenesMes}
+                                            icon="📅"
+                                            chipColor="#a855f7"
+                                        />
+                                    </div>
+
+                                    {/* Estadísticas adicionales */}
+                                    <div
+                                        style={{
+                                            display: "grid",
+                                            gridTemplateColumns: "repeat(4, 1fr)",
+                                            gap: "1rem",
+                                            marginTop: "0.5rem",
+                                        }}
+                                    >
+                                        <div style={{
+                                            background: "linear-gradient(135deg, #4c1d95, #6d28d9)",
+                                            borderRadius: "16px",
+                                            padding: "1.25rem",
+                                            color: "#fff",
+                                            display: "flex",
+                                            flexDirection: "column",
+                                            gap: "0.5rem",
+                                        }}>
+                                            <span style={{ fontSize: "0.7rem", fontWeight: 600, opacity: 0.9, textTransform: "uppercase" }}>📈 Tasa de Completado</span>
+                                            <span style={{ fontSize: "2.2rem", fontWeight: 800 }}>{Math.round(completionRate)}%</span>
+                                            <span style={{ fontSize: "0.7rem", opacity: 0.8 }}>de órdenes finalizadas</span>
+                                        </div>
+                                        <div style={{
+                                            background: "linear-gradient(135deg, #7e22ce, #a855f7)",
+                                            borderRadius: "16px",
+                                            padding: "1.25rem",
+                                            color: "#fff",
+                                            display: "flex",
+                                            flexDirection: "column",
+                                            gap: "0.5rem",
+                                        }}>
+                                            <span style={{ fontSize: "0.7rem", fontWeight: 600, opacity: 0.9, textTransform: "uppercase" }}>🔄 En Proceso</span>
+                                            <span style={{ fontSize: "2.2rem", fontWeight: 800 }}>{Math.round(processRate)}%</span>
+                                            <span style={{ fontSize: "0.7rem", opacity: 0.8 }}>órdenes en diagnóstico</span>
+                                        </div>
+                                        <div style={{
+                                            background: "linear-gradient(135deg, #581c87, #9333ea)",
+                                            borderRadius: "16px",
+                                            padding: "1.25rem",
+                                            color: "#fff",
+                                            display: "flex",
+                                            flexDirection: "column",
+                                            gap: "0.5rem",
+                                        }}>
+                                            <span style={{ fontSize: "0.7rem", fontWeight: 600, opacity: 0.9, textTransform: "uppercase" }}>👨‍🔧 Promedio por técnico</span>
+                                            <span style={{ fontSize: "2.2rem", fontWeight: 800 }}>
+                                                {dashboardData.totalTecnicos > 0 
+                                                    ? Math.round(dashboardData.totalOrdenes / dashboardData.totalTecnicos) 
+                                                    : 0}
+                                            </span>
+                                            <span style={{ fontSize: "0.7rem", opacity: 0.8 }}>órdenes asignadas</span>
+                                        </div>
+                                        <div style={{
+                                            background: "linear-gradient(135deg, #312e81, #4338ca)",
+                                            borderRadius: "16px",
+                                            padding: "1.25rem",
+                                            color: "#fff",
+                                            display: "flex",
+                                            flexDirection: "column",
+                                            gap: "0.5rem",
+                                        }}>
+                                            <span style={{ fontSize: "0.7rem", fontWeight: 600, opacity: 0.9, textTransform: "uppercase" }}>📅 Citas Pendientes</span>
+                                            <span style={{ fontSize: "2.2rem", fontWeight: 800 }}>{hoy.length + manana.length}</span>
+                                            <span style={{ fontSize: "0.7rem", opacity: 0.8 }}>para hoy y mañana</span>
+                                        </div>
                                     </div>
 
                                     {/* BLOQUE PRINCIPAL DE "GRÁFICAS" */}
                                     <div
                                         style={{
-                                            marginTop: "0.25rem",
+                                            marginTop: "0.5rem",
                                             display: "grid",
-                                            gridTemplateColumns: "minmax(0, 2.2fr) minmax(0, 1.8fr)",
+                                            gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
                                             gap: "1.25rem",
                                         }}
                                     >
                                         {/* Card: Órdenes por estado */}
                                         <div
                                             style={{
-                                                padding: "1rem 1.25rem",
-                                                borderRadius: "12px",
-                                                backgroundColor: "#ffffff",
-                                                boxShadow: "0 10px 30px rgba(15,23,42,0.08)",
-                                                border: "1px solid #e5e7eb",
+                                                padding: "1.25rem",
+                                                borderRadius: "16px",
+                                                background: "linear-gradient(135deg, #ffffff 0%, #faf5ff 100%)",
+                                                boxShadow: "0 4px 20px rgba(124, 58, 237, 0.08)",
+                                                border: "1px solid #e9d5ff",
                                             }}
                                         >
                                             <h2
                                                 style={{
-                                                    fontSize: "0.95rem",
-                                                    fontWeight: 600,
-                                                    marginBottom: "0.75rem",
-                                                    color: "#0f172a",
+                                                    fontSize: "1rem",
+                                                    fontWeight: 700,
+                                                    marginBottom: "1rem",
+                                                    color: "#1e1b4b",
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    gap: "0.5rem",
                                                 }}
                                             >
-                                                Órdenes por estado
+                                                📈 Distribución de Órdenes
                                             </h2>
 
-                                            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                                            <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
                                                 {chartData.map((item) => (
                                                     <div key={item.label}>
                                                         <div
                                                             style={{
                                                                 display: "flex",
                                                                 justifyContent: "space-between",
-                                                                fontSize: "0.8rem",
-                                                                marginBottom: "0.15rem",
+                                                                fontSize: "0.85rem",
+                                                                marginBottom: "0.35rem",
                                                             }}
                                                         >
-                                                            <span style={{ color: "#4b5563" }}>{item.label}</span>
-                                                            <span style={{ fontWeight: 600, color: "#111827" }}>
+                                                            <span style={{ color: "#4b5563", fontWeight: 500 }}>{item.label}</span>
+                                                            <span style={{ fontWeight: 700, color: "#1e1b4b" }}>
                                                                 {item.value}
                                                             </span>
                                                         </div>
 
                                                         <div
                                                             style={{
-                                                                height: "10px",
+                                                                height: "12px",
                                                                 borderRadius: "999px",
-                                                                backgroundColor: "#e5e7eb",
+                                                                backgroundColor: "#ede9fe",
                                                                 overflow: "hidden",
                                                             }}
                                                         >
@@ -702,8 +902,9 @@ export default function DashboardPage() {
                                                                     width: `${(item.value / maxChartValue) * 100}%`,
                                                                     height: "100%",
                                                                     borderRadius: "999px",
-                                                                    backgroundColor: item.color,
+                                                                    background: `linear-gradient(90deg, ${item.color}, ${item.color}cc)`,
                                                                     transition: "width 0.4s ease",
+                                                                    boxShadow: `0 2px 8px ${item.color}40`,
                                                                 }}
                                                             />
                                                         </div>
@@ -715,48 +916,49 @@ export default function DashboardPage() {
                                         {/* Card: Rendimiento general */}
                                         <div
                                             style={{
-                                                padding: "1rem 1.25rem",
-                                                borderRadius: "12px",
-                                                backgroundColor: "#ffffff",
-                                                boxShadow: "0 10px 30px rgba(15,23,42,0.08)",
-                                                border: "1px solid #e5e7eb",
+                                                padding: "1.25rem",
+                                                borderRadius: "16px",
+                                                background: "linear-gradient(135deg, #ffffff 0%, #faf5ff 100%)",
+                                                boxShadow: "0 4px 20px rgba(124, 58, 237, 0.08)",
+                                                border: "1px solid #e9d5ff",
                                                 display: "flex",
                                                 flexDirection: "column",
                                                 gap: "0.75rem",
                                             }}
                                         >
-                                            <h2 style={{ fontSize: "0.95rem", fontWeight: 600, color: "#0f172a" }}>
-                                                Rendimiento general
+                                            <h2 style={{ fontSize: "1rem", fontWeight: 700, color: "#1e1b4b", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                                🎯 Rendimiento General
                                             </h2>
 
-                                            <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginTop: "0.25rem" }}>
+                                            <div style={{ display: "flex", alignItems: "center", gap: "1.5rem", marginTop: "0.5rem" }}>
                                                 {/* Gauge */}
                                                 <div
                                                     style={{
                                                         position: "relative",
-                                                        width: "120px",
-                                                        height: "120px",
+                                                        width: "130px",
+                                                        height: "130px",
                                                         borderRadius: "999px",
-                                                        background: `conic-gradient(#22c55e ${completionRate}%, #e5e7eb ${completionRate}%)`,
+                                                        background: `conic-gradient(#7c3aed ${completionRate}%, #ede9fe ${completionRate}%)`,
                                                         display: "flex",
                                                         alignItems: "center",
                                                         justifyContent: "center",
+                                                        boxShadow: "0 4px 20px rgba(124, 58, 237, 0.2)",
                                                     }}
                                                 >
                                                     <div
                                                         style={{
-                                                            width: "80px",
-                                                            height: "80px",
+                                                            width: "90px",
+                                                            height: "90px",
                                                             borderRadius: "999px",
                                                             backgroundColor: "#ffffff",
                                                             display: "flex",
                                                             alignItems: "center",
                                                             justifyContent: "center",
                                                             flexDirection: "column",
-                                                            boxShadow: "0 0 0 1px #e5e7eb",
+                                                            boxShadow: "inset 0 2px 8px rgba(0,0,0,0.05)",
                                                         }}
                                                     >
-                                                        <span style={{ fontSize: "1.2rem", fontWeight: 700, color: "#16a34a" }}>
+                                                        <span style={{ fontSize: "1.4rem", fontWeight: 800, color: "#6d28d9" }}>
                                                             {Math.trunc(completionRate)}%
                                                         </span>
                                                         <span style={{ fontSize: "0.7rem", color: "#6b7280", textAlign: "center" }}>
@@ -777,17 +979,17 @@ export default function DashboardPage() {
                                                     }}
                                                 >
                                                     <div>
-                                                        <span style={{ display: "inline-flex", width: "10px", height: "10px", borderRadius: "999px", backgroundColor: "#22c55e", marginRight: "0.4rem" }} />
+                                                        <span style={{ display: "inline-flex", width: "10px", height: "10px", borderRadius: "999px", backgroundColor: "#7c3aed", marginRight: "0.4rem" }} />
                                                         <b>{Math.trunc(completionRate)}%</b> cerradas del total de órdenes.
                                                     </div>
 
                                                     <div>
-                                                        <span style={{ display: "inline-flex", width: "10px", height: "10px", borderRadius: "999px", backgroundColor: "#f97316", marginRight: "0.4rem" }} />
+                                                        <span style={{ display: "inline-flex", width: "10px", height: "10px", borderRadius: "999px", backgroundColor: "#a855f7", marginRight: "0.4rem" }} />
                                                         <b>{Math.trunc(openRate)}%</b> en estado abierto.
                                                     </div>
 
                                                     <div>
-                                                        <span style={{ display: "inline-flex", width: "10px", height: "10px", borderRadius: "999px", backgroundColor: "#3b82f6", marginRight: "0.4rem" }} />
+                                                        <span style={{ display: "inline-flex", width: "10px", height: "10px", borderRadius: "999px", backgroundColor: "#4c1d95", marginRight: "0.4rem" }} />
                                                         <b>{Math.trunc(processRate)}%</b> en diagnóstico / reparación.
                                                     </div>
 
@@ -811,11 +1013,11 @@ export default function DashboardPage() {
                                         {/* Técnicos asignados */}
                                         <div
                                             style={{
-                                                backgroundColor: "#ffffff",
+                                                background: "linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%)",
                                                 borderRadius: "12px",
                                                 padding: "0.75rem 1rem 1rem",
-                                                border: "1px solid #e5e7eb",
-                                                boxShadow: "0 8px 24px rgba(15,23,42,0.06)",
+                                                border: "1px solid #e9d5ff",
+                                                boxShadow: "0 8px 24px rgba(124,58,237,0.08)",
                                             }}
                                         >
                                             <div
@@ -826,10 +1028,10 @@ export default function DashboardPage() {
                                                     marginBottom: "0.6rem",
                                                 }}
                                             >
-                                                <h2 style={{ fontSize: "0.95rem", fontWeight: 600, color: "#0f172a" }}>
-                                                    Técnicos asignados
+                                                <h2 style={{ fontSize: "0.95rem", fontWeight: 600, color: "#4c1d95" }}>
+                                                    👥 Técnicos asignados
                                                 </h2>
-                                                <span style={{ fontSize: "0.8rem", color: "#6b7280" }}>
+                                                <span style={{ fontSize: "0.8rem", color: "#7c3aed", fontWeight: 500 }}>
                                                     {dashboardData.tecnicos.length} técnicos
                                                 </span>
                                             </div>
@@ -847,17 +1049,17 @@ export default function DashboardPage() {
                                                         key={t.tecnicoCedula}
                                                         style={{
                                                             borderRadius: "10px",
-                                                            border: "1px solid #e5e7eb",
+                                                            border: "1px solid #e9d5ff",
                                                             padding: "0.6rem 0.75rem",
-                                                            backgroundColor: "#f9fafb",
+                                                            backgroundColor: "#ffffff",
                                                         }}
                                                     >
                                                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                                             <div>
-                                                                <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "#111827" }}>
+                                                                <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "#4c1d95" }}>
                                                                     {t.tecnicoNombre}
                                                                 </div>
-                                                                <div style={{ fontSize: "0.75rem", color: "#6b7280" }}>{t.tecnicoCedula}</div>
+                                                                <div style={{ fontSize: "0.75rem", color: "#7c3aed" }}>{t.tecnicoCedula}</div>
                                                             </div>
                                                         </div>
 
@@ -871,9 +1073,9 @@ export default function DashboardPage() {
                                                             }}
                                                         >
                                                             <TecnicoMetric label="Total" value={t.totalOrdenes} />
-                                                            <TecnicoMetric label="Abiertas" value={t.ordenesAbiertas} color="#f97316" />
-                                                            <TecnicoMetric label="Proceso" value={t.ordenesEnProceso} color="#3b82f6" />
-                                                            <TecnicoMetric label="Cerradas" value={t.ordenesCerradas} color="#22c55e" />
+                                                            <TecnicoMetric label="Abiertas" value={t.ordenesAbiertas} color="#9333ea" />
+                                                            <TecnicoMetric label="Proceso" value={t.ordenesEnProceso} color="#7c3aed" />
+                                                            <TecnicoMetric label="Cerradas" value={t.ordenesCerradas} color="#4c1d95" />
                                                         </div>
                                                     </div>
                                                 ))}
@@ -883,25 +1085,25 @@ export default function DashboardPage() {
                                         {/* Top técnicos */}
                                         <div
                                             style={{
-                                                backgroundColor: "#ffffff",
+                                                background: "linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%)",
                                                 borderRadius: "12px",
                                                 padding: "0.75rem 1rem 1rem",
-                                                border: "1px solid #e5e7eb",
-                                                boxShadow: "0 8px 24px rgba(15,23,42,0.06)",
+                                                border: "1px solid #e9d5ff",
+                                                boxShadow: "0 8px 24px rgba(124,58,237,0.08)",
                                                 display: "flex",
                                                 flexDirection: "column",
                                                 gap: "0.5rem",
                                             }}
                                         >
                                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                                <h2 style={{ fontSize: "0.95rem", fontWeight: 600, color: "#0f172a" }}>
-                                                    Top técnicos por órdenes
+                                                <h2 style={{ fontSize: "0.95rem", fontWeight: 600, color: "#4c1d95" }}>
+                                                    🏆 Top técnicos por órdenes
                                                 </h2>
-                                                <span style={{ fontSize: "0.75rem", color: "#6b7280" }}>Vista rápida</span>
+                                                <span style={{ fontSize: "0.75rem", color: "#7c3aed", fontWeight: 500 }}>Vista rápida</span>
                                             </div>
 
                                             {topTecnicos.length === 0 ? (
-                                                <div style={{ fontSize: "0.8rem", color: "#6b7280", marginTop: "0.5rem" }}>
+                                                <div style={{ fontSize: "0.8rem", color: "#7c3aed", marginTop: "0.5rem" }}>
                                                     No hay datos de técnicos disponibles.
                                                 </div>
                                             ) : (
@@ -913,10 +1115,10 @@ export default function DashboardPage() {
                                                             <div key={t.tecnicoCedula}>
                                                                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                                                     <div>
-                                                                        <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "#111827" }}>
+                                                                        <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "#4c1d95" }}>
                                                                             {t.tecnicoNombre}
                                                                         </div>
-                                                                        <div style={{ fontSize: "0.75rem", color: "#6b7280" }}>{t.tecnicoCedula}</div>
+                                                                        <div style={{ fontSize: "0.75rem", color: "#7c3aed" }}>{t.tecnicoCedula}</div>
                                                                     </div>
 
                                                                     <div
@@ -925,7 +1127,7 @@ export default function DashboardPage() {
                                                                             margin: "0 0.8rem",
                                                                             height: "8px",
                                                                             borderRadius: "999px",
-                                                                            backgroundColor: "#e5e7eb",
+                                                                            backgroundColor: "#ede9fe",
                                                                             overflow: "hidden",
                                                                         }}
                                                                     >
@@ -934,12 +1136,12 @@ export default function DashboardPage() {
                                                                                 width: `${(t.totalOrdenes / maxTotal) * 100}%`,
                                                                                 height: "100%",
                                                                                 borderRadius: "999px",
-                                                                                background: "linear-gradient(90deg,#4f46e5,#22c55e)",
+                                                                                background: "linear-gradient(90deg,#4c1d95,#9333ea)",
                                                                             }}
                                                                         />
                                                                     </div>
 
-                                                                    <span style={{ fontSize: "0.8rem", color: "#111827", fontWeight: 500 }}>
+                                                                    <span style={{ fontSize: "0.8rem", color: "#4c1d95", fontWeight: 600 }}>
                                                                         {t.totalOrdenes} OT
                                                                     </span>
                                                                 </div>
@@ -955,11 +1157,11 @@ export default function DashboardPage() {
                                     <div
                                         style={{
                                             marginTop: "1.25rem",
-                                            backgroundColor: "#ffffff",
+                                            background: "linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%)",
                                             borderRadius: "12px",
                                             padding: "1rem 1.25rem",
-                                            border: "1px solid #e5e7eb",
-                                            boxShadow: "0 10px 30px rgba(15,23,42,0.08)",
+                                            border: "1px solid #e9d5ff",
+                                            boxShadow: "0 10px 30px rgba(124,58,237,0.1)",
                                         }}
                                     >
                                         <div
@@ -973,10 +1175,10 @@ export default function DashboardPage() {
                                             }}
                                         >
                                             <div>
-                                                <h2 style={{ fontSize: "0.95rem", fontWeight: 700, color: "#0f172a" }}>
-                                                    Citas del técnico
+                                                <h2 style={{ fontSize: "0.95rem", fontWeight: 700, color: "#4c1d95" }}>
+                                                    📅 Citas del técnico
                                                 </h2>
-                                                <div style={{ fontSize: "0.78rem", color: "#6b7280", marginTop: "0.15rem" }}>
+                                                <div style={{ fontSize: "0.78rem", color: "#7c3aed", marginTop: "0.15rem" }}>
                                                     Técnico: <b>{userCedula}</b>
                                                 </div>
                                             </div>
@@ -989,7 +1191,7 @@ export default function DashboardPage() {
                                                             border: "1px solid #e5e7eb",
                                                             background:
                                                                 citasView === "PENDIENTES"
-                                                                    ? "linear-gradient(90deg,#111827,#1f2937)"
+                                                                    ? "linear-gradient(90deg,#4338ca,#7c3aed)"
                                                                     : "#fff",
                                                             color:
                                                                 citasView === "PENDIENTES"
@@ -1031,7 +1233,7 @@ export default function DashboardPage() {
                                                 <button
                                                     onClick={() => setActiveSection("citas")}
                                                     style={{
-                                                        background: "linear-gradient(90deg,#6366f1,#4f46e5)",
+                                                        background: "linear-gradient(90deg,#4338ca,#7c3aed)",
                                                         borderRadius: "999px",
                                                         border: "none",
                                                         color: "#fff",
@@ -1085,7 +1287,7 @@ export default function DashboardPage() {
                                         {!citasLoading && !citasError && (
                                             <>
                                                 {hoy.length === 0 && manana.length === 0 ? (
-                                                    <div style={{ fontSize: "0.85rem", color: "#6b7280" }}>
+                                                    <div style={{ fontSize: "0.85rem", color: "#7c3aed" }}>
                                                         {citasView === "PENDIENTES"
                                                             ? "No hay citas pendientes para hoy o mañana."
                                                             : "No hay citas completadas para hoy o mañana."}
@@ -1098,11 +1300,11 @@ export default function DashboardPage() {
                                                                 style={{
                                                                     fontSize: "0.82rem",
                                                                     fontWeight: 900,
-                                                                    color: "#111827",
+                                                                    color: "#4c1d95",
                                                                     marginBottom: "0.5rem",
                                                                 }}
                                                             >
-                                                                Hoy ({hoy.length})
+                                                                📌 Hoy ({hoy.length})
                                                             </div>
 
                                                             <div
@@ -1122,16 +1324,16 @@ export default function DashboardPage() {
                                                                             key={String(c.id ?? `hoy-${idx}`)}
                                                                             style={{
                                                                                 borderRadius: "10px",
-                                                                                border: "1px solid #e5e7eb",
+                                                                                border: "1px solid #e9d5ff",
                                                                                 padding: "0.75rem 0.85rem",
-                                                                                backgroundColor: "#f9fafb",
+                                                                                backgroundColor: "#ffffff",
                                                                                 display: "flex",
                                                                                 flexDirection: "column",
                                                                                 gap: "0.35rem",
                                                                             }}
                                                                         >
                                                                             <div style={{ display: "flex", justifyContent: "space-between", gap: "0.75rem" }}>
-                                                                                <div style={{ fontWeight: 700, color: "#111827", fontSize: "0.9rem" }}>
+                                                                                <div style={{ fontWeight: 700, color: "#4c1d95", fontSize: "0.9rem" }}>
                                                                                     {getCitaTitle(c)}
                                                                                 </div>
 
@@ -1140,8 +1342,8 @@ export default function DashboardPage() {
                                                                                         fontSize: "0.7rem",
                                                                                         padding: "0.12rem 0.45rem",
                                                                                         borderRadius: "999px",
-                                                                                        backgroundColor: isDone ? "#dcfce7" : "#e0e7ff",
-                                                                                        color: isDone ? "#166534" : "#3730a3",
+                                                                                        backgroundColor: isDone ? "#e9d5ff" : "#ede9fe",
+                                                                                        color: isDone ? "#4c1d95" : "#7c3aed",
                                                                                         fontWeight: 800,
                                                                                         height: "fit-content",
                                                                                         whiteSpace: "nowrap",
@@ -1155,7 +1357,7 @@ export default function DashboardPage() {
                                                                                 <b>Fecha:</b> {formatCitaDate(c)}
                                                                             </div>
 
-                                                                            <div style={{ fontSize: "0.78rem", color: "#6b7280" }}>
+                                                                            <div style={{ fontSize: "0.78rem", color: "#7c3aed" }}>
                                                                                 {getCitaSubtitle(c)}
                                                                             </div>
 
@@ -1168,7 +1370,7 @@ export default function DashboardPage() {
                                                                                             border: "1px solid #e5e7eb",
                                                                                             background: isDone
                                                                                                 ? "#f3f4f6"
-                                                                                                : "linear-gradient(90deg,#111827,#1f2937)",
+                                                                                                : "linear-gradient(90deg,#4338ca,#7c3aed)",
                                                                                             color: isDone ? "#6b7280" : "#ffffff",
                                                                                             padding: "0.35rem 0.75rem",
                                                                                             borderRadius: "10px",
@@ -1189,7 +1391,7 @@ export default function DashboardPage() {
                                                             </div>
 
                                                             {hoy.length > 8 && (
-                                                                <div style={{ marginTop: "0.6rem", fontSize: "0.78rem", color: "#6b7280" }}>
+                                                                <div style={{ marginTop: "0.6rem", fontSize: "0.78rem", color: "#7c3aed" }}>
                                                                     Mostrando 8 de {hoy.length} citas de hoy.
                                                                 </div>
                                                             )}
@@ -1201,11 +1403,11 @@ export default function DashboardPage() {
                                                                 style={{
                                                                     fontSize: "0.82rem",
                                                                     fontWeight: 900,
-                                                                    color: "#111827",
+                                                                    color: "#4c1d95",
                                                                     marginBottom: "0.5rem",
                                                                 }}
                                                             >
-                                                                Mañana ({manana.length})
+                                                                📆 Mañana ({manana.length})
                                                             </div>
 
                                                             <div
@@ -1225,16 +1427,16 @@ export default function DashboardPage() {
                                                                             key={String(c.id ?? `manana-${idx}`)}
                                                                             style={{
                                                                                 borderRadius: "10px",
-                                                                                border: "1px solid #e5e7eb",
+                                                                                border: "1px solid #e9d5ff",
                                                                                 padding: "0.75rem 0.85rem",
-                                                                                backgroundColor: "#f9fafb",
+                                                                                backgroundColor: "#ffffff",
                                                                                 display: "flex",
                                                                                 flexDirection: "column",
                                                                                 gap: "0.35rem",
                                                                             }}
                                                                         >
                                                                             <div style={{ display: "flex", justifyContent: "space-between", gap: "0.75rem" }}>
-                                                                                <div style={{ fontWeight: 700, color: "#111827", fontSize: "0.9rem" }}>
+                                                                                <div style={{ fontWeight: 700, color: "#4c1d95", fontSize: "0.9rem" }}>
                                                                                     {getCitaTitle(c)}
                                                                                 </div>
 
@@ -1243,8 +1445,8 @@ export default function DashboardPage() {
                                                                                         fontSize: "0.7rem",
                                                                                         padding: "0.12rem 0.45rem",
                                                                                         borderRadius: "999px",
-                                                                                        backgroundColor: isDone ? "#dcfce7" : "#e0e7ff",
-                                                                                        color: isDone ? "#166534" : "#3730a3",
+                                                                                        backgroundColor: isDone ? "#e9d5ff" : "#ede9fe",
+                                                                                        color: isDone ? "#4c1d95" : "#7c3aed",
                                                                                         fontWeight: 800,
                                                                                         height: "fit-content",
                                                                                         whiteSpace: "nowrap",
@@ -1258,7 +1460,7 @@ export default function DashboardPage() {
                                                                                 <b>Fecha:</b> {formatCitaDate(c)}
                                                                             </div>
 
-                                                                            <div style={{ fontSize: "0.78rem", color: "#6b7280" }}>
+                                                                            <div style={{ fontSize: "0.78rem", color: "#7c3aed" }}>
                                                                                 {getCitaSubtitle(c)}
                                                                             </div>
 
@@ -1268,10 +1470,10 @@ export default function DashboardPage() {
                                                                                         onClick={() => marcarCitaComoCompletada(c.id)}
                                                                                         disabled={!c.id || isDone || isUpdating}
                                                                                         style={{
-                                                                                            border: "1px solid #e5e7eb",
+                                                                                            border: "1px solid #e9d5ff",
                                                                                             background: isDone
                                                                                                 ? "#f3f4f6"
-                                                                                                : "linear-gradient(90deg,#111827,#1f2937)",
+                                                                                                : "linear-gradient(90deg,#4c1d95,#7c3aed)",
                                                                                             color: isDone ? "#6b7280" : "#ffffff",
                                                                                             padding: "0.35rem 0.75rem",
                                                                                             borderRadius: "10px",
@@ -1292,7 +1494,7 @@ export default function DashboardPage() {
                                                             </div>
 
                                                             {manana.length > 8 && (
-                                                                <div style={{ marginTop: "0.6rem", fontSize: "0.78rem", color: "#6b7280" }}>
+                                                                <div style={{ marginTop: "0.6rem", fontSize: "0.78rem", color: "#7c3aed" }}>
                                                                     Mostrando 8 de {manana.length} citas de mañana.
                                                                 </div>
                                                             )}
@@ -1328,39 +1530,46 @@ export default function DashboardPage() {
 ===================== */
 function SidebarItem({
     label,
-    icon,
+    iconSvg,
     isActive,
     onClick,
+    collapsed = false,
 }: {
     label: string;
-    icon?: string;
+    iconSvg?: React.ReactNode;
     isActive: boolean;
     onClick: () => void;
+    collapsed?: boolean;
 }) {
     return (
         <li>
             <button
                 onClick={onClick}
+                title={collapsed ? label : undefined}
                 style={{
                     width: "100%",
-                    textAlign: "left",
+                    textAlign: collapsed ? "center" : "left",
                     background: isActive
-                        ? "linear-gradient(90deg,#6366f1,#4f46e5)"
+                        ? "linear-gradient(90deg, #4c1d95, #6d28d9)"
                         : "transparent",
                     border: "none",
-                    color: isActive ? "#f9fafb" : "#e5e7eb",
-                    padding: "0.45rem 0.75rem",
-                    borderRadius: "999px",
-                    fontSize: "0.9rem",
+                    color: "#ffffff",
+                    padding: collapsed ? "0.6rem" : "0.5rem 0.85rem",
+                    borderRadius: "10px",
+                    fontSize: "0.85rem",
+                    fontWeight: isActive ? 600 : 500,
                     cursor: "pointer",
-                    transition: "all 0.15s ease",
+                    transition: "all 0.2s ease",
                     display: "flex",
                     alignItems: "center",
-                    gap: "0.5rem",
+                    justifyContent: collapsed ? "center" : "flex-start",
+                    gap: "0.6rem",
+                    boxShadow: isActive ? "0 4px 12px rgba(109, 40, 217, 0.3)" : "none",
+                    opacity: isActive ? 1 : 0.85,
                 }}
             >
-                {icon && <span>{icon}</span>}
-                {label}
+                {iconSvg && <span style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>{iconSvg}</span>}
+                {!collapsed && <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label}</span>}
             </button>
         </li>
     );
@@ -1370,49 +1579,83 @@ function DashboardCard({
     title,
     value,
     chipColor,
+    icon,
+    trend,
 }: {
     title: string;
     value: number;
     chipColor?: string;
+    icon?: string;
+    trend?: { value: number; isPositive: boolean };
 }) {
+    // Colores morados oscuros para las tarjetas
+    const purpleAccent = chipColor || "#7c3aed";
+    
     return (
         <div
             style={{
-                backgroundColor: "#ffffff",
-                borderRadius: "14px",
-                padding: "0.9rem 1rem",
-                border: "1px solid #e5e7eb",
-                boxShadow: "0 8px 24px rgba(15,23,42,0.06)",
+                background: "linear-gradient(135deg, #ffffff 0%, #f5f3ff 100%)",
+                borderRadius: "16px",
+                padding: "1rem 1.25rem",
+                border: "1px solid #e9d5ff",
+                boxShadow: "0 4px 20px rgba(124, 58, 237, 0.08)",
                 display: "flex",
                 flexDirection: "column",
-                gap: "0.25rem",
-                minHeight: "82px",
+                gap: "0.5rem",
+                minHeight: "100px",
+                position: "relative",
+                overflow: "hidden",
             }}
         >
-            <div style={{ fontSize: "0.75rem", color: "#6b7280", fontWeight: 500 }}>
-                {title}
+            {/* Acento decorativo */}
+            <div style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                height: "4px",
+                background: `linear-gradient(90deg, ${purpleAccent}, #a855f7)`,
+                borderRadius: "16px 16px 0 0",
+            }} />
+
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontSize: "0.75rem", color: "#6b7280", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.03em" }}>
+                    {title}
+                </span>
+                {icon && <span style={{ fontSize: "1.2rem", opacity: 0.6 }}>{icon}</span>}
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                <span style={{ fontSize: "1.7rem", fontWeight: 700, color: "#0f172a" }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: "0.5rem" }}>
+                <span style={{ fontSize: "2rem", fontWeight: 800, color: "#1e1b4b" }}>
                     {value}
                 </span>
-
-                {chipColor && (
-                    <span
-                        style={{
-                            fontSize: "0.7rem",
-                            padding: "0.1rem 0.5rem",
-                            borderRadius: "999px",
-                            backgroundColor: chipColor + "1a",
-                            color: chipColor,
-                            fontWeight: 600,
-                        }}
-                    >
-                        {title.split(" ")[1] ?? ""}
+                
+                {trend && (
+                    <span style={{
+                        fontSize: "0.7rem",
+                        padding: "0.15rem 0.4rem",
+                        borderRadius: "6px",
+                        backgroundColor: trend.isPositive ? "#dcfce7" : "#fee2e2",
+                        color: trend.isPositive ? "#166534" : "#991b1b",
+                        fontWeight: 700,
+                    }}>
+                        {trend.isPositive ? "↑" : "↓"} {Math.abs(trend.value)}%
                     </span>
                 )}
             </div>
+
+            {chipColor && (
+                <div style={{
+                    position: "absolute",
+                    bottom: "0.75rem",
+                    right: "0.75rem",
+                    width: "8px",
+                    height: "8px",
+                    borderRadius: "50%",
+                    backgroundColor: chipColor,
+                    boxShadow: `0 0 8px ${chipColor}80`,
+                }} />
+            )}
         </div>
     );
 }
@@ -1428,8 +1671,8 @@ function TecnicoMetric({
 }) {
     return (
         <div>
-            <div style={{ fontSize: "0.7rem", color: "#6b7280" }}>{label}</div>
-            <div style={{ fontWeight: 600, color: color || "#111827" }}>{value}</div>
+            <div style={{ fontSize: "0.7rem", color: "#7c3aed" }}>{label}</div>
+            <div style={{ fontWeight: 600, color: color || "#4c1d95" }}>{value}</div>
         </div>
     );
 }

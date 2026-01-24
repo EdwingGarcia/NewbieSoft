@@ -66,7 +66,7 @@ function CitaDetailModal({ cita, onClose }: { cita: Cita; onClose: () => void })
     const estado = (cita.estado ?? "").toUpperCase();
     const estadoStyles = estado === "COMPLETADA" ? { bg: "#dcfce7", border: "#86efac", text: "#166534" } :
         estado === "CANCELADA" ? { bg: "#fee2e2", border: "#fecaca", text: "#991b1b" } :
-            { bg: "#e0e7ff", border: "#c7d2fe", text: "#3730a3" };
+            { bg: "#e0e7ff", border: "#c7d2fe", text: "#4338ca" };
 
     return (
         <div role="dialog" aria-modal="true" onClick={onClose} style={{
@@ -79,12 +79,12 @@ function CitaDetailModal({ cita, onClose }: { cita: Cita; onClose: () => void })
                 backgroundColor: "#fff", boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
                 overflow: "hidden", display: "flex", flexDirection: "column", maxHeight: "90vh"
             }}>
-                <div style={{ padding: "1rem 1.5rem", background: "#0f172a", color: "#fff", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ padding: "1rem 1.5rem", background: "linear-gradient(90deg,#4338ca,#7c3aed)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                     <div>
-                        <div style={{ fontSize: "0.75rem", color: "#94a3b8", fontWeight: 700 }}>CITA #{String(cita.id).padStart(4, "0")}</div>
+                        <div style={{ fontSize: "0.75rem", color: "#c7d2fe", fontWeight: 700 }}>CITA #{String(cita.id).padStart(4, "0")}</div>
                         <div style={{ fontSize: "1.1rem", fontWeight: 600 }}>Detalle de Servicio</div>
                     </div>
-                    <button onClick={onClose} style={{ background: "rgba(255,255,255,0.1)", border: "none", color: "#fff", borderRadius: "50%", width: 32, height: 32, display: "grid", placeItems: "center", cursor: "pointer" }}><X size={18} /></button>
+                    <button onClick={onClose} style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", borderRadius: "50%", width: 32, height: 32, display: "grid", placeItems: "center", cursor: "pointer" }}><X size={18} /></button>
                 </div>
                 <div style={{ padding: "1.5rem", overflowY: "auto" }}>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1.5rem", paddingBottom: "1.5rem", borderBottom: "1px solid #e2e8f0" }}>
@@ -97,7 +97,7 @@ function CitaDetailModal({ cita, onClose }: { cita: Cita; onClose: () => void })
                         <div>
                             <div style={{ fontSize: "0.7rem", color: "#64748b", fontWeight: 700, marginBottom: "0.4rem" }}>FECHA</div>
                             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "#0f172a", fontWeight: 600 }}>
-                                <Clock size={16} color="#3b82f6" />{new Date(cita.fechaProgramada).toLocaleString("es-ES")}
+                                <Clock size={16} color="#6366f1" />{new Date(cita.fechaProgramada).toLocaleString("es-ES")}
                             </div>
                         </div>
                     </div>
@@ -264,17 +264,22 @@ export default function CitasTecnicoPage() {
     };
 
     return (
-        <div style={{ padding: "1.5rem", background: "#f8fafc", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+        <div style={{ padding: "1.5rem", background: "linear-gradient(to bottom right, #f8fafc, rgba(243, 232, 255, 0.3))", minHeight: "100%", height: "100%", display: "flex", flexDirection: "column" }}>
 
-            {/* Buscador */}
-            <div style={{ marginBottom: "2rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
-                    <h1 style={{ fontSize: "1.8rem", fontWeight: 800, color: "#0f172a", margin: 0 }}>Tablero de Citas</h1>
-                    <div style={{ fontSize: "0.9rem", color: "#64748b" }}>Mostrando <b>{citasFiltradas.length}</b> de {citas.length}</div>
+            {/* Header con Buscador */}
+            <div style={{ marginBottom: "1.5rem", background: "rgba(255,255,255,0.8)", backdropFilter: "blur(8px)", borderRadius: "16px", border: "1px solid #e9d5ff", boxShadow: "0 10px 15px -3px rgba(147, 51, 234, 0.05)", padding: "1.5rem" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem", marginBottom: "1rem" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                        <div style={{ padding: "0.5rem", background: "linear-gradient(to bottom right, #a855f7, #9333ea)", borderRadius: "12px", boxShadow: "0 4px 6px -1px rgba(147, 51, 234, 0.25)" }}>
+                            <svg style={{ width: "20px", height: "20px", color: "white" }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                        </div>
+                        <h1 style={{ fontSize: "1.5rem", fontWeight: 800, color: "#0f172a", margin: 0 }}>Tablero de Citas</h1>
+                    </div>
+                    <div style={{ fontSize: "0.9rem", color: "#7c3aed" }}>Mostrando <b>{citasFiltradas.length}</b> de {citas.length}</div>
                 </div>
                 <div style={{ position: "relative", width: "100%", maxWidth: "500px" }}>
-                    <div style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }}><Search size={18} /></div>
-                    <input type="text" placeholder="Buscar por cliente, cédula, dirección..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={{ width: "100%", padding: "0.8rem 1rem 0.8rem 2.5rem", borderRadius: "12px", border: "1px solid #cbd5e1", fontSize: "0.95rem", boxShadow: "0 2px 5px rgba(0,0,0,0.02)", outline: "none" }} />
+                    <div style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "#a855f7" }}><Search size={18} /></div>
+                    <input type="text" placeholder="Buscar por cliente, cédula, dirección..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={{ width: "100%", padding: "0.8rem 1rem 0.8rem 2.5rem", borderRadius: "12px", border: "1px solid #e9d5ff", fontSize: "0.95rem", boxShadow: "0 2px 5px rgba(147,51,234,0.05)", outline: "none" }} />
                 </div>
             </div>
 
@@ -285,7 +290,7 @@ export default function CitasTecnicoPage() {
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "1.5rem", alignItems: "start", flex: 1 }}>
 
                     {/* Columna Atrasadas */}
-                    <div style={{ background: "#fff", padding: "1rem", borderRadius: "16px", border: "1px solid #fca5a5", boxShadow: "0 10px 15px -3px rgba(220, 38, 38, 0.05)" }}>
+                    <div style={{ background: "rgba(255,255,255,0.8)", backdropFilter: "blur(8px)", padding: "1rem", borderRadius: "16px", border: "1px solid #fca5a5", boxShadow: "0 10px 15px -3px rgba(220, 38, 38, 0.05)" }}>
                         <h2 style={{ fontSize: "1rem", color: "#b91c1c", marginBottom: "1rem", display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 800, paddingBottom: "0.5rem", borderBottom: "1px dashed #fca5a5" }}>
                             🚨 Atrasadas <span style={{ background: '#fee2e2', padding: '2px 8px', borderRadius: '10px', fontSize: '0.8rem' }}>{citasAtrasadas.length}</span>
                         </h2>
@@ -296,9 +301,9 @@ export default function CitasTecnicoPage() {
                     </div>
 
                     {/* Columna Pendientes */}
-                    <div style={{ background: "#fff", padding: "1rem", borderRadius: "16px", border: "1px solid #bfdbfe", boxShadow: "0 10px 15px -3px rgba(37, 99, 235, 0.05)" }}>
-                        <h2 style={{ fontSize: "1rem", color: "#1d4ed8", marginBottom: "1rem", display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 800, paddingBottom: "0.5rem", borderBottom: "1px dashed #bfdbfe" }}>
-                            ⏳ Próximas <span style={{ background: '#dbeafe', padding: '2px 8px', borderRadius: '10px', fontSize: '0.8rem' }}>{citasPendientes.length}</span>
+                    <div style={{ background: "rgba(255,255,255,0.8)", backdropFilter: "blur(8px)", padding: "1rem", borderRadius: "16px", border: "1px solid #e9d5ff", boxShadow: "0 10px 15px -3px rgba(147, 51, 234, 0.05)" }}>
+                        <h2 style={{ fontSize: "1rem", color: "#7c3aed", marginBottom: "1rem", display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 800, paddingBottom: "0.5rem", borderBottom: "1px dashed #e9d5ff" }}>
+                            ⏳ Próximas <span style={{ background: '#f3e8ff', padding: '2px 8px', borderRadius: '10px', fontSize: '0.8rem' }}>{citasPendientes.length}</span>
                         </h2>
                         <div className="custom-scroll" style={columnScrollStyle}>
                             {citasPendientes.length === 0 && <span style={{ fontSize: "0.8rem", color: "#94a3b8", textAlign: "center", padding: "1rem" }}>No tienes citas pendientes.</span>}
@@ -307,8 +312,8 @@ export default function CitasTecnicoPage() {
                     </div>
 
                     {/* Columna Completadas */}
-                    <div style={{ background: "#f8fafc", padding: "1rem", borderRadius: "16px", border: "1px solid #cbd5e1", opacity: 0.9 }}>
-                        <h2 style={{ fontSize: "1rem", color: "#15803d", marginBottom: "1rem", display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 800, paddingBottom: "0.5rem", borderBottom: "1px dashed #86efac" }}>
+                    <div style={{ background: "rgba(248,250,252,0.8)", backdropFilter: "blur(8px)", padding: "1rem", borderRadius: "16px", border: "1px solid #e9d5ff", opacity: 0.9 }}>
+                        <h2 style={{ fontSize: "1rem", color: "#15803d", marginBottom: "1rem", display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 800, paddingBottom: "0.5rem", borderBottom: "1px dashed #c4b5fd" }}>
                             ✅ Historial <span style={{ background: '#dcfce7', padding: '2px 8px', borderRadius: '10px', fontSize: '0.8rem' }}>{citasCompletadas.length}</span>
                         </h2>
                         <div className="custom-scroll" style={columnScrollStyle}>

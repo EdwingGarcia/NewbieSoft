@@ -214,45 +214,49 @@ export default function GestionUsuario(): JSX.Element {
     }), [filteredClients]);
 
     return (
-        <div className="flex flex-col min-h-screen bg-slate-50 p-4 lg:p-6 gap-6">
+        <div className="flex flex-col min-h-full h-full bg-gradient-to-br from-slate-50 to-purple-50/30 p-4 lg:p-6 gap-6">
 
             {/* HEADER */}
-            <div className="flex-none flex flex-col gap-4 md:flex-row md:items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
-                        <Users className="h-6 w-6 text-emerald-600" />
-                        Gestión de Clientes
-                    </h1>
-                    <div className="flex items-center gap-3 mt-1 text-sm text-slate-500">
-                        <span>Total: <b>{stats.total}</b></span>
-                        <span className="w-1 h-1 rounded-full bg-slate-300" />
-                        <span className="text-emerald-600">Activos: <b>{stats.active}</b></span>
+            <div className="flex-none bg-white/80 backdrop-blur-sm rounded-2xl border border-purple-100 shadow-lg shadow-purple-500/5 p-4 lg:p-6">
+                <div className="flex flex-col gap-4 md:flex-row md:items-center justify-between">
+                    <div>
+                        <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
+                            <div className="p-2 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg shadow-purple-500/25">
+                                <Users className="h-5 w-5 text-white" />
+                            </div>
+                            Gestión de Clientes
+                        </h1>
+                        <div className="flex items-center gap-3 mt-2 text-sm text-slate-500">
+                            <span>Total: <b className="text-purple-600">{stats.total}</b></span>
+                            <span className="w-1 h-1 rounded-full bg-purple-300" />
+                            <span className="text-purple-600">Activos: <b>{stats.active}</b></span>
+                        </div>
                     </div>
-                </div>
 
-                <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-                    <div className="relative w-full sm:w-64">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                        <Input
-                            placeholder="Buscar cliente..."
-                            className="pl-9 bg-white shadow-sm border-slate-200"
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                        />
-                        {search && (
-                            <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                                <X className="h-3 w-3" />
-                            </button>
-                        )}
+                    <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                        <div className="relative w-full sm:w-64">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-purple-400" />
+                            <Input
+                                placeholder="Buscar cliente..."
+                                className="pl-9 bg-white shadow-sm border-purple-200 focus:border-purple-400 focus:ring-purple-400"
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                            />
+                            {search && (
+                                <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-purple-400 hover:text-purple-600">
+                                    <X className="h-3 w-3" />
+                                </button>
+                            )}
+                        </div>
+                        <Button onClick={openCreate} className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 shadow-lg shadow-purple-500/25 shrink-0 text-white">
+                            <Plus className="mr-2 h-4 w-4" /> Nuevo Cliente
+                        </Button>
                     </div>
-                    <Button onClick={openCreate} className="bg-emerald-600 hover:bg-emerald-700 shadow-sm shrink-0 text-white">
-                        <Plus className="mr-2 h-4 w-4" /> Nuevo Cliente
-                    </Button>
                 </div>
             </div>
 
             {error && (
-                <div className="flex-none bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2 text-sm">
+                <div className="flex-none bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2 text-sm">
                     <ShieldAlert className="h-4 w-4" /> {error}
                 </div>
             )}
@@ -261,13 +265,13 @@ export default function GestionUsuario(): JSX.Element {
             <div className="flex-1 w-full flex flex-col">
                 {loading && usuarios.length === 0 ? (
                     <div className="flex h-64 items-center justify-center">
-                        <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+                        <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
                     </div>
                 ) : filteredClients.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-64 text-slate-400 border-2 border-dashed border-slate-200 rounded-xl bg-white/50">
+                    <div className="flex flex-col items-center justify-center h-64 text-purple-400 border-2 border-dashed border-purple-200 rounded-xl bg-white/50">
                         <FilterX className="h-10 w-10 mb-2 opacity-50" />
                         <p>No se encontraron clientes.</p>
-                        {search && <Button variant="link" onClick={() => setSearch("")}>Limpiar búsqueda</Button>}
+                        {search && <Button variant="link" className="text-purple-600" onClick={() => setSearch("")}>Limpiar búsqueda</Button>}
                     </div>
                 ) : (
                     <>
@@ -275,7 +279,7 @@ export default function GestionUsuario(): JSX.Element {
                             {currentClients.map((u) => (
                                 <div
                                     key={u.cedula}
-                                    className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-emerald-200 transition-all duration-200 group flex flex-col gap-3 relative"
+                                    className="bg-white/80 backdrop-blur-sm p-4 rounded-xl border border-purple-100 shadow-sm hover:shadow-lg hover:shadow-purple-500/10 hover:border-purple-300 transition-all duration-200 group flex flex-col gap-3 relative"
                                 >
                                     {/* Cabecera Tarjeta */}
                                     <div className="flex justify-between items-start">
@@ -290,7 +294,7 @@ export default function GestionUsuario(): JSX.Element {
                                                 <p className="text-[11px] text-slate-400 font-mono tracking-tight">{u.cedula}</p>
                                             </div>
                                         </div>
-                                        <div className={`w-2.5 h-2.5 rounded-full mt-1.5 shrink-0 ${u.estado ? "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]" : "bg-slate-300"}`} title={u.estado ? "Activo" : "Inactivo"} />
+                                        <div className={`w-2.5 h-2.5 rounded-full mt-1.5 shrink-0 ${u.estado ? "bg-purple-500 shadow-[0_0_6px_rgba(147,51,234,0.5)]" : "bg-slate-300"}`} title={u.estado ? "Activo" : "Inactivo"} />
                                     </div>
 
                                     {/* Datos Rápidos */}
