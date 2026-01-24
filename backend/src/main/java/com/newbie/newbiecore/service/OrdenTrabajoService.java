@@ -21,6 +21,8 @@ import com.newbie.newbiecore.repository.EquipoRepository;
 import com.newbie.newbiecore.repository.FichaTecnicaRepository;
 import com.newbie.newbiecore.repository.OrdenTrabajoRepository;
 import com.newbie.newbiecore.repository.UsuarioRepository;
+import com.newbie.newbiecore.service.documentos.FichasTecnicasMasivasService;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -37,6 +39,7 @@ public class OrdenTrabajoService {
     private final FichaTecnicaRepository fichaTecnicaRepository;
     private final OrdenTrabajoPdfService ordenTrabajoPdfService;
     private final OrdenTrabajoCostoService ordenTrabajoCostoService;
+    private final FichasTecnicasMasivasService fichasTecnicasMasivasService;
 
 
 
@@ -213,7 +216,6 @@ public class OrdenTrabajoService {
         OrdenTrabajo ordenGuardada = ordenTrabajoRepository.save(orden);
         if (seCierra) {
 
-        // 1️⃣ Calcular totales desde costos dinámicos
         CostosTotalesDto totales = ordenTrabajoCostoService.totales(ordenGuardada.getId());
 
         ordenGuardada.setSubtotal(totales.subtotal());
@@ -222,12 +224,10 @@ public class OrdenTrabajoService {
 
         ordenTrabajoRepository.save(ordenGuardada);
 
-        // 2️⃣ Generar DTO completo para PDF
         OrdenTrabajoDetalleDto dto = obtenerDetalleInterno(ordenGuardada.getId());
 
         byte[] pdfBytes = ordenTrabajoPdfService.generarPdfOrden(dto);
 
-        // 3️⃣ Guardar PDF en /documentos
         try {
             Path documentosDir = Paths.get(
                     uploadDir,
@@ -242,20 +242,23 @@ public class OrdenTrabajoService {
             );
 
             Files.write(pdfPath, pdfBytes);
+            try {
+                fichasTecnicasMasivasService
+                        .generarPdfsPorOrdenTrabajo(ordenGuardada.getId());
+            } catch (Exception e) {
+
+                System.err.println("Advertencia: error al generar PDFs de fichas técnicas: " + e.getMessage());
+            }
 
         } catch (IOException e) {
             throw new RuntimeException("Error al generar/guardar el PDF de la OT", e);
         }
-
-        // 4️⃣ Enviar ZIP
         enviarArchivosCierreZip(ordenGuardada);
-    }
 
-            }
+        }
 
-    /**
-     * Comprime la carpeta de la orden y envía el ZIP.
-     */
+}
+
         private void enviarArchivosCierreZip(OrdenTrabajo orden) {
         try {
             Usuario cliente = orden.getCliente();
