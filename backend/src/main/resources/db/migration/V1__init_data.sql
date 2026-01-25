@@ -119,28 +119,52 @@ ON CONFLICT DO NOTHING;
 -- 4. CONFIGURACIÓN INICIAL DEL SISTEMA
 -- ============================================================================
 INSERT INTO configuration_property (key, value, category, description, is_sensitive, is_editable, is_active, value_type, updated_by) VALUES
-    -- Configuración de Email
-    ('spring.mail.host', 'smtp.gmail.com', 'EMAIL', 'Servidor SMTP para envío de correos', false, true, true, 'STRING', 'system'),
-    ('spring.mail.port', '587', 'EMAIL', 'Puerto del servidor SMTP', false, true, true, 'NUMBER', 'system'),
-    ('spring.mail.username', '', 'EMAIL', 'Usuario de correo para envíos', false, true, true, 'EMAIL', 'system'),
-    ('spring.mail.password', '', 'EMAIL', 'Contraseña del correo (usar App Password para Gmail)', true, true, true, 'PASSWORD', 'system'),
-    ('spring.mail.properties.mail.smtp.auth', 'true', 'EMAIL', 'Habilitar autenticación SMTP', false, true, true, 'BOOLEAN', 'system'),
-    ('spring.mail.properties.mail.smtp.starttls.enable', 'true', 'EMAIL', 'Habilitar TLS para SMTP', false, true, true, 'BOOLEAN', 'system'),
+    -- Aplicación
+    ('spring.application.name', 'NewbieCore', 'Aplicación', 'Nombre de la aplicación', false, true, true, 'STRING', 'system'),
+    ('server.port', '8080', 'Aplicación', 'Puerto del servidor', false, true, true, 'NUMBER', 'system'),
     
-    -- Configuración de la empresa
-    ('app.empresa.nombre', 'Newbie Tech Solutions', 'EMPRESA', 'Nombre de la empresa', false, true, true, 'STRING', 'system'),
-    ('app.empresa.ruc', '0000000000001', 'EMPRESA', 'RUC de la empresa', false, true, true, 'STRING', 'system'),
-    ('app.empresa.direccion', 'Dirección de la empresa', 'EMPRESA', 'Dirección física', false, true, true, 'STRING', 'system'),
-    ('app.empresa.telefono', '+593999999999', 'EMPRESA', 'Teléfono de contacto', false, true, true, 'STRING', 'system'),
-    ('app.empresa.email', 'contacto@newbie.com', 'EMPRESA', 'Email de contacto', false, true, true, 'EMAIL', 'system'),
+    -- Base de Datos
+    ('spring.datasource.url', 'jdbc:postgresql://localhost:5432/newbie_db', 'Base de Datos', 'URL de conexión', false, true, true, 'URL', 'system'),
+    ('spring.datasource.username', 'postgres', 'Base de Datos', 'Usuario de base de datos', false, true, true, 'STRING', 'system'),
+    ('spring.datasource.password', 'postgres', 'Base de Datos', 'Contraseña', true, true, true, 'PASSWORD', 'system'),
+    ('spring.jpa.hibernate.ddl-auto', 'update', 'Base de Datos', 'Estrategia DDL', false, true, true, 'STRING', 'system'),
+    ('spring.jpa.properties.hibernate.dialect', 'org.hibernate.dialect.PostgreSQLDialect', 'Base de Datos', 'Dialecto de Hibernate', false, true, true, 'STRING', 'system'),
+    ('spring.jpa.show-sql', 'false', 'Base de Datos', 'Mostrar consultas SQL', false, true, true, 'BOOLEAN', 'system'),
     
-    -- Configuración de órdenes
-    ('app.ordenes.prefijo', 'OT', 'ORDENES', 'Prefijo para números de orden', false, true, true, 'STRING', 'system'),
-    ('app.ordenes.siguiente', '1', 'ORDENES', 'Siguiente número de orden', false, false, true, 'NUMBER', 'system'),
+    -- Seguridad (JWT)
+    ('app.jwt.secret', 'MySuperSecretKeyForJWT2024NewbieSoft', 'Seguridad', 'Clave secreta JWT', true, true, true, 'PASSWORD', 'system'),
+    ('app.jwt.expiration', '3600000', 'Seguridad', 'Tiempo de expiración del token (ms)', false, true, true, 'NUMBER', 'system'),
+    ('app.jwt.refresh-expiration', '604800000', 'Seguridad', 'Tiempo de expiración del refresh token (ms)', false, true, true, 'NUMBER', 'system'),
     
-    -- Configuración de notificaciones
-    ('app.notificaciones.email.habilitado', 'true', 'NOTIFICACIONES', 'Habilitar notificaciones por email', false, true, true, 'BOOLEAN', 'system'),
-    ('app.notificaciones.sms.habilitado', 'false', 'NOTIFICACIONES', 'Habilitar notificaciones por SMS', false, true, true, 'BOOLEAN', 'system')
+    -- Correo SMTP
+    ('spring.mail.host', 'smtp.gmail.com', 'Correo SMTP', 'Servidor SMTP', false, true, true, 'STRING', 'system'),
+    ('spring.mail.port', '587', 'Correo SMTP', 'Puerto SMTP', false, true, true, 'NUMBER', 'system'),
+    ('spring.mail.username', '', 'Correo SMTP', 'Usuario de correo', false, true, true, 'EMAIL', 'system'),
+    ('spring.mail.password', '', 'Correo SMTP', 'Contraseña de correo', true, true, true, 'PASSWORD', 'system'),
+    ('spring.mail.properties.mail.smtp.auth', 'true', 'Correo SMTP', 'Habilitar autenticación', false, true, true, 'BOOLEAN', 'system'),
+    ('spring.mail.properties.mail.smtp.starttls.enable', 'true', 'Correo SMTP', 'Habilitar STARTTLS', false, true, true, 'BOOLEAN', 'system'),
+    ('spring.mail.properties.mail.smtp.starttls.required', 'true', 'Correo SMTP', 'Requerir STARTTLS', false, true, true, 'BOOLEAN', 'system'),
+    ('spring.mail.properties.mail.smtp.connectiontimeout', '5000', 'Correo SMTP', 'Timeout de conexión', false, true, true, 'NUMBER', 'system'),
+    ('spring.mail.properties.mail.smtp.timeout', '5000', 'Correo SMTP', 'Timeout de lectura', false, true, true, 'NUMBER', 'system'),
+    ('spring.mail.properties.mail.smtp.writetimeout', '5000', 'Correo SMTP', 'Timeout de escritura', false, true, true, 'NUMBER', 'system'),
+    ('spring.mail.properties.mail.debug', 'false', 'Correo SMTP', 'Modo debug', false, true, true, 'BOOLEAN', 'system'),
+    ('spring.mail.properties.mail.smtp.localhost', 'gmail.com', 'Correo SMTP', 'Dominio HELO', false, true, true, 'STRING', 'system'),
+    
+    -- Logging
+    ('logging.level.root', 'INFO', 'Logging', 'Nivel de log raíz', false, true, true, 'STRING', 'system'),
+    ('logging.level.com.newbie', 'DEBUG', 'Logging', 'Nivel de log de la aplicación', false, true, true, 'STRING', 'system'),
+    ('logging.level.org.springframework.security', 'DEBUG', 'Logging', 'Nivel de log de seguridad', false, true, true, 'STRING', 'system'),
+    
+    -- Archivos
+    ('spring.servlet.multipart.max-file-size', '20MB', 'Archivos', 'Tamaño máximo de archivo', false, true, true, 'STRING', 'system'),
+    ('spring.servlet.multipart.max-request-size', '20MB', 'Archivos', 'Tamaño máximo de request', false, true, true, 'STRING', 'system'),
+    ('app.upload.directory', 'C:/uploads/newbie', 'Archivos', 'Directorio de uploads', false, true, true, 'STRING', 'system'),
+    
+    -- Servicios Externos
+    ('google.recaptcha.secret', '', 'Servicios Externos', 'Clave secreta de reCAPTCHA', true, true, true, 'PASSWORD', 'system'),
+    
+    -- Actuator
+    ('management.endpoints.web.exposure.include', 'health,info,metrics', 'Actuator', 'Endpoints expuestos', false, true, true, 'STRING', 'system')
 ON CONFLICT (key) DO NOTHING;
 
 -- ============================================================================
