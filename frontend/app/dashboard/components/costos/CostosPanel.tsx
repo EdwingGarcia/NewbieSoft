@@ -88,30 +88,25 @@ export default function CostosPanel({ ordenId, estado }: CostosPanelProps) {
      Render
   ========================= */
   return (
-    <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr] gap-6">
-      {/* IZQUIERDA — Buscar y agregar */}
-      <div>
+    <>
+      <div className="mb-6">
         <CatalogoSearch onAdd={handleAddItem} />
       </div>
-
-      {/* DERECHA — Detalle y totales */}
-      <div className="space-y-4">
+      <div className="space-y-6">
         <CostosTable
           items={items}
           onRemove={handleRemoveItem}
           onChangeCantidad={handleChangeCantidad}
         />
-
         <TotalesResumen
           items={items}
           ordenId={ordenId}
           estado={estado}
         />
-
         {loading && (
           <p className="text-sm text-gray-500">Actualizando costos…</p>
         )}
       </div>
-    </div>
+    </>
   );
 }

@@ -12,14 +12,19 @@ export default function CatalogoSearch({ onAdd }: Props) {
   const [search, setSearch] = useState("");
   const [items, setItems] = useState<CatalogoItemUI[]>([]);
   const [loading, setLoading] = useState(false);
+  const [tipoFiltro, setTipoFiltro] = useState<string>("todos");
 
   useEffect(() => {
     const fetchItems = async () => {
       setLoading(true);
       try {
         const data = await catalogoService.listar(search);
+        let filtered = data;
+        if (tipoFiltro !== "todos") {
+          filtered = data.filter((i) => i.tipo === tipoFiltro.toUpperCase());
+        }
         setItems(
-          data.map((i) => ({
+          filtered.map((i) => ({
             id: i.id,
             descripcion: i.descripcion,
             tipo: i.tipo,
@@ -30,23 +35,37 @@ export default function CatalogoSearch({ onAdd }: Props) {
         setLoading(false);
       }
     };
-
     fetchItems();
-  }, [search]);
+  }, [search, tipoFiltro]);
 
   return (
     <div className="border rounded-md p-4 bg-white">
-      <input
-        className="w-full border rounded px-3 py-2 mb-3"
-        placeholder="Buscar producto o servicio"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
+
+      <div className="flex gap-2 mb-3">
+        <input
+          className="flex-1 border rounded px-3 py-2"
+          placeholder="Buscar producto o servicio"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <select
+          className="border rounded px-2 py-2"
+          value={tipoFiltro}
+          onChange={(e) => setTipoFiltro(e.target.value)}
+        >
+          <option value="todos">Todos</option>
+          <option value="producto">Producto</option>
+          <option value="servicio">Servicio</option>
+        </select>
+      </div>
 
       {loading && <p className="text-sm text-gray-500">Cargando…</p>}
 
-      <ul className="space-y-2">
-        {items.map((item) => (
+      <ul
+        className="space-y-2 max-h-80 overflow-y-auto"
+        style={{ minHeight: items.length > 0 ? '3.5rem' : undefined }}
+      >
+        {items.slice(0, 6).map((item) => (
           <li
             key={item.id}
             className="flex justify-between items-center border rounded px-3 py-2"
@@ -57,7 +76,6 @@ export default function CatalogoSearch({ onAdd }: Props) {
                 {item.tipo} — ${item.costo.toFixed(2)}
               </div>
             </div>
-
             <button
               className="px-3 py-1 bg-indigo-600 text-white rounded"
               onClick={() => onAdd(item)}
