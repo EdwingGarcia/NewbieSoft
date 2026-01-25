@@ -48,6 +48,7 @@ public class DatabasePropertySource extends PropertySource<DataSource> {
 
     /**
      * Inicializa el cache cargando todas las propiedades de la BD
+     * NOTA: Valores vacíos son ignorados para permitir que application.properties sirva como fallback
      */
     private void initializeCache() {
         if (getSource() == null) {
@@ -60,17 +61,22 @@ public class DatabasePropertySource extends PropertySource<DataSource> {
              ResultSet rs = ps.executeQuery()) {
 
             int count = 0;
+            int skipped = 0;
             while (rs.next()) {
                 String key = rs.getString("key");
                 String value = rs.getString("value");
-                if (key != null && value != null) {
+                // Solo cachear si key no es null Y value no es null NI vacío
+                if (key != null && value != null && !value.isBlank()) {
                     propertyCache.put(key, value);
                     count++;
+                } else if (key != null) {
+                    skipped++;
+                    logger.debug("Propiedad '{}' ignorada (valor vacío) - usará fallback de application.properties", key);
                 }
             }
 
             cacheInitialized = true;
-            logger.info("✅ DatabasePropertySource inicializado con {} propiedades desde la BD", count);
+            logger.info("✅ DatabasePropertySource inicializado con {} propiedades desde la BD ({} vacías ignoradas)", count, skipped);
 
         } catch (Exception e) {
             logger.error("❌ Error inicializando DatabasePropertySource: {}", e.getMessage());
@@ -83,7 +89,9 @@ public class DatabasePropertySource extends PropertySource<DataSource> {
     public Object getProperty(String name) {
         // Primero buscar en cache
         if (propertyCache.containsKey(name)) {
-            return propertyCache.get(name);
+            String value = propertyCache.get(name);
+            // Retornar null si el valor está vacío para permitir fallback
+            return (value != null && !value.isBlank()) ? value : null;
         }
 
         // Si el cache no está inicializado, intentar cargar la propiedad directamente
@@ -95,8 +103,11 @@ public class DatabasePropertySource extends PropertySource<DataSource> {
                 try (ResultSet rs = ps.executeQuery()) {
                     if (rs.next()) {
                         String value = rs.getString("value");
-                        propertyCache.put(name, value);
-                        return value;
+                        // Solo cachear y retornar si el valor no está vacío
+                        if (value != null && !value.isBlank()) {
+                            propertyCache.put(name, value);
+                            return value;
+                        }
                     }
                 }
             } catch (Exception e) {
@@ -119,14 +130,16 @@ public class DatabasePropertySource extends PropertySource<DataSource> {
 
     /**
      * Actualiza una propiedad específica en el cache
+     * Valores vacíos son removidos del cache para permitir fallback a application.properties
      */
     public void updateProperty(String key, String value) {
-        if (value != null) {
+        if (value != null && !value.isBlank()) {
             propertyCache.put(key, value);
+            logger.debug("Propiedad '{}' actualizada en cache", key);
         } else {
             propertyCache.remove(key);
+            logger.debug("Propiedad '{}' removida del cache (valor vacío) - usará fallback", key);
         }
-        logger.debug("Propiedad '{}' actualizada en cache", key);
     }
 
     /**

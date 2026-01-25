@@ -126,16 +126,24 @@ public class ConfigurationService {
     /**
      * Actualiza una configuración individual
      */
-    // 1. Remove @Transactional from the public method
     public ConfigurationPropertyDTO updateConfiguration(Long id, String newValue) {
 
         // 1️⃣ Guarda en BD (método @Transactional)
         ConfigurationProperty saved =
                 updateConfigurationInDb(id, newValue);
 
-        // 2️⃣ PASO 3: REFRESH DEL CONTEXTO
-        if (reloadService != null) {
-            reloadService.refresh();
+        // 2️⃣ Refresh del cache de propiedades (siempre)
+        if (propertySourceManager != null) {
+            propertySourceManager.updateProperty(saved.getKey(), newValue);
+        }
+
+        // 3️⃣ Refresh de beans solo si es necesario (propiedades críticas)
+        if (shouldAutoRefresh(saved.getKey())) {
+            if (reloadService != null) {
+                reloadService.refresh();
+            }
+        } else {
+            logger.info("✅ Propiedad '{}' actualizada. No requiere refresh de beans.", saved.getKey());
         }
 
         return ConfigurationPropertyDTO.fromEntity(saved, true);

@@ -10,7 +10,7 @@ import com.newbie.newbiecore.repository.OrdenTrabajoRepository;
 import com.newbie.newbiecore.repository.OtpValidacionRepository;
 import com.newbie.newbiecore.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
@@ -21,6 +21,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ConsultaClienteService {
@@ -29,10 +30,7 @@ public class ConsultaClienteService {
     private final OrdenTrabajoRepository ordenTrabajoRepository;
     private final OtpValidacionRepository otpRepository;
     private final MailService mailService;
-
-    // Inyectamos la clave desde application.properties
-    @Value("${google.recaptcha.secret}")
-    private String recaptchaSecret;
+    private final ConfigurationService configurationService;
 
     private static final String RECAPTCHA_VERIFY_URL = "https://www.google.com/recaptcha/api/siteverify";
     private static final long OTP_TTL_SECONDS = 5 * 60;
@@ -79,7 +77,17 @@ public class ConsultaClienteService {
      */
     private boolean validarCaptcha(String token) {
         if (token == null || token.isBlank()) {
+            log.warn("Token de captcha vacío o nulo");
             return false;
+        }
+
+        // Leer el secret dinámicamente desde la BD
+        String recaptchaSecret = configurationService.getPropertyValue("google.recaptcha.secret");
+
+        if (recaptchaSecret == null || recaptchaSecret.isBlank()) {
+            log.warn("⚠️ google.recaptcha.secret no configurado. Omitiendo validación de captcha.");
+            // En desarrollo, si no hay secret configurado, permitir pasar
+            return true;
         }
 
         RestTemplate restTemplate = new RestTemplate();
@@ -92,9 +100,13 @@ public class ConsultaClienteService {
             @SuppressWarnings("unchecked")
             Map<String, Object> response = restTemplate.postForObject(RECAPTCHA_VERIFY_URL, map, Map.class);
 
-            return response != null && (Boolean) response.get("success");
+            boolean success = response != null && Boolean.TRUE.equals(response.get("success"));
+            if (!success) {
+                log.warn("Captcha inválido. Respuesta de Google: {}", response);
+            }
+            return success;
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Error validando captcha con Google: {}", e.getMessage());
             return false; // Si falla la conexión con Google, asumimos inválido por seguridad
         }
     }

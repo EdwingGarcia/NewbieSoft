@@ -53,38 +53,50 @@ public class FichaTecnicaPdfService {
     }
 
     private String generarHtmlFicha(FichaTecnicaDTO f) {
+
         String logoTag = cargarLogoBase64();
         String fechaEmision = LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
         String numeroOrdenStr = (f.getNumeroOrden() != null) ? f.getNumeroOrden() : "-";
+        String colorPrimario = "#7c3aed"; // Violet-600
+        String colorPrimarioClaro = "#ede9fe"; // Violet-100
+        String colorPrimarioOscuro = "#6d28d9"; // Violet-700
 
         StringBuilder sb = new StringBuilder();
-
         sb.append("<!DOCTYPE html><html><head><meta charset=\"UTF-8\" />");
         sb.append("<style>");
-        sb.append("@page { size: A4; margin: 0.6cm; }");
+        sb.append("@page { size: A4; margin: 1.5cm; }");
         sb.append(
-                "body { font-family: Arial, sans-serif; color: #000000 !important; font-size: 8px; line-height: 1.3; }");
+                "body { font-family: 'Helvetica', 'Arial', sans-serif; color: #333; line-height: 1.4; font-size: 10px; margin: 0; padding: 0; }");
+        sb.append(".header-table { width: 100%; border-bottom: 3px solid " + colorPrimario
+                + "; padding-bottom: 10px; margin-bottom: 15px; }");
+        sb.append(".header-logo { width: 35%%; vertical-align: middle; }");
+        sb.append(".header-info { width: 65%; text-align: right; vertical-align: middle; }");
+        sb.append(".document-title { font-size: 16px; font-weight: bold; color: " + colorPrimario
+                + "; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 5px 0; }");
+        sb.append(".document-subtitle { font-size: 10px; color: #666; margin: 0 0 5px 0; }");
+        sb.append(".orden-numero { font-size: 11px; color: " + colorPrimarioOscuro + "; font-weight: bold; }");
+        sb.append(".section-title { background-color: " + colorPrimarioClaro
+                + "; padding: 6px 10px; font-weight: bold; border-left: 4px solid " + colorPrimario
+                + "; margin-top: 12px; margin-bottom: 8px; font-size: 11px; color: " + colorPrimarioOscuro + "; }");
+        sb.append("table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }");
+        sb.append("td { padding: 5px 8px; border-bottom: 1px solid #e0e0e0; font-size: 10px; }");
+        sb.append(".label { font-weight: bold; color: #555; background-color: #fafafa; white-space: nowrap; }");
+        sb.append(".value { color: #000; }");
+        sb.append(".obs-box { background-color: #f5f5f5; padding: 8px; margin: 0 auto 6px; border-left: 3px solid "
+                + colorPrimario + "; color: #000000; font-size: 9px; }");
         sb.append(
-                ".header { width: 94%; margin: 0 auto 10px; border-bottom: 3px solid #7c3aed; padding-bottom: 8px; }");
-        sb.append(".header h1 { color: #000000 !important; font-size: 13px; margin: 0; }");
-        sb.append(
-                ".section-title { width: 94%; margin: 8px auto 4px; background-color: #7c3aed; color: #ffffff !important; padding: 4px 6px; font-size: 8px; font-weight: bold; text-transform: uppercase; }");
-        sb.append("table { width: 94% !important; margin: 0 auto 6px !important; border-collapse: collapse; }");
-        sb.append("td { padding: 3px 5px; border: 1px solid #ddd; color: #000000 !important; font-size: 7px; }");
-        sb.append("td:first-child { background-color: #e5e5e5; font-weight: bold; width: 32%; }");
-        sb.append("td:last-child { background-color: #ffffff; width: 68%; }");
-        sb.append(
-                ".obs-box { background-color: #f5f5f5; padding: 5px; margin: 0 auto 6px; width: 94%; border-left: 3px solid #7c3aed; color: #000000; font-size: 7px; }");
-        sb.append(
-                ".footer { text-align: center; font-size: 7px; color: #666; margin-top: 10px; padding-top: 5px; border-top: 1px solid #ddd; }");
+                ".footer { text-align: center; font-size: 8px; color: #888; border-top: 1px solid #ddd; padding-top: 8px; margin-top: 15px; }");
         sb.append("</style></head><body>");
 
-        // HEADER
-        sb.append("<div class='header'>");
-        sb.append("<h1>FICHA TÉCNICA COMPLETA DEL EQUIPO</h1>");
-        sb.append("<p style='margin: 3px 0; color: #000000; font-size: 8px;'>Generada: ").append(fechaEmision)
-                .append(" | Orden: ").append(numeroOrdenStr).append(" | ID Ficha: ").append(f.getId()).append("</p>");
-        sb.append("</div>");
+        // HEADER estilo OT
+        sb.append("<table class='header-table'><tr>");
+        sb.append("<td class='header-logo'>").append(logoTag).append("</td>");
+        sb.append("<td class='header-info'>");
+        sb.append("<div class='document-title'>Ficha Técnica del Equipo</div>");
+        sb.append("<div class='document-subtitle'>Documento de Diagnóstico y Estado</div>");
+        sb.append("<div class='orden-numero'>OT N°: ").append(numeroOrdenStr).append(" | Fecha: ").append(fechaEmision)
+                .append(" | ID Ficha: ").append(f.getId()).append("</div>");
+        sb.append("</td></tr></table>");
 
         // IDENTIFICACIÓN DEL EQUIPO
         sb.append("<div class='section-title'>IDENTIFICACIÓN DEL EQUIPO</div>");
@@ -358,13 +370,18 @@ public class FichaTecnicaPdfService {
         String val = valor != null ? valor.toString() : "";
         if (val.isEmpty() || "0".equals(val) || "0.0".equals(val))
             val = "-";
-        sb.append("<tr><td>").append(escaparHtml(label)).append("</td><td>").append(escaparHtml(val))
-                .append("</td></tr>");
+        sb.append("<tr>");
+        sb.append("<td style='width:50%;text-align:left;'>").append(escaparHtml(label)).append("</td>");
+        sb.append("<td style='width:50%;text-align:left;'>").append(escaparHtml(val)).append("</td>");
+        sb.append("</tr>");
     }
 
     private void agregarFilaBool(StringBuilder sb, String label, Boolean valor) {
         String val = valor == null ? "-" : (valor ? "Sí" : "No");
-        sb.append("<tr><td>").append(escaparHtml(label)).append("</td><td><b>").append(val).append("</b></td></tr>");
+        sb.append("<tr>");
+        sb.append("<td style='width:50%;text-align:left;'>").append(escaparHtml(label)).append("</td>");
+        sb.append("<td style='width:50%;text-align:left;'><b>").append(val).append("</b></td>");
+        sb.append("</tr>");
     }
 
     private byte[] htmlToPdf(String html) throws IOException {
@@ -383,7 +400,7 @@ public class FichaTecnicaPdfService {
             if (resource.exists()) {
                 byte[] imageBytes = resource.getInputStream().readAllBytes();
                 String base64 = Base64.getEncoder().encodeToString(imageBytes);
-                return "<img src='data:image/png;base64," + base64 + "' style='height: 50px;' />";
+                return "<img src='data:image/png;base64," + base64 + "' style='height: 80px;' />";
             }
         } catch (Exception e) {
             System.err.println("No se pudo cargar el logo: " + e.getMessage());

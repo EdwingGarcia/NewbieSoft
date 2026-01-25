@@ -5,15 +5,19 @@ import lombok.*;
 
 @Entity
 @Table(name = "roles")
-@Data @NoArgsConstructor @AllArgsConstructor @Builder
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Rol {
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_rol")
     private Long idRol;
 
-    @Column(name="nombre", nullable=false)
+    @Column(name = "nombre", nullable = false, unique = true)
     private String nombre;
 
-    @Column(name="descripcion")
+    @Column(name = "descripcion")
     private String descripcion;
 }

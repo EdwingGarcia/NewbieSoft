@@ -39,10 +39,17 @@ public class DynamicMailConfig {
             @Value("${spring.mail.properties.mail.smtp.connectiontimeout:5000}") String connectionTimeout,
             @Value("${spring.mail.properties.mail.smtp.timeout:5000}") String timeout,
             @Value("${spring.mail.properties.mail.smtp.writetimeout:5000}") String writeTimeout,
-                    @Value("${spring.mail.properties.mail.smtp.localhost:newbiecore.com}") String localhost  // ← AGREGAR
-
+            @Value("${spring.mail.properties.mail.smtp.localhost:newbiecore.com}") String localhost
     ) {
         logger.info("🔄 Creando/Refrescando JavaMailSender con host={}, port={}", host, port);
+
+        // Validar configuración
+        if (username == null || username.isBlank()) {
+            logger.warn("⚠️ spring.mail.username no configurado. El envío de correos fallará.");
+        }
+        if (password == null || password.isBlank()) {
+            logger.warn("⚠️ spring.mail.password no configurado. El envío de correos fallará.");
+        }
 
         JavaMailSenderImpl mailSender = new JavaMailSenderImpl();
         mailSender.setHost(host);
@@ -58,7 +65,7 @@ public class DynamicMailConfig {
         props.put("mail.smtp.timeout", timeout);
         props.put("mail.smtp.writetimeout", writeTimeout);
         props.put("mail.debug", "false");
-        props.put("mail.smtp.localhost", localhost);  // ← AGREGAR ESTA LÍNEA
+        props.put("mail.smtp.localhost", localhost);
 
         logger.info("✅ JavaMailSender configurado correctamente");
 

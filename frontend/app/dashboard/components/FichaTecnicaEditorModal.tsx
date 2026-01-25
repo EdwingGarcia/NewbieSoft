@@ -478,7 +478,7 @@ const BooleanSelect: React.FC<{
   disabled?: boolean;
 }> = ({ value, onChange, disabled }) => (
   <select
-    className="border border-slate-200 rounded-lg px-3 h-9 w-full text-xs bg-white hover:border-slate-300 focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+    className="border border-slate-200 rounded-lg px-3 h-9 w-full text-xs bg-white text-slate-900 hover:border-slate-300 focus:border-slate-400 focus:ring-1 focus:ring-slate-400/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-600"
     value={value === null ? "" : value ? "true" : "false"}
     onChange={(e) => onChange(e.target.value === "" ? null : e.target.value === "true")}
     disabled={disabled}
@@ -1343,7 +1343,7 @@ export default function FichaTecnicaEditorModal({
               {/* ... RESTO DE SECCIONES COMPLETAS ... */}
               <Section title="Observaciones Generales" subtitle="Notas iniciales del equipo" icon={ClipboardList} iconColor="text-purple-500">
                 <textarea
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-xs min-h-[80px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/30 focus-visible:border-blue-400 transition-all resize-none"
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-xs min-h-[80px] bg-white text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/30 focus-visible:border-blue-400 transition-all resize-none disabled:bg-slate-100 disabled:text-slate-600"
                   value={detalleForm.observaciones ?? ""}
                   onChange={(e) => updateField("observaciones", e.target.value)}
                   placeholder="Estado general del equipo, comentarios del cliente, síntomas iniciales, etc."
@@ -2003,7 +2003,7 @@ export default function FichaTecnicaEditorModal({
               {/* TRABAJO REALIZADO */}
               <Section title="Trabajo Realizado" subtitle="Diagnóstico y reparaciones" icon={Wrench} iconColor="text-indigo-600">
                 <textarea
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-xs min-h-[100px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/30 focus-visible:border-indigo-400 transition-all resize-none"
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-xs min-h-[100px] bg-white text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/30 focus-visible:border-indigo-400 transition-all resize-none disabled:bg-slate-100 disabled:text-slate-600"
                   value={detalleForm.trabajoRealizado ?? ""}
                   onChange={(e) => updateField("trabajoRealizado", e.target.value)}
                   placeholder="Describe detalladamente las acciones realizadas, repuestos cambiados, diagnósticos finales, recomendaciones, etc."
