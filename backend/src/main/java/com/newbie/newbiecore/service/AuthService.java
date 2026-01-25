@@ -27,7 +27,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 
-
 @Service
 public class AuthService {
     private static final Logger logger = LoggerFactory.getLogger(AuthService.class);
@@ -41,12 +40,12 @@ public class AuthService {
     private final AuditService auditService;
 
     public AuthService(UsuarioRepository usuarioRepository,
-                       RolRepository rolRepository,
-                       PasswordEncoder passwordEncoder,
-                       AuthenticationManager authenticationManager,
-                       JwtUtils jwtUtils,
-                       BlacklistedTokenRepository blacklistedTokenRepository,
-                       AuditService auditService) {
+            RolRepository rolRepository,
+            PasswordEncoder passwordEncoder,
+            AuthenticationManager authenticationManager,
+            JwtUtils jwtUtils,
+            BlacklistedTokenRepository blacklistedTokenRepository,
+            AuditService auditService) {
         this.usuarioRepository = usuarioRepository;
         this.rolRepository = rolRepository;
         this.passwordEncoder = passwordEncoder;
@@ -109,14 +108,12 @@ public class AuthService {
         }
 
         authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getCorreo(), request.getPassword())
-        );
+                new UsernamePasswordAuthenticationToken(request.getCorreo(), request.getPassword()));
 
         UserDetails userDetails = new org.springframework.security.core.userdetails.User(
                 usuario.getCorreo(),
                 usuario.getPassword(),
-                Collections.emptyList()
-        );
+                Collections.emptyList());
 
         String accessToken = jwtUtils.generateToken(userDetails);
         String refreshToken = jwtUtils.generateRefreshToken(userDetails);
@@ -132,8 +129,7 @@ public class AuthService {
                 getRoles(usuario),
                 getPermissions(usuario),
                 getScreens(usuario),
-                usuario.getCedula()
-        );
+                usuario.getCedula());
     }
 
     public Usuario getUsuarioByCorreo(String correo) {
@@ -181,8 +177,7 @@ public class AuthService {
         UserDetails userDetails = new org.springframework.security.core.userdetails.User(
                 usuario.getCorreo(),
                 usuario.getPassword(),
-                Collections.emptyList()
-        );
+                Collections.emptyList());
 
         String newAccessToken = jwtUtils.generateToken(userDetails);
         String newRefreshToken = jwtUtils.generateRefreshToken(userDetails);
@@ -195,8 +190,7 @@ public class AuthService {
                 getRoles(usuario),
                 getPermissions(usuario),
                 getScreens(usuario),
-                usuario.getCedula()
-        );
+                usuario.getCedula());
     }
 
     // Logout con blacklist persistente
@@ -204,7 +198,7 @@ public class AuthService {
         try {
             // Obtener usuario antes de invalidar
             String username = jwtUtils.extractUsername(token);
-            
+
             Date expiration = jwtUtils.getExpirationDate(token);
 
             BlacklistedToken blacklistedToken = BlacklistedToken.builder()
@@ -216,10 +210,10 @@ public class AuthService {
                     .build();
 
             blacklistedTokenRepository.save(blacklistedToken);
-            
+
             // Registrar logout en auditoría
             auditService.registrarLogout(username);
-            
+
             logger.info("Token agregado a blacklist correctamente");
         } catch (Exception e) {
             logger.error("Error al invalidar token: {}", e.getMessage());

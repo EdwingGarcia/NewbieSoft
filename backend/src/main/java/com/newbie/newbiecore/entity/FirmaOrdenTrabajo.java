@@ -28,8 +28,11 @@ import lombok.Setter;
  */
 @Entity
 @Table(name = "firmas_orden_trabajo")
-@Getter @Setter
-@NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class FirmaOrdenTrabajo {
 
     @Id
@@ -73,10 +76,11 @@ public class FirmaOrdenTrabajo {
     // NOTA: La firma digital se almacena únicamente dentro del PDF generado
     // No se guarda la firma suelta por razones legales y de seguridad
     // Este campo se mantiene temporalmente por compatibilidad con BD existente
-    // EJECUTAR: ALTER TABLE firmas_orden_trabajo ALTER COLUMN firma_base64 DROP NOT NULL;
+    // EJECUTAR: ALTER TABLE firmas_orden_trabajo ALTER COLUMN firma_base64 DROP NOT
+    // NULL;
     @Lob
     @Column(name = "firma_base64", columnDefinition = "TEXT")
-    private String firmaBase64 = "";  // Valor vacío por compatibilidad
+    private String firmaBase64 = ""; // Valor vacío por compatibilidad
 
     // Ruta del PDF generado
     @Column(name = "pdf_path", length = 500)

@@ -10,9 +10,9 @@ import { API_BASE_URL } from "./api";
 /* =========================
    Tipos
 ========================= */
-export type ConfigKey = 
+export type ConfigKey =
     | "RECAPTCHA_SITE_KEY"
-    | "API_BASE_URL" 
+    | "API_BASE_URL"
     | "APP_NAME"
     | "COMPANY_NAME"
     | "SIDEBAR_STYLE"
@@ -127,9 +127,9 @@ export function getConfigBoolean(key: ConfigKey): boolean {
  */
 export function setConfig(key: ConfigKey, value: string): void {
     if (typeof window === "undefined") return;
-    
+
     localStorage.setItem(`config.${key}`, value);
-    
+
     // Disparar evento para que otros componentes se actualicen
     window.dispatchEvent(new CustomEvent("frontendConfigChanged", {
         detail: { key, value }
@@ -145,15 +145,15 @@ export function setConfig(key: ConfigKey, value: string): void {
  */
 export function formatDate(date: Date | string | null | undefined): string {
     if (!date) return "-";
-    
+
     const d = typeof date === "string" ? new Date(date) : date;
     if (isNaN(d.getTime())) return "-";
-    
+
     const format = getConfig("DATE_FORMAT");
     const day = String(d.getDate()).padStart(2, "0");
     const month = String(d.getMonth() + 1).padStart(2, "0");
     const year = d.getFullYear();
-    
+
     switch (format) {
         case "MM/DD/YYYY":
             return `${month}/${day}/${year}`;
@@ -170,14 +170,14 @@ export function formatDate(date: Date | string | null | undefined): string {
  */
 export function formatDateTime(date: Date | string | null | undefined): string {
     if (!date) return "-";
-    
+
     const d = typeof date === "string" ? new Date(date) : date;
     if (isNaN(d.getTime())) return "-";
-    
+
     const dateStr = formatDate(d);
     const hours = String(d.getHours()).padStart(2, "0");
     const minutes = String(d.getMinutes()).padStart(2, "0");
-    
+
     return `${dateStr} ${hours}:${minutes}`;
 }
 
@@ -202,19 +202,19 @@ export function getItemsPerPage(): number {
 export function showNotification(title: string, body: string, options?: NotificationOptions): void {
     if (typeof window === "undefined") return;
     if (!getConfigBoolean("NOTIFY_NEW_CITA")) return;
-    
+
     // Verificar permisos
     if (Notification.permission === "granted") {
         const notification = new Notification(title, { body, ...options });
-        
+
         // Reproducir sonido si está habilitado
         if (getConfigBoolean("NOTIFY_SOUND")) {
             playNotificationSound();
         }
-        
+
         return;
     }
-    
+
     if (Notification.permission !== "denied") {
         Notification.requestPermission().then((permission) => {
             if (permission === "granted") {
@@ -254,29 +254,29 @@ let lastActivity = Date.now();
  */
 export function startSessionMonitor(onTimeout: () => void): void {
     if (typeof window === "undefined") return;
-    
+
     const timeoutMinutes = getConfigNumber("SESSION_TIMEOUT");
     if (timeoutMinutes <= 0) return; // Deshabilitado
-    
+
     const timeoutMs = timeoutMinutes * 60 * 1000;
-    
+
     const resetTimer = () => {
         lastActivity = Date.now();
     };
-    
+
     const checkTimeout = () => {
         const elapsed = Date.now() - lastActivity;
         if (elapsed >= timeoutMs) {
             onTimeout();
         }
     };
-    
+
     // Eventos de actividad
     const events = ["mousedown", "mousemove", "keydown", "scroll", "touchstart"];
     events.forEach(event => {
         document.addEventListener(event, resetTimer, { passive: true });
     });
-    
+
     // Verificar cada minuto
     sessionTimeoutId = setInterval(checkTimeout, 60000);
 }
@@ -301,13 +301,13 @@ export function stopSessionMonitor(): void {
  */
 export function createAutoRefresh(callback: () => void): () => void {
     const intervalSeconds = getConfigNumber("AUTO_REFRESH_INTERVAL");
-    
+
     if (intervalSeconds <= 0) {
-        return () => {}; // Deshabilitado
+        return () => { }; // Deshabilitado
     }
-    
+
     const intervalId = setInterval(callback, intervalSeconds * 1000);
-    
+
     return () => clearInterval(intervalId);
 }
 
@@ -328,7 +328,7 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
  */
 function getAuthToken(): string | null {
     if (typeof window === "undefined") return null;
-    
+
     const direct = localStorage.getItem("token") || localStorage.getItem("nb.auth.token");
     if (direct) return direct.replace(/^Bearer\s+/i, "").trim();
 
@@ -349,28 +349,28 @@ function getAuthToken(): string | null {
  */
 export async function loadBackendConfig(): Promise<BackendConfig> {
     const now = Date.now();
-    
+
     // Usar caché si es reciente
     if (backendConfigCache && (now - backendConfigLastFetch) < CACHE_DURATION) {
         return backendConfigCache;
     }
-    
+
     const token = getAuthToken();
     if (!token) {
         return {};
     }
-    
+
     try {
         const res = await fetch(`${API_BASE_URL}/api/v1/configurations?maskSensitive=true`, {
             headers: { Authorization: `Bearer ${token}` },
         });
-        
+
         if (!res.ok) {
             return backendConfigCache || {};
         }
-        
+
         const json = await res.json();
-        
+
         if (json.success && json.data) {
             // Aplanar todas las configuraciones en un objeto
             const flatConfig: BackendConfig = {};
@@ -381,12 +381,12 @@ export async function loadBackendConfig(): Promise<BackendConfig> {
                     });
                 }
             });
-            
+
             backendConfigCache = flatConfig;
             backendConfigLastFetch = now;
             return flatConfig;
         }
-        
+
         return {};
     } catch {
         return backendConfigCache || {};

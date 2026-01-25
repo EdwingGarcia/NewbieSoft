@@ -27,12 +27,10 @@ public class FichaTecnicaService {
     private final EquipoRepository equipoRepository;
     private final OrdenTrabajoRepository ordenTrabajoRepository;
 
-
     public FichaTecnicaService(FichaTecnicaRepository fichaTecnicaRepository,
-                               UsuarioRepository usuarioRepository,
-                               EquipoRepository equipoRepository,
-                               OrdenTrabajoRepository ordenTrabajoRepository
-                              ) {
+            UsuarioRepository usuarioRepository,
+            EquipoRepository equipoRepository,
+            OrdenTrabajoRepository ordenTrabajoRepository) {
         this.fichaTecnicaRepository = fichaTecnicaRepository;
         this.usuarioRepository = usuarioRepository;
         this.equipoRepository = equipoRepository;
@@ -40,19 +38,22 @@ public class FichaTecnicaService {
 
     }
 
-    /* ===========================================================
-       =============== CREACIÓN / REGISTRO =======================
-       =========================================================== */
+    /*
+     * ===========================================================
+     * =============== CREACIÓN / REGISTRO =======================
+     * ===========================================================
+     */
 
     /**
-     * 🆕 Crear una nueva ficha técnica AUTORRELLENADA a partir de equipo (hardwareJson).
+     * 🆕 Crear una nueva ficha técnica AUTORRELLENADA a partir de equipo
+     * (hardwareJson).
      * Si ya existe una ficha para esa orden de trabajo, la reutiliza.
      */
     @Transactional
     public FichaTecnica crearONegociar(String cedulaTecnico,
-                                       Long equipoId,
-                                       Long ordenTrabajoId,
-                                       String observaciones) {
+            Long equipoId,
+            Long ordenTrabajoId,
+            String observaciones) {
 
         // ✅ Validar técnico
         Usuario tecnico = usuarioRepository.findById(cedulaTecnico)
@@ -71,7 +72,7 @@ public class FichaTecnicaService {
             // ❌ ELIMINAR ESTE BLOQUE:
             // var existente = fichaTecnicaRepository.findByOrdenTrabajoId(ordenTrabajoId);
             // if (existente.isPresent()) {
-            //     return existente.get();
+            // return existente.get();
             // }
         }
 
@@ -97,16 +98,18 @@ public class FichaTecnicaService {
      */
     @Transactional
     public FichaTecnicaDTO crearONegociarDTO(String cedulaTecnico,
-                                             Long equipoId,
-                                             Long ordenTrabajoId,
-                                             String observaciones) {
+            Long equipoId,
+            Long ordenTrabajoId,
+            String observaciones) {
         FichaTecnica ficha = crearONegociar(cedulaTecnico, equipoId, ordenTrabajoId, observaciones);
         return FichaTecnicaMapper.toDTO(ficha);
     }
 
-    /* ===========================================================
-       ======================= EDICIÓN ===========================
-       =========================================================== */
+    /*
+     * ===========================================================
+     * ======================= EDICIÓN ===========================
+     * ===========================================================
+     */
 
     /** 📝 Actualizar SOLO observaciones */
     @Transactional
@@ -120,7 +123,8 @@ public class FichaTecnicaService {
 
     /**
      * ✏️ Actualizar la ficha completa desde el DTO.
-     * Se respeta el id, equipoId, ordenTrabajoId y tecnicoId originales (no se cambian aquí).
+     * Se respeta el id, equipoId, ordenTrabajoId y tecnicoId originales (no se
+     * cambian aquí).
      */
     @Transactional
     public Optional<FichaTecnicaDTO> actualizarDesdeDTO(Long fichaId, FichaTecnicaDTO dto) {
@@ -133,7 +137,8 @@ public class FichaTecnicaService {
 
     /**
      * ♻️ Re-autocompletar la ficha desde el hardwareJson actual del equipo.
-     * Útil cuando se vuelve a correr el diagnóstico y se quiere refrescar la parte técnica.
+     * Útil cuando se vuelve a correr el diagnóstico y se quiere refrescar la parte
+     * técnica.
      */
     @Transactional
     public Optional<FichaTecnicaDTO> refrescarDesdeHardware(Long fichaId) {
@@ -151,9 +156,11 @@ public class FichaTecnicaService {
                 });
     }
 
-    /* ===========================================================
-       ======================= CONSULTAS =========================
-       =========================================================== */
+    /*
+     * ===========================================================
+     * ======================= CONSULTAS =========================
+     * ===========================================================
+     */
 
     @Transactional(readOnly = true)
     public List<FichaTecnicaDTO> listarPorEquipo(Long equipoId) {
@@ -206,9 +213,11 @@ public class FichaTecnicaService {
                 .map(FichaTecnicaMapper::toDTO);
     }
 
-    /* ===========================================================
-       ======================= ELIMINACIÓN =======================
-       =========================================================== */
+    /*
+     * ===========================================================
+     * ======================= ELIMINACIÓN =======================
+     * ===========================================================
+     */
 
     /** 🗑️ Eliminar ficha técnica por id */
     @Transactional
@@ -219,9 +228,11 @@ public class FichaTecnicaService {
         fichaTecnicaRepository.deleteById(id);
     }
 
-    /* ===========================================================
-       ============== MAPEADOR DTO -> ENTIDAD ====================
-       =========================================================== */
+    /*
+     * ===========================================================
+     * ============== MAPEADOR DTO -> ENTIDAD ====================
+     * ===========================================================
+     */
 
     /**
      * Copia los campos editables de DTO hacia la entidad.
@@ -230,7 +241,7 @@ public class FichaTecnicaService {
     private void aplicarDtoEnEntidad(FichaTecnicaDTO dto, FichaTecnica f) {
         // Observaciones generales
         f.setObservaciones(dto.getObservaciones());
-        
+
         // Estado de la ficha (BORRADOR o CERRADA)
         f.setEstado(dto.getEstado());
 

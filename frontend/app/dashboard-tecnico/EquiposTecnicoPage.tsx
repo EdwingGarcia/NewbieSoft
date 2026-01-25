@@ -351,8 +351,8 @@ export default function EquipoPage(): JSX.Element {
         if (!detalle?.hardwareJson) return {};
         const entries = Object.entries(detalle.hardwareJson);
         const term = hardwareSearch.trim().toLowerCase();
-        
-        const filtered = term 
+
+        const filtered = term
             ? entries.filter(([k, v]) => {
                 const val = typeof v === "string" ? v : JSON.stringify(v);
                 return k.toLowerCase().includes(term) || val.toLowerCase().includes(term);
@@ -642,7 +642,7 @@ export default function EquipoPage(): JSX.Element {
             {detalle && (
                 <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-xl w-full max-w-6xl max-h-[95vh] relative flex flex-col shadow-xl border border-stone-200">
-                        
+
                         {/* Header con gradiente indigo/purple */}
                         <div className="flex items-center justify-between px-6 py-5 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-indigo-50/30 rounded-t-xl flex-shrink-0">
                             <div className="flex items-center gap-4">
@@ -725,7 +725,7 @@ export default function EquipoPage(): JSX.Element {
                                                 {Object.entries(groupedHardware).map(([category, items]) => {
                                                     const catInfo = HARDWARE_CATEGORIES.find(c => c.name === category);
                                                     const CategoryIcon = catInfo?.icon || Layers;
-                                                    
+
                                                     return (
                                                         <div key={category} className="p-5">
                                                             <div className="flex items-center gap-2 mb-4">

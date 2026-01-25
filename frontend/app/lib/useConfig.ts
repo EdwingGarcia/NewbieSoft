@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { 
-    getConfig, 
-    getConfigNumber, 
-    getConfigBoolean, 
+import {
+    getConfig,
+    getConfigNumber,
+    getConfigBoolean,
     setConfig,
     ConfigKey,
     loadBackendConfig,
@@ -70,7 +70,7 @@ export function useConfigBoolean(key: ConfigKey): boolean {
  */
 export function useConfigState(key: ConfigKey): [string, (value: string) => void] {
     const value = useConfig(key);
-    
+
     const setValue = useCallback((newValue: string) => {
         setConfig(key, newValue);
     }, [key]);

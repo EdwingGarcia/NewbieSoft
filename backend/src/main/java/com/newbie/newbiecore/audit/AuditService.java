@@ -48,8 +48,8 @@ public class AuditService {
      * Registra una acción de auditoría con valores anterior y nuevo
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void registrar(TipoAccion tipoAccion, String entityType, String entityKey, 
-                          Object valorAnterior, Object valorNuevo, String detalles) {
+    public void registrar(TipoAccion tipoAccion, String entityType, String entityKey,
+            Object valorAnterior, Object valorNuevo, String detalles) {
         try {
             AuditLog log = new AuditLog();
             log.setAction(tipoAccion.name());
@@ -84,7 +84,8 @@ public class AuditService {
     /**
      * Registra actualización de entidad
      */
-    public void registrarActualizacion(String entityType, String entityKey, Object valorAnterior, Object valorNuevo, String detalles) {
+    public void registrarActualizacion(String entityType, String entityKey, Object valorAnterior, Object valorNuevo,
+            String detalles) {
         registrar(TipoAccion.ACTUALIZAR, entityType, entityKey, valorAnterior, valorNuevo, detalles);
     }
 
@@ -100,7 +101,8 @@ public class AuditService {
      */
     public void registrarLogin(String usuario, boolean exitoso) {
         TipoAccion accion = exitoso ? TipoAccion.LOGIN : TipoAccion.LOGIN_FALLIDO;
-        registrar(accion, "Usuario", usuario, exitoso ? "Inicio de sesión exitoso" : "Intento de inicio de sesión fallido");
+        registrar(accion, "Usuario", usuario,
+                exitoso ? "Inicio de sesión exitoso" : "Intento de inicio de sesión fallido");
     }
 
     /**
@@ -138,19 +140,20 @@ public class AuditService {
      * Registra generación de PDF con información detallada
      */
     public void registrarPdfGenerado(String numeroOrden, String tipoPdf, String responsable, String descripcion) {
-        String detalles = String.format("PDF: %s - Responsable: %s - %s", tipoPdf, responsable != null ? responsable : "N/A", descripcion);
+        String detalles = String.format("PDF: %s - Responsable: %s - %s", tipoPdf,
+                responsable != null ? responsable : "N/A", descripcion);
         registrar(TipoAccion.PDF_GENERADO, "Documento", numeroOrden, detalles);
     }
 
     /**
      * Registra firma de documento con información completa
      */
-    public void registrarFirma(String numeroOrden, String tipoFirma, String tipoFirmante, 
-                               String nombreFirmante, String cedulaFirmante, String descripcion) {
+    public void registrarFirma(String numeroOrden, String tipoFirma, String tipoFirmante,
+            String nombreFirmante, String cedulaFirmante, String descripcion) {
         TipoAccion accion = "CONFORMIDAD".equals(tipoFirma) ? TipoAccion.FIRMA_CONFORMIDAD : TipoAccion.FIRMA_RECIBO;
-        String detalles = String.format("Tipo: %s, Firmante: %s (%s), Cédula: %s - %s", 
-            tipoFirma, nombreFirmante, tipoFirmante, 
-            cedulaFirmante != null ? cedulaFirmante : "N/A", descripcion);
+        String detalles = String.format("Tipo: %s, Firmante: %s (%s), Cédula: %s - %s",
+                tipoFirma, nombreFirmante, tipoFirmante,
+                cedulaFirmante != null ? cedulaFirmante : "N/A", descripcion);
         registrar(accion, "FirmaOrdenTrabajo", numeroOrden, detalles);
     }
 
@@ -226,9 +229,11 @@ public class AuditService {
     }
 
     private String serializarObjeto(Object obj) {
-        if (obj == null) return null;
-        if (obj instanceof String) return (String) obj;
-        
+        if (obj == null)
+            return null;
+        if (obj instanceof String)
+            return (String) obj;
+
         try {
             return objectMapper.writeValueAsString(obj);
         } catch (JsonProcessingException e) {
@@ -238,7 +243,10 @@ public class AuditService {
 
     // Mixin para ignorar propiedades de Hibernate
     private abstract class IgnoreHibernatePropertiesMixin {
-        @JsonIgnore abstract Object getHandler();
-        @JsonIgnore abstract Object getHibernateLazyInitializer();
+        @JsonIgnore
+        abstract Object getHandler();
+
+        @JsonIgnore
+        abstract Object getHibernateLazyInitializer();
     }
 }

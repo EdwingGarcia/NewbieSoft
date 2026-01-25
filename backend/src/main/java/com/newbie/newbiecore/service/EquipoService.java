@@ -13,7 +13,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.security.core.Authentication;
 
-
 import java.io.InputStream;
 import java.time.Instant;
 import java.util.List;
@@ -38,6 +37,7 @@ public class EquipoService {
         this.mapper = mapper;
         this.parser = parser;
     }
+
     public List<EquipoListDto> listarTodosParaCombobox() {
         // Ordenar por fecha de registro descendente (más reciente primero)
         return equipoRepository.findAllByOrderByFechaRegistroDesc()
@@ -46,33 +46,32 @@ public class EquipoService {
                 .toList();
     }
 
-
     public Equipo registrarEquipo(EquipoDto equipoDto, Authentication auth) {
         Usuario cliente = usuarioRepository.findById(equipoDto.getCedulaCliente())
                 .orElseThrow(() -> new RuntimeException("Cliente no encontrado"));
 
-        Usuario actor = getUsuarioAutenticado(auth); 
-            boolean esAdmin = auth.getAuthorities().stream()
-            .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        Usuario actor = getUsuarioAutenticado(auth);
+        boolean esAdmin = auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
 
-            boolean esTecnico = auth.getAuthorities().stream()
-            .anyMatch(a -> a.getAuthority().equals("ROLE_TECNICO"));
+        boolean esTecnico = auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_TECNICO"));
 
-            Usuario tecnicoAsignado;
+        Usuario tecnicoAsignado;
 
-            if (esAdmin) {
+        if (esAdmin) {
             // Admin debe mandar tecnicoCedula (combo)
             if (equipoDto.getTecnicoCedula() == null || equipoDto.getTecnicoCedula().isBlank()) {
                 throw new RuntimeException("Admin debe seleccionar un técnico (tecnicoCedula).");
             }
             tecnicoAsignado = usuarioRepository.findById(equipoDto.getTecnicoCedula())
                     .orElseThrow(() -> new RuntimeException("Técnico no encontrado"));
-            } else if (esTecnico) {
-                // Técnico se asigna automáticamente a sí mismo
-                tecnicoAsignado = actor;
-            } else {
-                throw new RuntimeException("Rol no permitido para crear equipos.");
-            }
+        } else if (esTecnico) {
+            // Técnico se asigna automáticamente a sí mismo
+            tecnicoAsignado = actor;
+        } else {
+            throw new RuntimeException("Rol no permitido para crear equipos.");
+        }
 
         Equipo e = Equipo.builder()
                 .usuario(cliente)
@@ -84,6 +83,7 @@ public class EquipoService {
                 .build();
         return equipoRepository.save(e);
     }
+
     public EquipoDto obtenerPorId(Long id) {
         return equipoRepository.findById(id)
                 .map(this::mapToDto)
@@ -153,28 +153,30 @@ public class EquipoService {
     }
 
     private Usuario getUsuarioAutenticado(Authentication auth) {
-    String principal = auth.getName(); // puede ser cedula o correo
-    return usuarioRepository.findById(principal)
-            .or(() -> usuarioRepository.findByCorreo(principal))
-            .orElseThrow(() -> new RuntimeException("Usuario autenticado no encontrado: " + principal));
+        String principal = auth.getName(); // puede ser cedula o correo
+        return usuarioRepository.findById(principal)
+                .or(() -> usuarioRepository.findByCorreo(principal))
+                .orElseThrow(() -> new RuntimeException("Usuario autenticado no encontrado: " + principal));
     }
 
     public List<EquipoDto> listarMisEquipos(Authentication auth) {
-    Usuario tecnico = getUsuarioAutenticado(auth);
+        Usuario tecnico = getUsuarioAutenticado(auth);
 
-    boolean esTecnico = auth.getAuthorities().stream()
-            .anyMatch(a -> a.getAuthority().equals("ROLE_TECNICO"));
-    if (!esTecnico) throw new RuntimeException("Solo técnicos pueden consultar mis-equipos.");
+        boolean esTecnico = auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_TECNICO"));
+        if (!esTecnico)
+            throw new RuntimeException("Solo técnicos pueden consultar mis-equipos.");
 
-    // Ordenar por fecha de registro descendente (más reciente primero)
-    return equipoRepository.findByTecnico_CedulaOrderByFechaRegistroDesc(tecnico.getCedula())
-            .stream().map(this::mapToDto)
-            .collect(Collectors.toList());  
+        // Ordenar por fecha de registro descendente (más reciente primero)
+        return equipoRepository.findByTecnico_CedulaOrderByFechaRegistroDesc(tecnico.getCedula())
+                .stream().map(this::mapToDto)
+                .collect(Collectors.toList());
     }
+
     private EquipoListDto mapToListDto(Equipo equipo) {
         return EquipoListDto.builder()
                 .idEquipo(equipo.getIdEquipo())
-                .tipo(equipo.getTipo())                 // ⚠️ si no existe, mira nota abajo
+                .tipo(equipo.getTipo()) // ⚠️ si no existe, mira nota abajo
                 .marca(equipo.getMarca())
                 .modelo(equipo.getModelo())
                 .numeroSerie(equipo.getNumeroSerie())

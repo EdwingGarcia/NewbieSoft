@@ -17,6 +17,7 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+
 @RefreshScope
 @RestController
 @RequestMapping("/uploads")
@@ -50,7 +51,8 @@ public class SecureFileController {
 
             if (resource.exists() && resource.isReadable()) {
                 String contentType = request.getServletContext().getMimeType(resource.getFile().getAbsolutePath());
-                if (contentType == null) contentType = "application/octet-stream";
+                if (contentType == null)
+                    contentType = "application/octet-stream";
 
                 return ResponseEntity.ok()
                         .contentType(MediaType.parseMediaType(contentType))

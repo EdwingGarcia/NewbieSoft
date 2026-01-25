@@ -107,7 +107,8 @@ public class DocumentoController {
             String sanitizedNombreArchivo = sanitizePath(nombreArchivo);
 
             // Ruta: baseUploadDir/OT-00015/imagenes/INGRESO/archivo.jpg
-            Path filePath = Paths.get(baseUploadDir, sanitizedNumeroOrden, "imagenes", sanitizedCategoria, sanitizedNombreArchivo)
+            Path filePath = Paths
+                    .get(baseUploadDir, sanitizedNumeroOrden, "imagenes", sanitizedCategoria, sanitizedNombreArchivo)
                     .normalize();
 
             Path baseDir = Paths.get(baseUploadDir).normalize().toAbsolutePath();
@@ -136,7 +137,8 @@ public class DocumentoController {
     }
 
     /**
-     * Obtener imagen de una orden de trabajo (compatibilidad con estructura antigua)
+     * Obtener imagen de una orden de trabajo (compatibilidad con estructura
+     * antigua)
      * Ruta: /api/documentos/{numeroOrden}/imagenes/{nombreArchivo}
      */
     @GetMapping("/{numeroOrden}/imagenes/{nombreArchivo:.+}")
@@ -210,8 +212,9 @@ public class DocumentoController {
                                     docInfo.put("nombre", file.getFileName().toString());
                                     docInfo.put("tamaño", attrs.size());
                                     docInfo.put("fechaModificacion", attrs.lastModifiedTime().toMillis());
-                                    docInfo.put("fechaModificacionStr", new java.text.SimpleDateFormat("dd/MM/yyyy HH:mm:ss")
-                                            .format(new java.util.Date(attrs.lastModifiedTime().toMillis())));
+                                    docInfo.put("fechaModificacionStr",
+                                            new java.text.SimpleDateFormat("dd/MM/yyyy HH:mm:ss")
+                                                    .format(new java.util.Date(attrs.lastModifiedTime().toMillis())));
                                     documentos.add(docInfo);
                                 } catch (IOException e) {
                                     // Ignorar archivos con error de lectura

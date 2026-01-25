@@ -41,16 +41,16 @@ public class OrdenTrabajoService {
     private final OrdenTrabajoCostoService ordenTrabajoCostoService;
     private final FichasTecnicasMasivasService fichasTecnicasMasivasService;
 
-
-
     private final MailService mailService;
 
     @Value("${app.upload-dir}")
     private String uploadDir;
 
-    /* =============================
-       CREAR ORDEN (INGRESO)
-       ============================= */
+    /*
+     * =============================
+     * CREAR ORDEN (INGRESO)
+     * =============================
+     */
     @Transactional
     public OrdenTrabajoIngresoDto crearOrden(CrearOrdenTrabajoRequest request, Authentication auth) {
 
@@ -103,13 +103,15 @@ public class OrdenTrabajoService {
         return "OT-" + String.format("%05d", secuencia);
     }
 
-    /* =============================
-       MAPEO A DTO DE INGRESO
-       ============================= */
+    /*
+     * =============================
+     * MAPEO A DTO DE INGRESO
+     * =============================
+     */
     private OrdenTrabajoIngresoDto mapToIngresoDto(OrdenTrabajo orden) {
         var cliente = orden.getCliente();
         var tecnico = orden.getTecnicoAsignado();
-        var equipo  = orden.getEquipo();
+        var equipo = orden.getEquipo();
 
         return new OrdenTrabajoIngresoDto(
                 orden.getId(),
@@ -135,13 +137,14 @@ public class OrdenTrabajoService {
                 orden.getContrasenaEquipo(),
                 orden.getAccesorios(),
                 orden.getProblemaReportado(),
-                orden.getObservacionesIngreso()
-        );
+                orden.getObservacionesIngreso());
     }
 
-    /* =============================
-       OBTENER INGRESO
-       ============================= */
+    /*
+     * =============================
+     * OBTENER INGRESO
+     * =============================
+     */
     @Transactional(readOnly = true)
     public OrdenTrabajoIngresoDto obtenerIngreso(Long ordenId) {
         var orden = ordenTrabajoRepository.findById(ordenId)
@@ -149,9 +152,11 @@ public class OrdenTrabajoService {
         return mapToIngresoDto(orden);
     }
 
-    /* =============================
-       ACTUALIZAR ENTREGA / CIERRE
-       ============================= */
+    /*
+     * =============================
+     * ACTUALIZAR ENTREGA / CIERRE
+     * =============================
+     */
     private BigDecimal bd(Double v) {
         return v == null ? null : BigDecimal.valueOf(v);
     }
@@ -163,10 +168,14 @@ public class OrdenTrabajoService {
                 .orElseThrow(() -> new RuntimeException("Orden no encontrada"));
 
         // Campos editables
-        if (request.diagnosticoTrabajo() != null) orden.setDiagnosticoTrabajo(request.diagnosticoTrabajo());
-        if (request.observacionesRecomendaciones() != null) orden.setObservacionesRecomendaciones(request.observacionesRecomendaciones());
-        if (request.tipoServicio() != null && !request.tipoServicio().isBlank()) orden.setTipoServicio(request.tipoServicio().toUpperCase());
-        if (request.prioridad() != null && !request.prioridad().isBlank()) orden.setPrioridad(request.prioridad().toUpperCase());
+        if (request.diagnosticoTrabajo() != null)
+            orden.setDiagnosticoTrabajo(request.diagnosticoTrabajo());
+        if (request.observacionesRecomendaciones() != null)
+            orden.setObservacionesRecomendaciones(request.observacionesRecomendaciones());
+        if (request.tipoServicio() != null && !request.tipoServicio().isBlank())
+            orden.setTipoServicio(request.tipoServicio().toUpperCase());
+        if (request.prioridad() != null && !request.prioridad().isBlank())
+            orden.setPrioridad(request.prioridad().toUpperCase());
 
         // Garantía
         if (request.esEnGarantia() != null) {
@@ -183,12 +192,16 @@ public class OrdenTrabajoService {
         }
 
         // Cierre info
-        if (request.motivoCierre() != null) orden.setMotivoCierre(request.motivoCierre());
-        if (request.cerradaPor() != null) orden.setCerradaPor(request.cerradaPor());
+        if (request.motivoCierre() != null)
+            orden.setMotivoCierre(request.motivoCierre());
+        if (request.cerradaPor() != null)
+            orden.setCerradaPor(request.cerradaPor());
 
         // OTP
-        if (request.otpCodigo() != null) orden.setOtpCodigo(request.otpCodigo());
-        if (request.otpValidado() != null) orden.setOtpValidado(request.otpValidado());
+        if (request.otpCodigo() != null)
+            orden.setOtpCodigo(request.otpCodigo());
+        if (request.otpValidado() != null)
+            orden.setOtpValidado(request.otpValidado());
 
         // Estado y Cierre
         boolean seCierra = false;
@@ -216,51 +229,49 @@ public class OrdenTrabajoService {
         OrdenTrabajo ordenGuardada = ordenTrabajoRepository.save(orden);
         if (seCierra) {
 
-        CostosTotalesDto totales = ordenTrabajoCostoService.totales(ordenGuardada.getId());
+            CostosTotalesDto totales = ordenTrabajoCostoService.totales(ordenGuardada.getId());
 
-        ordenGuardada.setSubtotal(totales.subtotal());
-        ordenGuardada.setIva(totales.iva());
-        ordenGuardada.setTotal(totales.total());
+            ordenGuardada.setSubtotal(totales.subtotal());
+            ordenGuardada.setIva(totales.iva());
+            ordenGuardada.setTotal(totales.total());
 
-        ordenTrabajoRepository.save(ordenGuardada);
+            ordenTrabajoRepository.save(ordenGuardada);
 
-        OrdenTrabajoDetalleDto dto = obtenerDetalleInterno(ordenGuardada.getId());
+            OrdenTrabajoDetalleDto dto = obtenerDetalleInterno(ordenGuardada.getId());
 
-        byte[] pdfBytes = ordenTrabajoPdfService.generarPdfOrden(dto);
+            byte[] pdfBytes = ordenTrabajoPdfService.generarPdfOrden(dto);
 
-        try {
-            Path documentosDir = Paths.get(
-                    uploadDir,
-                    ordenGuardada.getNumeroOrden(),
-                    "documentos"
-            );
-
-            Files.createDirectories(documentosDir);
-
-            // PDF resumen del servicio técnico completo
-            Path pdfPath = documentosDir.resolve(
-                    "Resumen_Servicio_" + ordenGuardada.getNumeroOrden() + ".pdf"
-            );
-
-            Files.write(pdfPath, pdfBytes);
             try {
-                fichasTecnicasMasivasService
-                        .generarPdfsPorOrdenTrabajo(ordenGuardada.getId());
-            } catch (Exception e) {
+                Path documentosDir = Paths.get(
+                        uploadDir,
+                        ordenGuardada.getNumeroOrden(),
+                        "documentos");
 
-                System.err.println("Advertencia: error al generar PDFs de fichas técnicas: " + e.getMessage());
+                Files.createDirectories(documentosDir);
+
+                // PDF resumen del servicio técnico completo
+                Path pdfPath = documentosDir.resolve(
+                        "Resumen_Servicio_" + ordenGuardada.getNumeroOrden() + ".pdf");
+
+                Files.write(pdfPath, pdfBytes);
+                try {
+                    fichasTecnicasMasivasService
+                            .generarPdfsPorOrdenTrabajo(ordenGuardada.getId());
+                } catch (Exception e) {
+
+                    System.err.println("Advertencia: error al generar PDFs de fichas técnicas: " + e.getMessage());
+                }
+
+            } catch (IOException e) {
+                throw new RuntimeException("Error al generar/guardar el PDF de la OT", e);
             }
-
-        } catch (IOException e) {
-            throw new RuntimeException("Error al generar/guardar el PDF de la OT", e);
-        }
-        enviarArchivosCierreZip(ordenGuardada);
+            enviarArchivosCierreZip(ordenGuardada);
 
         }
 
-}
+    }
 
-        private void enviarArchivosCierreZip(OrdenTrabajo orden) {
+    private void enviarArchivosCierreZip(OrdenTrabajo orden) {
         try {
             Usuario cliente = orden.getCliente();
             if (cliente != null && cliente.getCorreo() != null && !cliente.getCorreo().isEmpty()) {
@@ -278,7 +289,8 @@ public class OrdenTrabajoService {
                 String asunto = "Entrega de Orden de Trabajo #" + numeroOrden;
                 String cuerpo = "Estimado/a " + cliente.getNombre() + ",\n\n" +
                         "Su orden de trabajo #" + numeroOrden + " ha sido cerrada exitosamente.\n" +
-                        "Adjunto encontrará un archivo comprimido (ZIP) con todas las imágenes y documentos de su servicio.\n\n" +
+                        "Adjunto encontrará un archivo comprimido (ZIP) con todas las imágenes y documentos de su servicio.\n\n"
+                        +
                         "Gracias por confiar en nosotros.\n\n" +
                         "Atentamente,\n" +
                         "El equipo de NewbieSoft.";
@@ -292,7 +304,8 @@ public class OrdenTrabajoService {
                         // Verificar si existe la carpeta origen
                         if (!Files.exists(rutaCarpetaOrigen)) {
                             System.out.println("ADVERTENCIA: La carpeta de la orden NO EXISTE. No se enviará ZIP.");
-                            mailService.sendEmail(emailDestino, asunto, cuerpo + "\n\n(Nota: No se encontraron archivos para adjuntar).");
+                            mailService.sendEmail(emailDestino, asunto,
+                                    cuerpo + "\n\n(Nota: No se encontraron archivos para adjuntar).");
                             return;
                         }
 
@@ -300,15 +313,18 @@ public class OrdenTrabajoService {
                         boolean zipCreado = zipFolderRecursivo(rutaCarpetaOrigen, rutaZipDestino);
 
                         if (zipCreado) {
-                            System.out.println("ZIP creado correctamente. Tamaño: " + Files.size(rutaZipDestino) + " bytes.");
-                            mailService.sendEmailWithAttachment(emailDestino, asunto, cuerpo, rutaZipDestino.toString());
+                            System.out.println(
+                                    "ZIP creado correctamente. Tamaño: " + Files.size(rutaZipDestino) + " bytes.");
+                            mailService.sendEmailWithAttachment(emailDestino, asunto, cuerpo,
+                                    rutaZipDestino.toString());
                             System.out.println("Correo enviado con ZIP.");
 
                             // Opcional: Eliminar ZIP después de enviar
                             // Files.deleteIfExists(rutaZipDestino);
                         } else {
                             System.out.println("El ZIP no se creó (carpeta vacía). Enviando correo sin adjunto.");
-                            mailService.sendEmail(emailDestino, asunto, cuerpo + "\n\n(Nota: La carpeta de documentos estaba vacía).");
+                            mailService.sendEmail(emailDestino, asunto,
+                                    cuerpo + "\n\n(Nota: La carpeta de documentos estaba vacía).");
                         }
 
                     } catch (Exception e) {
@@ -330,7 +346,7 @@ public class OrdenTrabajoService {
         try (ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(zipPath.toFile()))) {
 
             // Usamos un array de 1 elemento para contar archivos dentro del stream
-            final boolean[] archivosEncontrados = {false};
+            final boolean[] archivosEncontrados = { false };
 
             try (Stream<Path> paths = Files.walk(sourceFolderPath)) {
                 paths.filter(path -> !path.equals(sourceFolderPath)) // Ignorar la carpeta raíz en sí
@@ -352,7 +368,8 @@ public class OrdenTrabajoService {
                                     archivosEncontrados[0] = true;
                                 }
                             } catch (IOException e) {
-                                System.err.println("Error al comprimir archivo individual: " + path + " : " + e.getMessage());
+                                System.err.println(
+                                        "Error al comprimir archivo individual: " + path + " : " + e.getMessage());
                             }
                         });
             }
@@ -360,7 +377,8 @@ public class OrdenTrabajoService {
             if (!archivosEncontrados[0]) {
                 System.out.println("La carpeta existe pero no contenía archivos, solo subcarpetas vacías o nada.");
                 // Si quieres enviar el zip vacío, retorna true. Si no, false.
-                // Retornamos true para que se envíe el zip vacío al menos, o false para evitarlo.
+                // Retornamos true para que se envíe el zip vacío al menos, o false para
+                // evitarlo.
                 // Generalmente mejor false si está 100% vacío.
                 return false;
             }
@@ -374,7 +392,8 @@ public class OrdenTrabajoService {
     }
 
     private void validarTransicionEstado(String actual, String nuevo) {
-        if (actual == null || nuevo == null) return;
+        if (actual == null || nuevo == null)
+            return;
         String a = actual.toUpperCase();
         String n = nuevo.toUpperCase();
         if (a.equals("CERRADA") && !n.equals("CERRADA")) {
@@ -382,9 +401,11 @@ public class OrdenTrabajoService {
         }
     }
 
-    /* =============================
-       DETALLE COMPLETO
-       ============================= */
+    /*
+     * =============================
+     * DETALLE COMPLETO
+     * =============================
+     */
     @Transactional(readOnly = true)
     public OrdenTrabajoDetalleDto obtenerDetalle(Long ordenId, Authentication auth) {
 
@@ -405,7 +426,7 @@ public class OrdenTrabajoService {
         }
         var cliente = orden.getCliente();
         var tecnico = orden.getTecnicoAsignado();
-        var equipo  = orden.getEquipo();
+        var equipo = orden.getEquipo();
 
         var fichas = fichaTecnicaRepository.findByOrdenTrabajoId(ordenId);
 
@@ -415,7 +436,7 @@ public class OrdenTrabajoService {
         String tecnicoFichaCedula = null;
         String tecnicoFichaNombre = null;
 
-// Tomar la primera ficha (o la más reciente si prefieres)
+        // Tomar la primera ficha (o la más reciente si prefieres)
         if (!fichas.isEmpty()) {
             var ficha = fichas.get(0); // Primera ficha de la lista
             fichaId = ficha.getId();
@@ -485,44 +506,42 @@ public class OrdenTrabajoService {
                 observacionesFicha,
                 tecnicoFichaCedula,
                 tecnicoFichaNombre,
-                null
-        );
+                null);
     }
 
     private OrdenTrabajoDetalleDto obtenerDetalleInterno(Long ordenId) {
 
-    var orden = ordenTrabajoRepository.findById(ordenId)
-            .orElseThrow(() -> new RuntimeException("Orden no encontrada"));
+        var orden = ordenTrabajoRepository.findById(ordenId)
+                .orElseThrow(() -> new RuntimeException("Orden no encontrada"));
 
-    List<OrdenTrabajoCostoDto> costos =
-        ordenTrabajoCostoService.listar(ordenId);
+        List<OrdenTrabajoCostoDto> costos = ordenTrabajoCostoService.listar(ordenId);
 
-    var cliente = orden.getCliente();
-    var tecnico = orden.getTecnicoAsignado();
-    var equipo  = orden.getEquipo();
+        var cliente = orden.getCliente();
+        var tecnico = orden.getTecnicoAsignado();
+        var equipo = orden.getEquipo();
 
-    var fichas = fichaTecnicaRepository.findByOrdenTrabajoId(ordenId);
+        var fichas = fichaTecnicaRepository.findByOrdenTrabajoId(ordenId);
 
-    Long fichaId = null;
-    Instant fechaFicha = null;
-    String observacionesFicha = null;
-    String tecnicoFichaCedula = null;
-    String tecnicoFichaNombre = null;
+        Long fichaId = null;
+        Instant fechaFicha = null;
+        String observacionesFicha = null;
+        String tecnicoFichaCedula = null;
+        String tecnicoFichaNombre = null;
 
-    if (!fichas.isEmpty()) {
-        var ficha = fichas.get(0);
-        fichaId = ficha.getId();
-        fechaFicha = ficha.getFechaCreacion();
-        observacionesFicha = ficha.getObservaciones();
-        tecnicoFichaCedula = ficha.getTecnicoId();
-        if (tecnicoFichaCedula != null) {
-            tecnicoFichaNombre = usuarioRepository.findById(tecnicoFichaCedula)
-                    .map(Usuario::getNombre)
-                    .orElse(null);
+        if (!fichas.isEmpty()) {
+            var ficha = fichas.get(0);
+            fichaId = ficha.getId();
+            fechaFicha = ficha.getFechaCreacion();
+            observacionesFicha = ficha.getObservaciones();
+            tecnicoFichaCedula = ficha.getTecnicoId();
+            if (tecnicoFichaCedula != null) {
+                tecnicoFichaNombre = usuarioRepository.findById(tecnicoFichaCedula)
+                        .map(Usuario::getNombre)
+                        .orElse(null);
+            }
         }
-    }
 
-     return new OrdenTrabajoDetalleDto(
+        return new OrdenTrabajoDetalleDto(
                 orden.getId(),
                 orden.getNumeroOrden(),
                 orden.getFechaHoraIngreso(),
@@ -578,14 +597,14 @@ public class OrdenTrabajoService {
                 observacionesFicha,
                 tecnicoFichaCedula,
                 tecnicoFichaNombre,
-                costos
-    );
-}
+                costos);
+    }
 
-
-    /* =============================
-       LISTAR ÓRDENES
-       ============================= */
+    /*
+     * =============================
+     * LISTAR ÓRDENES
+     * =============================
+     */
     @Transactional(readOnly = true)
     public List<OrdenTrabajoListaDto> listarOrdenes() {
         return ordenTrabajoRepository.findAll()
@@ -597,7 +616,7 @@ public class OrdenTrabajoService {
     private OrdenTrabajoListaDto mapToListaDto(OrdenTrabajo orden) {
         var cliente = orden.getCliente();
         var tecnico = orden.getTecnicoAsignado();
-        var equipo  = orden.getEquipo();
+        var equipo = orden.getEquipo();
 
         List<ImagenDto> imagenes = orden.getImagenes()
                 .stream()
@@ -606,8 +625,7 @@ public class OrdenTrabajoService {
                         img.getRuta(),
                         img.getCategoria(),
                         img.getDescripcion(),
-                        img.getFechaSubida()
-                ))
+                        img.getFechaSubida()))
                 .toList();
 
         return new OrdenTrabajoListaDto(
@@ -624,15 +642,14 @@ public class OrdenTrabajoService {
                 cliente != null ? cliente.getNombre() : null,
                 tecnico != null ? tecnico.getCedula() : null,
                 tecnico != null ? tecnico.getNombre() : null,
-                equipo != null ? equipo.getIdEquipo()  : null,
-                equipo != null ? equipo.getModelo()    : null,
-                equipo != null ? equipo.getHostname()  : null,
+                equipo != null ? equipo.getIdEquipo() : null,
+                equipo != null ? equipo.getModelo() : null,
+                equipo != null ? equipo.getHostname() : null,
                 orden.getProblemaReportado(),
                 orden.getObservacionesIngreso(),
                 orden.getDiagnosticoTrabajo(),
                 orden.getObservacionesRecomendaciones(),
-                imagenes
-        );
+                imagenes);
     }
 
     @Transactional(readOnly = true)
@@ -651,7 +668,4 @@ public class OrdenTrabajoService {
         return listarOrdenesPorTecnico(usuarioAuth.getCedula());
     }
 
-    
-
-    
 }

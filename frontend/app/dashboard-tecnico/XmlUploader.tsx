@@ -179,7 +179,7 @@ export default function XmlUploaderFull({ equipoId, onUploadSuccess }: Props) {
             setUploadMsg("Archivo subido correctamente ✔");
             setFile(null);
             setProgress(0);
-            
+
             // Notificar al componente padre para refrescar los datos
             if (onUploadSuccess) {
                 onUploadSuccess();

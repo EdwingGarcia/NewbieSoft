@@ -8,7 +8,8 @@ import org.springframework.stereotype.Component;
 
 /**
  * Aspect para auditar automáticamente operaciones en los servicios.
- * Intercepta métodos específicos para registrar acciones en el log de auditoría.
+ * Intercepta métodos específicos para registrar acciones en el log de
+ * auditoría.
  */
 @Aspect
 @Component
@@ -23,10 +24,7 @@ public class AuditAspect {
     /**
      * Auditar creación de órdenes de trabajo
      */
-    @AfterReturning(
-        pointcut = "execution(* com.newbie.newbiecore.service.OrdenTrabajoService.crearOrden(..))",
-        returning = "resultado"
-    )
+    @AfterReturning(pointcut = "execution(* com.newbie.newbiecore.service.OrdenTrabajoService.crearOrden(..))", returning = "resultado")
     public void auditarCreacionOrden(JoinPoint joinPoint, Object resultado) {
         try {
             if (resultado != null) {
@@ -42,16 +40,13 @@ public class AuditAspect {
     /**
      * Auditar cambios de estado en órdenes
      */
-    @AfterReturning(
-        pointcut = "execution(* com.newbie.newbiecore.service.OrdenTrabajoService.actualizarEntrega(..))",
-        returning = "resultado"
-    )
+    @AfterReturning(pointcut = "execution(* com.newbie.newbiecore.service.OrdenTrabajoService.actualizarEntrega(..))", returning = "resultado")
     public void auditarActualizacionOrden(JoinPoint joinPoint, Object resultado) {
         try {
             Object[] args = joinPoint.getArgs();
             if (args.length > 0) {
                 Long ordenId = (Long) args[0];
-                auditService.registrar(TipoAccion.ACTUALIZAR, "OrdenTrabajo", 
+                auditService.registrar(TipoAccion.ACTUALIZAR, "OrdenTrabajo",
                         ordenId.toString(), "Orden de trabajo actualizada");
             }
         } catch (Exception e) {
@@ -62,10 +57,7 @@ public class AuditAspect {
     /**
      * Auditar creación de fichas técnicas
      */
-    @AfterReturning(
-        pointcut = "execution(* com.newbie.newbiecore.service.FichaTecnicaService.crear*(..))",
-        returning = "resultado"
-    )
+    @AfterReturning(pointcut = "execution(* com.newbie.newbiecore.service.FichaTecnicaService.crear*(..))", returning = "resultado")
     public void auditarCreacionFicha(JoinPoint joinPoint, Object resultado) {
         try {
             if (resultado != null) {
@@ -81,10 +73,7 @@ public class AuditAspect {
     /**
      * Auditar actualización de fichas técnicas
      */
-    @AfterReturning(
-        pointcut = "execution(* com.newbie.newbiecore.service.FichaTecnicaService.actualizar*(..))",
-        returning = "resultado"
-    )
+    @AfterReturning(pointcut = "execution(* com.newbie.newbiecore.service.FichaTecnicaService.actualizar*(..))", returning = "resultado")
     public void auditarActualizacionFicha(JoinPoint joinPoint, Object resultado) {
         try {
             if (resultado != null) {
@@ -100,10 +89,7 @@ public class AuditAspect {
     /**
      * Auditar creación de usuarios
      */
-    @AfterReturning(
-        pointcut = "execution(* com.newbie.newbiecore.service.UsuarioService.crear*(..))",
-        returning = "resultado"
-    )
+    @AfterReturning(pointcut = "execution(* com.newbie.newbiecore.service.UsuarioService.crear*(..))", returning = "resultado")
     public void auditarCreacionUsuario(JoinPoint joinPoint, Object resultado) {
         try {
             if (resultado != null) {
@@ -119,10 +105,7 @@ public class AuditAspect {
     /**
      * Auditar modificación de usuarios
      */
-    @AfterReturning(
-        pointcut = "execution(* com.newbie.newbiecore.service.UsuarioService.actualizar*(..))",
-        returning = "resultado"
-    )
+    @AfterReturning(pointcut = "execution(* com.newbie.newbiecore.service.UsuarioService.actualizar*(..))", returning = "resultado")
     public void auditarModificacionUsuario(JoinPoint joinPoint, Object resultado) {
         try {
             if (resultado != null) {
@@ -138,9 +121,7 @@ public class AuditAspect {
     /**
      * Auditar cambios de configuración
      */
-    @AfterReturning(
-        pointcut = "execution(* com.newbie.newbiecore.service.ConfigurationService.set*(..))"
-    )
+    @AfterReturning(pointcut = "execution(* com.newbie.newbiecore.service.ConfigurationService.set*(..))")
     public void auditarCambioConfiguracion(JoinPoint joinPoint) {
         try {
             Object[] args = joinPoint.getArgs();
@@ -157,16 +138,13 @@ public class AuditAspect {
     /**
      * Auditar subida de imágenes
      */
-    @AfterReturning(
-        pointcut = "execution(* com.newbie.newbiecore.service.OrdenTrabajoImagenService.subirImagenes(..))",
-        returning = "resultado"
-    )
+    @AfterReturning(pointcut = "execution(* com.newbie.newbiecore.service.OrdenTrabajoImagenService.subirImagenes(..))", returning = "resultado")
     public void auditarSubidaImagenes(JoinPoint joinPoint, Object resultado) {
         try {
             Object[] args = joinPoint.getArgs();
             if (args.length > 0) {
                 Long ordenId = (Long) args[0];
-                auditService.registrar(TipoAccion.IMAGEN_SUBIDA, "OrdenTrabajo", 
+                auditService.registrar(TipoAccion.IMAGEN_SUBIDA, "OrdenTrabajo",
                         ordenId.toString(), "Imágenes subidas a la orden");
             }
         } catch (Exception e) {
@@ -177,10 +155,7 @@ public class AuditAspect {
     /**
      * Auditar creación de ítems de catálogo
      */
-    @AfterReturning(
-        pointcut = "execution(* com.newbie.newbiecore.service.CatalogoService.crear*(..))",
-        returning = "resultado"
-    )
+    @AfterReturning(pointcut = "execution(* com.newbie.newbiecore.service.CatalogoService.crear*(..))", returning = "resultado")
     public void auditarCreacionCatalogo(JoinPoint joinPoint, Object resultado) {
         try {
             if (resultado != null) {
@@ -196,16 +171,13 @@ public class AuditAspect {
     /**
      * Auditar agregado de costos a orden
      */
-    @AfterReturning(
-        pointcut = "execution(* com.newbie.newbiecore.service.OrdenTrabajoCostoService.agregar*(..))",
-        returning = "resultado"
-    )
+    @AfterReturning(pointcut = "execution(* com.newbie.newbiecore.service.OrdenTrabajoCostoService.agregar*(..))", returning = "resultado")
     public void auditarAgregadoCosto(JoinPoint joinPoint, Object resultado) {
         try {
             Object[] args = joinPoint.getArgs();
             if (args.length > 0) {
                 Long ordenId = (Long) args[0];
-                auditService.registrar(TipoAccion.COSTO_AGREGADO, "OrdenTrabajoCosto", 
+                auditService.registrar(TipoAccion.COSTO_AGREGADO, "OrdenTrabajoCosto",
                         ordenId.toString(), "Costo agregado a la orden");
             }
         } catch (Exception e) {

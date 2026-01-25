@@ -32,17 +32,17 @@ type Section = "dashboard" | "ordenes" | "equipos" | "citas" | "usuarios";
 export default function DashboardTecnico() {
     const router = useRouter();
     const [activeSection, setActiveSection] = useState<Section>("dashboard");
-    
+
     // Usar hooks de configuración (igual que dashboard admin)
     const sidebarStyle = useSidebarStyle();
     const appName = useAppName();
     const [sidebarHovered, setSidebarHovered] = useState(false);
-    
+
     // Calcular si el sidebar está expandido basado en el estilo configurado
-    const isSidebarExpanded = 
-        sidebarStyle === "expanded" ? true : 
-        sidebarStyle === "collapsed" ? false : 
-        sidebarHovered; // "auto" mode: expandir solo en hover
+    const isSidebarExpanded =
+        sidebarStyle === "expanded" ? true :
+            sidebarStyle === "collapsed" ? false :
+                sidebarHovered; // "auto" mode: expandir solo en hover
 
     // Leer cookie del rol
     const getCookie = (name: string): string | null => {
@@ -60,7 +60,7 @@ export default function DashboardTecnico() {
         document.cookie = "cedula=; path=/; max-age=0";
         router.push("/?timeout=1");
     }, [router]);
-    
+
     useSessionMonitor(handleSessionTimeout);
 
     useEffect(() => {
@@ -104,9 +104,9 @@ export default function DashboardTecnico() {
                 }}
             >
                 {/* Logo/Título */}
-                <div style={{ 
-                    marginTop: "0.5rem", 
-                    marginBottom: "1.5rem", 
+                <div style={{
+                    marginTop: "0.5rem",
+                    marginBottom: "1.5rem",
                     textAlign: isSidebarExpanded ? "left" : "center",
                     overflow: "hidden",
                     whiteSpace: "nowrap",

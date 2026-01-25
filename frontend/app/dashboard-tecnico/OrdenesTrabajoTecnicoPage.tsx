@@ -1552,7 +1552,7 @@ export default function OrdenesTrabajoPage() {
     /* =========================================================
        FIRMA DE RECIBO/ENTREGA - MODAL
     ========================================================= */
-    
+
     const iniciarFirmaRecibo = () => {
         setTipoFirmante("cliente");
         setTerceroNombre("");
@@ -1632,7 +1632,7 @@ export default function OrdenesTrabajoPage() {
             firma: firmaBase64,
             // Datos del firmante
             tipoFirmante,
-            firmante: tipoFirmante === "cliente" 
+            firmante: tipoFirmante === "cliente"
                 ? { nombre: detalle?.clienteNombre, cedula: detalle?.clienteCedula, relacion: "Cliente" }
                 : { nombre: terceroNombre, cedula: terceroCedula, relacion: terceroRelacion || "Representante" },
         };
@@ -2388,7 +2388,7 @@ export default function OrdenesTrabajoPage() {
                         {/* --- PAGINACIÓN --- */}
                         <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 px-2">
                             <span className="text-xs text-slate-500 italic">Doble clic en una tarjeta para ver detalles</span>
-                            
+
                             {ordenesFiltradas.length > ITEMS_PER_PAGE && (
                                 <div className="flex items-center gap-3">
                                     <span className="text-sm text-slate-600">
@@ -3401,18 +3401,16 @@ export default function OrdenesTrabajoPage() {
                                         <button
                                             type="button"
                                             onClick={() => setTipoFirmante("cliente")}
-                                            className={`flex-1 p-4 rounded-xl border-2 text-left transition-all ${
-                                                tipoFirmante === "cliente" 
-                                                    ? "border-emerald-500 bg-emerald-50" 
+                                            className={`flex-1 p-4 rounded-xl border-2 text-left transition-all ${tipoFirmante === "cliente"
+                                                    ? "border-emerald-500 bg-emerald-50"
                                                     : "border-slate-200 hover:border-slate-300"
-                                            }`}
+                                                }`}
                                         >
                                             <div className="flex items-center gap-3">
-                                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                                                    tipoFirmante === "cliente" 
-                                                        ? "border-emerald-500 bg-emerald-500" 
+                                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${tipoFirmante === "cliente"
+                                                        ? "border-emerald-500 bg-emerald-500"
                                                         : "border-slate-300"
-                                                }`}>
+                                                    }`}>
                                                     {tipoFirmante === "cliente" && <Check className="h-3 w-3 text-white" />}
                                                 </div>
                                                 <div>
@@ -3424,18 +3422,16 @@ export default function OrdenesTrabajoPage() {
                                         <button
                                             type="button"
                                             onClick={() => setTipoFirmante("tercero")}
-                                            className={`flex-1 p-4 rounded-xl border-2 text-left transition-all ${
-                                                tipoFirmante === "tercero" 
-                                                    ? "border-emerald-500 bg-emerald-50" 
+                                            className={`flex-1 p-4 rounded-xl border-2 text-left transition-all ${tipoFirmante === "tercero"
+                                                    ? "border-emerald-500 bg-emerald-50"
                                                     : "border-slate-200 hover:border-slate-300"
-                                            }`}
+                                                }`}
                                         >
                                             <div className="flex items-center gap-3">
-                                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                                                    tipoFirmante === "tercero" 
-                                                        ? "border-emerald-500 bg-emerald-500" 
+                                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${tipoFirmante === "tercero"
+                                                        ? "border-emerald-500 bg-emerald-500"
                                                         : "border-slate-300"
-                                                }`}>
+                                                    }`}>
                                                     {tipoFirmante === "tercero" && <Check className="h-3 w-3 text-white" />}
                                                 </div>
                                                 <div>
@@ -3584,7 +3580,7 @@ export default function OrdenesTrabajoPage() {
                                                 <div>
                                                     <p className="text-sm font-medium text-slate-900">Conformidad de Procedimiento</p>
                                                     <p className="text-xs text-slate-500">
-                                                        {conformidadFirmada 
+                                                        {conformidadFirmada
                                                             ? `✅ Documento firmado${conformidadFecha ? ` - ${formatDateTime(conformidadFecha)}` : ''}`
                                                             : 'Pendiente de firma'}
                                                     </p>
@@ -3612,7 +3608,7 @@ export default function OrdenesTrabajoPage() {
                                                 <div>
                                                     <p className="text-sm font-medium text-slate-900">Recibo de Entrega</p>
                                                     <p className="text-xs text-slate-500">
-                                                        {reciboFirmado 
+                                                        {reciboFirmado
                                                             ? `✅ Documento firmado${reciboFecha ? ` - ${formatDateTime(reciboFecha)}` : ''}`
                                                             : 'Pendiente de firma'}
                                                     </p>

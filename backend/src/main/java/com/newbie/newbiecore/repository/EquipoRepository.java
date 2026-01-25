@@ -9,12 +9,16 @@ public interface EquipoRepository extends JpaRepository<Equipo, Long> {
 
     // Buscar equipos por la cédula del usuario relacionado
     List<Equipo> findByUsuario_Cedula(String clienteCedula);
+
     List<Equipo> findByTecnico_Cedula(String tecnicoCedula);
+
     boolean existsByTecnico_Cedula(String tecnicoCedula);
-    
+
     // Ordenar por fecha de registro descendente (más reciente primero)
     List<Equipo> findAllByOrderByFechaRegistroDesc();
+
     List<Equipo> findByUsuario_CedulaOrderByFechaRegistroDesc(String clienteCedula);
+
     List<Equipo> findByTecnico_CedulaOrderByFechaRegistroDesc(String tecnicoCedula);
 
 }

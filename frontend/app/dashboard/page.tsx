@@ -125,18 +125,18 @@ export default function DashboardPage() {
     const router = useRouter();
 
     const [activeSection, setActiveSection] = useState<Section>("dashboard");
-    
+
     // Usar hooks de configuración
     const sidebarStyle = useSidebarStyle();
     const appName = useAppName();
     const itemsPerPage = useItemsPerPage();
     const [sidebarHovered, setSidebarHovered] = useState(false);
-    
+
     // Calcular si el sidebar está expandido basado en el estilo configurado
-    const isSidebarExpanded = 
-        sidebarStyle === "expanded" ? true : 
-        sidebarStyle === "collapsed" ? false : 
-        sidebarHovered; // "auto" mode: expandir solo en hover
+    const isSidebarExpanded =
+        sidebarStyle === "expanded" ? true :
+            sidebarStyle === "collapsed" ? false :
+                sidebarHovered; // "auto" mode: expandir solo en hover
 
     const [dashboardData, setDashboardData] = useState<DashboardResumen | null>(null);
     const [dashboardError, setDashboardError] = useState<string | null>(null);
@@ -149,7 +149,7 @@ export default function DashboardPage() {
     const [citasActionError, setCitasActionError] = useState<string | null>(null);
 
     const [citasView, setCitasView] = useState<"PENDIENTES" | "COMPLETADAS">("PENDIENTES");
-    
+
     // Monitor de sesión - cierra sesión por inactividad
     const handleSessionTimeout = useCallback(() => {
         localStorage.removeItem("token");
@@ -157,14 +157,14 @@ export default function DashboardPage() {
         localStorage.removeItem("nb.auth.token");
         router.push("/?timeout=1");
     }, [router]);
-    
+
     useSessionMonitor(handleSessionTimeout);
-    
+
     // Función para recargar datos del dashboard
     const reloadDashboardData = useCallback(async () => {
         const token = getAuthToken();
         if (!token) return;
-        
+
         try {
             const res = await fetch(DASHBOARD_API, {
                 headers: { Authorization: `Bearer ${token}` },
@@ -177,7 +177,7 @@ export default function DashboardPage() {
             console.error("Error en auto-refresh:", err);
         }
     }, []);
-    
+
     // Auto-refresh del dashboard
     useAutoRefresh(reloadDashboardData, activeSection === "dashboard");
 
@@ -498,9 +498,9 @@ export default function DashboardPage() {
                 }}
             >
                 {/* Logo/Título */}
-                <div style={{ 
-                    marginTop: "0.5rem", 
-                    marginBottom: "1.5rem", 
+                <div style={{
+                    marginTop: "0.5rem",
+                    marginBottom: "1.5rem",
                     textAlign: isSidebarExpanded ? "left" : "center",
                     overflow: "hidden",
                     whiteSpace: "nowrap",
@@ -668,16 +668,16 @@ export default function DashboardPage() {
                                 </div>
                                 {dashboardData && (
                                     <div style={{ textAlign: "right" }}>
-                                        <span style={{ 
-                                            fontSize: "0.75rem", 
+                                        <span style={{
+                                            fontSize: "0.75rem",
                                             color: "#a5b4fc",
                                             display: "block",
                                             marginBottom: "0.25rem"
                                         }}>
                                             Última actualización
                                         </span>
-                                        <span style={{ 
-                                            fontSize: "0.9rem", 
+                                        <span style={{
+                                            fontSize: "0.9rem",
                                             color: "#ffffff",
                                             fontWeight: 600
                                         }}>
@@ -712,8 +712,8 @@ export default function DashboardPage() {
                                             gap: "1rem",
                                         }}
                                     >
-                                        <DashboardCard 
-                                            title="Total órdenes" 
+                                        <DashboardCard
+                                            title="Total órdenes"
                                             value={dashboardData.totalOrdenes}
                                             icon="📊"
                                             chipColor="#6d28d9"
@@ -746,8 +746,8 @@ export default function DashboardPage() {
                                             gap: "1rem",
                                         }}
                                     >
-                                        <DashboardCard 
-                                            title="Técnicos activos" 
+                                        <DashboardCard
+                                            title="Técnicos activos"
                                             value={dashboardData.totalTecnicos}
                                             icon="👨‍🔧"
                                             chipColor="#4c1d95"
@@ -758,14 +758,14 @@ export default function DashboardPage() {
                                             chipColor="#7e22ce"
                                             icon="🛠️"
                                         />
-                                        <DashboardCard 
-                                            title="Órdenes hoy" 
+                                        <DashboardCard
+                                            title="Órdenes hoy"
                                             value={dashboardData.ordenesHoy}
                                             icon="📆"
                                             chipColor="#8b5cf6"
                                         />
-                                        <DashboardCard 
-                                            title="Órdenes este mes" 
+                                        <DashboardCard
+                                            title="Órdenes este mes"
                                             value={dashboardData.ordenesMes}
                                             icon="📅"
                                             chipColor="#a855f7"
@@ -818,8 +818,8 @@ export default function DashboardPage() {
                                         }}>
                                             <span style={{ fontSize: "0.7rem", fontWeight: 600, opacity: 0.9, textTransform: "uppercase" }}>👨‍🔧 Promedio por técnico</span>
                                             <span style={{ fontSize: "2.2rem", fontWeight: 800 }}>
-                                                {dashboardData.totalTecnicos > 0 
-                                                    ? Math.round(dashboardData.totalOrdenes / dashboardData.totalTecnicos) 
+                                                {dashboardData.totalTecnicos > 0
+                                                    ? Math.round(dashboardData.totalOrdenes / dashboardData.totalTecnicos)
                                                     : 0}
                                             </span>
                                             <span style={{ fontSize: "0.7rem", opacity: 0.8 }}>órdenes asignadas</span>
@@ -1590,7 +1590,7 @@ function DashboardCard({
 }) {
     // Colores morados oscuros para las tarjetas
     const purpleAccent = chipColor || "#7c3aed";
-    
+
     return (
         <div
             style={{
@@ -1629,7 +1629,7 @@ function DashboardCard({
                 <span style={{ fontSize: "2rem", fontWeight: 800, color: "#1e1b4b" }}>
                     {value}
                 </span>
-                
+
                 {trend && (
                     <span style={{
                         fontSize: "0.7rem",

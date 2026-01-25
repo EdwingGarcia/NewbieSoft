@@ -255,7 +255,7 @@ export default function ConfiguracionesPage() {
             valueType: cfg.type === "boolean" ? "BOOLEAN" : cfg.type === "number" ? "NUMBER" : cfg.type === "password" ? "PASSWORD" : "STRING",
             source: "frontend" as ConfigSource,
         }));
-        
+
         return { "Frontend": frontendConfigs };
     }, []);
 
@@ -297,11 +297,11 @@ export default function ConfiguracionesPage() {
             if (json.success) {
                 // Combinar frontend + backend
                 const frontendData = loadFrontendConfigs();
-                
+
                 // Filtrar categorías irrelevantes del backend
                 const relevantCategories = ["Aplicación", "Seguridad", "Correo SMTP", "Base de Datos", "Servicios Externos"];
                 const filteredBackendData: Record<string, ConfigurationProperty[]> = {};
-                
+
                 Object.entries(json.data).forEach(([category, configs]) => {
                     if (relevantCategories.includes(category)) {
                         // Marcar como backend y filtrar propiedades no relevantes
@@ -313,7 +313,7 @@ export default function ConfiguracionesPage() {
 
                 const combinedData = { ...frontendData, ...filteredBackendData };
                 const allCategories = ["Frontend", ...relevantCategories.filter(cat => filteredBackendData[cat]?.length > 0)];
-                
+
                 setConfigurations(combinedData);
                 setCategories(allCategories);
             }
@@ -440,7 +440,7 @@ export default function ConfiguracionesPage() {
     const saveFrontendConfigs = useCallback(() => {
         Object.entries(editedFrontendValues).forEach(([key, value]) => {
             localStorage.setItem(`config.${key}`, value);
-            
+
             // Disparar evento custom para que otros componentes se actualicen
             window.dispatchEvent(new CustomEvent("frontendConfigChanged", {
                 detail: { key, value }
@@ -686,11 +686,10 @@ export default function ConfiguracionesPage() {
                                 <button
                                     key={category}
                                     onClick={() => setActiveCategory(category)}
-                                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all ${
-                                        isActive
+                                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all ${isActive
                                             ? "bg-white shadow-md border border-purple-200"
                                             : "hover:bg-white/60 border border-transparent"
-                                    }`}
+                                        }`}
                                 >
                                     <div
                                         className="p-2 rounded-lg"
@@ -735,7 +734,7 @@ export default function ConfiguracionesPage() {
                                         {activeCategory}
                                     </h2>
                                     <p className="text-sm text-slate-500">
-                                        {displayConfigurations.length} propiedades • 
+                                        {displayConfigurations.length} propiedades •
                                         {activeCategory === "Frontend" ? " Guardado local" : " Guardado en servidor"}
                                     </p>
                                 </div>
@@ -835,9 +834,8 @@ function ConfigurationCard({
 
     return (
         <div
-            className={`p-4 rounded-xl border transition-all ${
-                hasChanges ? "border-purple-300 bg-purple-50/50" : "border-slate-100 bg-slate-50/50"
-            }`}
+            className={`p-4 rounded-xl border transition-all ${hasChanges ? "border-purple-300 bg-purple-50/50" : "border-slate-100 bg-slate-50/50"
+                }`}
         >
             {/* Header */}
             <div className="flex items-start justify-between gap-4 mb-2">
@@ -884,11 +882,10 @@ function ConfigurationCard({
                         <button
                             onClick={() => config.isEditable && onValueChange("true")}
                             disabled={!config.isEditable}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                                value === "true"
+                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${value === "true"
                                     ? "bg-green-500 text-white shadow-md"
                                     : "bg-white border border-slate-200 text-slate-600 hover:border-green-300"
-                            } ${!config.isEditable ? "opacity-50 cursor-not-allowed" : ""}`}
+                                } ${!config.isEditable ? "opacity-50 cursor-not-allowed" : ""}`}
                         >
                             <Check className="w-4 h-4 inline mr-1" />
                             Activado
@@ -896,11 +893,10 @@ function ConfigurationCard({
                         <button
                             onClick={() => config.isEditable && onValueChange("false")}
                             disabled={!config.isEditable}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                                value === "false"
+                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${value === "false"
                                     ? "bg-red-500 text-white shadow-md"
                                     : "bg-white border border-slate-200 text-slate-600 hover:border-red-300"
-                            } ${!config.isEditable ? "opacity-50 cursor-not-allowed" : ""}`}
+                                } ${!config.isEditable ? "opacity-50 cursor-not-allowed" : ""}`}
                         >
                             <X className="w-4 h-4 inline mr-1" />
                             Desactivado

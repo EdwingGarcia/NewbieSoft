@@ -723,7 +723,7 @@ export default function FichaTecnicaEditorModal({
 
   const [detalle, setDetalle] = useState<FichaTecnicaDTO | null>(null);
   const [detalleForm, setDetalleForm] = useState<FichaTecnicaDTO | null>(null);
-  
+
   // Estados para control de edición en fichas cerradas
   const [modoEdicionForzado, setModoEdicionForzado] = useState(false);
   const [showConfirmEdit, setShowConfirmEdit] = useState(false);
@@ -732,10 +732,10 @@ export default function FichaTecnicaEditorModal({
   // ✅ Variable Helper para saber si estamos editando
   // Si fichaId existe (y es > 0), es modo edición. Si es null/0, es modo crear.
   const esModoEdicion = Boolean(fichaId && fichaId > 0);
-  
+
   // ✅ Determinar si la ficha está cerrada
   const fichaCerrada = detalleForm?.estado === "CERRADA";
-  
+
   // ✅ Determinar si los campos deben estar deshabilitados
   const camposDeshabilitados = fichaCerrada && !modoEdicionForzado;
 
@@ -1001,7 +1001,7 @@ export default function FichaTecnicaEditorModal({
     const url = detalleForm.id ? `${FICHAS_API_BASE}/${detalleForm.id}` : FICHAS_API_BASE;
 
     // Si se pasa un estado nuevo, actualizarlo
-    const dataToSend = estadoNuevo 
+    const dataToSend = estadoNuevo
       ? { ...detalleForm, estado: estadoNuevo }
       : detalleForm;
 
@@ -1029,14 +1029,14 @@ export default function FichaTecnicaEditorModal({
 
       setDetalle(fichaActualizada);
       setDetalleForm(fichaActualizada);
-      
+
       // Resetear modo edición forzado si se cerró
       if (estadoNuevo === "CERRADA") {
         setModoEdicionForzado(false);
       }
 
-      alert(estadoNuevo === "CERRADA" 
-        ? "✅ Ficha técnica cerrada correctamente" 
+      alert(estadoNuevo === "CERRADA"
+        ? "✅ Ficha técnica cerrada correctamente"
         : "✅ Ficha técnica guardada como borrador");
       onSaved?.();
     } catch (e: any) {
@@ -2024,18 +2024,17 @@ export default function FichaTecnicaEditorModal({
                 </div>
                 <div>
                   <p className="text-xs font-medium text-slate-700">
-                    Ficha #{detalleForm.id ?? "Nueva"} 
-                    <span className={`ml-2 text-[10px] px-2 py-0.5 rounded-full ${
-                      fichaCerrada 
-                        ? "bg-green-100 text-green-700" 
+                    Ficha #{detalleForm.id ?? "Nueva"}
+                    <span className={`ml-2 text-[10px] px-2 py-0.5 rounded-full ${fichaCerrada
+                        ? "bg-green-100 text-green-700"
                         : "bg-amber-100 text-amber-700"
-                    }`}>
+                      }`}>
                       {fichaCerrada ? "Cerrada" : "Borrador"}
                     </span>
                   </p>
                   <p className="text-[10px] text-slate-400">
-                    {fichaCerrada && !modoEdicionForzado 
-                      ? "Ficha cerrada - Solo lectura" 
+                    {fichaCerrada && !modoEdicionForzado
+                      ? "Ficha cerrada - Solo lectura"
                       : "Los cambios se guardarán al confirmar"}
                   </p>
                 </div>
@@ -2117,7 +2116,7 @@ export default function FichaTecnicaEditorModal({
                 </div>
               </div>
               <p className="text-sm text-slate-600 mb-6">
-                La ficha técnica ya fue cerrada. ¿Estás seguro de que deseas habilitarla para edición? 
+                La ficha técnica ya fue cerrada. ¿Estás seguro de que deseas habilitarla para edición?
                 Los cambios quedarán registrados.
               </p>
               <div className="flex gap-3 justify-end">
@@ -2154,7 +2153,7 @@ export default function FichaTecnicaEditorModal({
                 </div>
               </div>
               <p className="text-sm text-slate-600 mb-6">
-                Una vez cerrada, la ficha técnica quedará en modo solo lectura. 
+                Una vez cerrada, la ficha técnica quedará en modo solo lectura.
                 Podrás habilitarla para edición nuevamente si es necesario.
               </p>
               <div className="flex gap-3 justify-end">

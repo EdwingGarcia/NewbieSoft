@@ -11,7 +11,8 @@ import java.util.Optional;
 
 /**
  * Configuración de auditoría JPA.
- * Habilita el llenado automático de campos @CreatedDate, @LastModifiedDate, @CreatedBy, @LastModifiedBy
+ * Habilita el llenado automático de
+ * campos @CreatedDate, @LastModifiedDate, @CreatedBy, @LastModifiedBy
  */
 @Configuration
 @EnableJpaAuditing(auditorAwareRef = "auditorProvider")
@@ -23,7 +24,8 @@ public class AuditConfig {
     }
 
     /**
-     * Implementación de AuditorAware que obtiene el usuario actual del contexto de seguridad
+     * Implementación de AuditorAware que obtiene el usuario actual del contexto de
+     * seguridad
      */
     static class AuditorAwareImpl implements AuditorAware<String> {
 
@@ -31,7 +33,7 @@ public class AuditConfig {
         public Optional<String> getCurrentAuditor() {
             try {
                 Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-                
+
                 if (authentication == null || !authentication.isAuthenticated()) {
                     return Optional.of("SISTEMA");
                 }

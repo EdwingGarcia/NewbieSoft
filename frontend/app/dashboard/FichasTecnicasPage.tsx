@@ -450,11 +450,10 @@ export default function FichasTecnicasPage() {
                             <CardHeader>
                                 <div className="flex items-center justify-between">
                                     <CardTitle>Ficha #{ficha.id}</CardTitle>
-                                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                                        ficha.estado === "CERRADA" 
-                                            ? "bg-green-100 text-green-700" 
+                                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ficha.estado === "CERRADA"
+                                            ? "bg-green-100 text-green-700"
                                             : "bg-yellow-100 text-yellow-700"
-                                    }`}>
+                                        }`}>
                                         {ficha.estado === "CERRADA" ? "Cerrada" : "Borrador"}
                                     </span>
                                 </div>

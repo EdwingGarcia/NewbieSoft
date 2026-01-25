@@ -5,7 +5,8 @@ import com.newbie.newbiecore.entity.FichaTecnica;
 public class FichaTecnicaMapper {
 
     public static FichaTecnicaDTO toDTO(FichaTecnica f) {
-        if (f == null) return null;
+        if (f == null)
+            return null;
 
         return FichaTecnicaDTO.builder()
 

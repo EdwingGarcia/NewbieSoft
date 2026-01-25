@@ -54,9 +54,9 @@ public class FirmaController {
         try {
             // Primero verificar en base de datos
             boolean tieneConformidadBD = firmaOrdenTrabajoRepository.existsByNumeroOrdenAndTipoFirma(
-                numeroOrden, TipoFirmaOT.CONFORMIDAD);
+                    numeroOrden, TipoFirmaOT.CONFORMIDAD);
             boolean tieneReciboBD = firmaOrdenTrabajoRepository.existsByNumeroOrdenAndTipoFirma(
-                numeroOrden, TipoFirmaOT.RECIBO);
+                    numeroOrden, TipoFirmaOT.RECIBO);
 
             // También verificar archivos (por compatibilidad con firmas antiguas)
             String carpetaOT = baseUploadDir + "/" + numeroOrden;
@@ -65,8 +65,9 @@ public class FirmaController {
             boolean tieneConformidadArchivo = false;
             if (Files.exists(carpetaDocumentos)) {
                 try (var files = Files.list(carpetaDocumentos)) {
-                    tieneConformidadArchivo = files.anyMatch(p -> p.getFileName().toString().startsWith("FirmaConformidad_") ||
-                            p.getFileName().toString().startsWith("Conformidad_OT_"));
+                    tieneConformidadArchivo = files
+                            .anyMatch(p -> p.getFileName().toString().startsWith("FirmaConformidad_") ||
+                                    p.getFileName().toString().startsWith("Conformidad_OT_"));
                 }
             }
 
@@ -86,24 +87,29 @@ public class FirmaController {
             resultado.put("reciboFirmado", tieneRecibo);
             resultado.put("numeroOrden", numeroOrden);
 
-            // Información adicional del registro de conformidad (usando consultas optimizadas sin LOB)
+            // Información adicional del registro de conformidad (usando consultas
+            // optimizadas sin LOB)
             if (tieneConformidadBD) {
-                firmaOrdenTrabajoRepository.findFechaFirmaByNumeroOrdenAndTipoFirma(numeroOrden, TipoFirmaOT.CONFORMIDAD)
-                    .ifPresent(fecha -> resultado.put("conformidadFecha", fecha.toString()));
-                firmaOrdenTrabajoRepository.findFirmanteNombreByNumeroOrdenAndTipoFirma(numeroOrden, TipoFirmaOT.CONFORMIDAD)
-                    .ifPresent(nombre -> resultado.put("conformidadFirmante", nombre));
-                firmaOrdenTrabajoRepository.findTipoFirmanteByNumeroOrdenAndTipoFirma(numeroOrden, TipoFirmaOT.CONFORMIDAD)
-                    .ifPresent(tipo -> resultado.put("conformidadTipoFirmante", tipo));
+                firmaOrdenTrabajoRepository
+                        .findFechaFirmaByNumeroOrdenAndTipoFirma(numeroOrden, TipoFirmaOT.CONFORMIDAD)
+                        .ifPresent(fecha -> resultado.put("conformidadFecha", fecha.toString()));
+                firmaOrdenTrabajoRepository
+                        .findFirmanteNombreByNumeroOrdenAndTipoFirma(numeroOrden, TipoFirmaOT.CONFORMIDAD)
+                        .ifPresent(nombre -> resultado.put("conformidadFirmante", nombre));
+                firmaOrdenTrabajoRepository
+                        .findTipoFirmanteByNumeroOrdenAndTipoFirma(numeroOrden, TipoFirmaOT.CONFORMIDAD)
+                        .ifPresent(tipo -> resultado.put("conformidadTipoFirmante", tipo));
             }
 
-            // Información adicional del registro de recibo (usando consultas optimizadas sin LOB)
+            // Información adicional del registro de recibo (usando consultas optimizadas
+            // sin LOB)
             if (tieneReciboBD) {
                 firmaOrdenTrabajoRepository.findFechaFirmaByNumeroOrdenAndTipoFirma(numeroOrden, TipoFirmaOT.RECIBO)
-                    .ifPresent(fecha -> resultado.put("reciboFecha", fecha.toString()));
+                        .ifPresent(fecha -> resultado.put("reciboFecha", fecha.toString()));
                 firmaOrdenTrabajoRepository.findFirmanteNombreByNumeroOrdenAndTipoFirma(numeroOrden, TipoFirmaOT.RECIBO)
-                    .ifPresent(nombre -> resultado.put("reciboFirmante", nombre));
+                        .ifPresent(nombre -> resultado.put("reciboFirmante", nombre));
                 firmaOrdenTrabajoRepository.findTipoFirmanteByNumeroOrdenAndTipoFirma(numeroOrden, TipoFirmaOT.RECIBO)
-                    .ifPresent(tipo -> resultado.put("reciboTipoFirmante", tipo));
+                        .ifPresent(tipo -> resultado.put("reciboTipoFirmante", tipo));
             }
 
             return ResponseEntity.ok(resultado);
@@ -131,14 +137,13 @@ public class FirmaController {
                     Files.createDirectories(carpetaDocumentos);
                     Path pdfPath = carpetaDocumentos.resolve("Autorizacion_Servicio_" + request.numeroOrden + ".pdf");
                     Files.write(pdfPath, pdfBytes, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-                    
+
                     // Registrar auditoría
                     auditService.registrarPdfGenerado(
-                        request.numeroOrden,
-                        "Autorizacion_Servicio",
-                        request.cliente,
-                        "Autorización de servicio firmada por cliente"
-                    );
+                            request.numeroOrden,
+                            "Autorizacion_Servicio",
+                            request.cliente,
+                            "Autorización de servicio firmada por cliente");
                 } catch (Exception e) {
                     System.err.println("Advertencia: No se pudo guardar el PDF en disco: " + e.getMessage());
                 }
@@ -185,10 +190,10 @@ public class FirmaController {
                     String carpetaOT = baseUploadDir + "/" + request.numeroOrden;
                     Path carpetaDocumentos = Path.of(carpetaOT, "documentos");
                     Files.createDirectories(carpetaDocumentos);
-                    
-                    String pdfFileName = esRecibo 
-                        ? "Acta_Entrega_" + request.numeroOrden + ".pdf"
-                        : "Acta_Conformidad_" + request.numeroOrden + ".pdf";
+
+                    String pdfFileName = esRecibo
+                            ? "Acta_Entrega_" + request.numeroOrden + ".pdf"
+                            : "Acta_Conformidad_" + request.numeroOrden + ".pdf";
                     Path pdfPath = carpetaDocumentos.resolve(pdfFileName);
                     Files.write(pdfPath, pdfBytes, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
                     pdfPathStr = pdfPath.toString();
@@ -221,39 +226,38 @@ public class FirmaController {
 
                 // Solo guardar metadatos y ruta del PDF (sin la firma suelta)
                 FirmaOrdenTrabajo firmaEntity = FirmaOrdenTrabajo.builder()
-                    .numeroOrden(request.numeroOrden)
-                    .tipoFirma(tipoFirma)
-                    .tipoFirmante(tipoFirmante)
-                    .firmanteNombre(firmanteNombre)
-                    .firmanteCedula(firmanteCedula)
-                    .firmanteRelacion(firmanteRelacion)
-                    .pdfPath(pdfPathStr)
-                    .equipoInfo(request.equipo)
-                    .procedimiento(request.procedimiento)
-                    .ipAddress(getClientIpAddress(httpRequest))
-                    .firmaBase64("")  // Campo requerido por constraint de BD
-                    .build();
+                        .numeroOrden(request.numeroOrden)
+                        .tipoFirma(tipoFirma)
+                        .tipoFirmante(tipoFirmante)
+                        .firmanteNombre(firmanteNombre)
+                        .firmanteCedula(firmanteCedula)
+                        .firmanteRelacion(firmanteRelacion)
+                        .pdfPath(pdfPathStr)
+                        .equipoInfo(request.equipo)
+                        .procedimiento(request.procedimiento)
+                        .ipAddress(getClientIpAddress(httpRequest))
+                        .firmaBase64("") // Campo requerido por constraint de BD
+                        .build();
 
                 firmaOrdenTrabajoRepository.save(firmaEntity);
                 System.out.println("✅ Firma guardada en BD: " + tipoFirma + " - " + request.numeroOrden);
-                
+
                 // Registrar auditoría
                 auditService.registrarFirma(
-                    request.numeroOrden, 
-                    tipoFirma.name(), 
-                    tipoFirmante.name(), 
-                    firmanteNombre, 
-                    firmanteCedula,
-                    esRecibo ? "Acta de entrega generada" : "Acta de conformidad generada"
-                );
+                        request.numeroOrden,
+                        tipoFirma.name(),
+                        tipoFirmante.name(),
+                        firmanteNombre,
+                        firmanteCedula,
+                        esRecibo ? "Acta de entrega generada" : "Acta de conformidad generada");
             } catch (Exception e) {
                 System.err.println("Advertencia: No se pudo guardar la firma en BD: " + e.getMessage());
                 e.printStackTrace();
             }
 
-            String filename = esRecibo 
-                ? "Acta_Entrega_" + request.numeroOrden + ".pdf"
-                : "Acta_Conformidad_" + request.numeroOrden + ".pdf";
+            String filename = esRecibo
+                    ? "Acta_Entrega_" + request.numeroOrden + ".pdf"
+                    : "Acta_Conformidad_" + request.numeroOrden + ".pdf";
 
             return ResponseEntity.ok()
                     .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + filename)
@@ -367,8 +371,9 @@ public class FirmaController {
         String fechaEmision = LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
 
         // Número de serie del equipo
-        String numeroSerie = request.equipoNumeroSerie != null && !request.equipoNumeroSerie.isBlank() 
-            ? request.equipoNumeroSerie : "No disponible";
+        String numeroSerie = request.equipoNumeroSerie != null && !request.equipoNumeroSerie.isBlank()
+                ? request.equipoNumeroSerie
+                : "No disponible";
 
         // Colores morados del sistema
         String colorPrimario = "#7c3aed"; // Violet-600
@@ -381,26 +386,38 @@ public class FirmaController {
                 "<meta charset='UTF-8' />" +
                 "<style>" +
                 "@page { size: A4; margin: 1.5cm; }" +
-                "body { font-family: 'Helvetica', 'Arial', sans-serif; color: #333; line-height: 1.4; font-size: 10px; margin: 0; padding: 0; }" +
-                ".header-table { width: 100%; border-bottom: 3px solid " + colorPrimario + "; padding-bottom: 10px; margin-bottom: 15px; }" +
+                "body { font-family: 'Helvetica', 'Arial', sans-serif; color: #333; line-height: 1.4; font-size: 10px; margin: 0; padding: 0; }"
+                +
+                ".header-table { width: 100%; border-bottom: 3px solid " + colorPrimario
+                + "; padding-bottom: 10px; margin-bottom: 15px; }" +
                 ".header-logo { width: 35%; vertical-align: middle; }" +
                 ".header-info { width: 65%; text-align: right; vertical-align: middle; }" +
-                ".document-title { font-size: 16px; font-weight: bold; color: " + colorPrimario + "; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 5px 0; }" +
+                ".document-title { font-size: 16px; font-weight: bold; color: " + colorPrimario
+                + "; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 5px 0; }" +
                 ".document-subtitle { font-size: 10px; color: #666; margin: 0 0 5px 0; }" +
                 ".orden-numero { font-size: 11px; color: " + colorPrimarioOscuro + "; font-weight: bold; }" +
-                ".section-title { background-color: " + colorPrimarioClaro + "; padding: 6px 10px; font-weight: bold; border-left: 4px solid " + colorPrimario + "; margin-top: 12px; margin-bottom: 8px; font-size: 11px; color: " + colorPrimarioOscuro + "; }" +
+                ".section-title { background-color: " + colorPrimarioClaro
+                + "; padding: 6px 10px; font-weight: bold; border-left: 4px solid " + colorPrimario
+                + "; margin-top: 12px; margin-bottom: 8px; font-size: 11px; color: " + colorPrimarioOscuro + "; }" +
                 ".info-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }" +
                 ".info-table td { padding: 5px 8px; border-bottom: 1px solid #e0e0e0; font-size: 10px; }" +
                 ".label { font-weight: bold; color: #555; background-color: #fafafa; white-space: nowrap; }" +
                 ".value { color: #000; }" +
-                ".procedimiento-box { background-color: #f9f9f9; border: 1px solid #ddd; padding: 8px; border-radius: 4px; margin-bottom: 10px; text-align: justify; white-space: pre-wrap; line-height: 1.4; font-size: 9px; max-height: 80px; overflow: hidden; }" +
-                ".legal-box { border: 2px solid " + colorPrimario + "; background-color: " + colorPrimarioClaro + "; padding: 10px; font-size: 8px; text-align: justify; color: #333; margin-top: 12px; border-radius: 4px; }" +
-                ".legal-title { font-weight: bold; font-size: 10px; color: " + colorPrimarioOscuro + "; margin-bottom: 8px; text-align: center; text-transform: uppercase; }" +
+                ".procedimiento-box { background-color: #f9f9f9; border: 1px solid #ddd; padding: 8px; border-radius: 4px; margin-bottom: 10px; text-align: justify; white-space: pre-wrap; line-height: 1.4; font-size: 9px; max-height: 80px; overflow: hidden; }"
+                +
+                ".legal-box { border: 2px solid " + colorPrimario + "; background-color: " + colorPrimarioClaro
+                + "; padding: 10px; font-size: 8px; text-align: justify; color: #333; margin-top: 12px; border-radius: 4px; }"
+                +
+                ".legal-title { font-weight: bold; font-size: 10px; color: " + colorPrimarioOscuro
+                + "; margin-bottom: 8px; text-align: center; text-transform: uppercase; }" +
                 ".legal-text { margin-bottom: 6px; line-height: 1.4; }" +
                 ".signature-section { margin-top: 15px; }" +
-                ".signature-box { width: 280px; margin: 0 auto; text-align: center; padding: 10px; border: 1px dashed " + colorPrimario + "; border-radius: 6px; background-color: #fafafa; }" +
-                ".signature-line { border-top: 2px solid #333; margin-top: 5px; padding-top: 5px; font-weight: bold; font-size: 9px; }" +
-                ".footer { text-align: center; font-size: 8px; color: #888; border-top: 1px solid #ddd; padding-top: 8px; margin-top: 15px; }" +
+                ".signature-box { width: 280px; margin: 0 auto; text-align: center; padding: 10px; border: 1px dashed "
+                + colorPrimario + "; border-radius: 6px; background-color: #fafafa; }" +
+                ".signature-line { border-top: 2px solid #333; margin-top: 5px; padding-top: 5px; font-weight: bold; font-size: 9px; }"
+                +
+                ".footer { text-align: center; font-size: 8px; color: #888; border-top: 1px solid #ddd; padding-top: 8px; margin-top: 15px; }"
+                +
                 ".two-col { display: table; width: 100%; }" +
                 ".two-col > div { display: table-cell; width: 50%; vertical-align: top; padding-right: 10px; }" +
                 ".two-col > div:last-child { padding-right: 0; padding-left: 10px; }" +
@@ -415,7 +432,8 @@ public class FirmaController {
                 "<td class='header-info'>" +
                 "<div class='document-title'>Acta de Conformidad del Servicio</div>" +
                 "<div class='document-subtitle'>Documento de Aceptación del Procedimiento</div>" +
-                "<div class='orden-numero'>OT N°: " + escaparHtml(request.numeroOrden) + " | Fecha: " + fechaEmision + "</div>" +
+                "<div class='orden-numero'>OT N°: " + escaparHtml(request.numeroOrden) + " | Fecha: " + fechaEmision
+                + "</div>" +
                 "</td>" +
                 "</tr>" +
                 "</table>" +
@@ -426,16 +444,30 @@ public class FirmaController {
                 "<div class='section-title'>Cliente</div>" +
                 "<table class='info-table'>" +
                 "<tr><td class='label'>Nombre:</td><td class='value'>" + escaparHtml(request.cliente) + "</td></tr>" +
-                (request.clienteCedula != null && !request.clienteCedula.isBlank() ? "<tr><td class='label'>Cédula:</td><td class='value'>" + escaparHtml(request.clienteCedula) + "</td></tr>" : "") +
-                (request.clienteTelefono != null && !request.clienteTelefono.isBlank() ? "<tr><td class='label'>Teléfono:</td><td class='value'>" + escaparHtml(request.clienteTelefono) + "</td></tr>" : "") +
-                (request.clienteCorreo != null && !request.clienteCorreo.isBlank() ? "<tr><td class='label'>Correo:</td><td class='value'>" + escaparHtml(request.clienteCorreo) + "</td></tr>" : "") +
+                (request.clienteCedula != null && !request.clienteCedula.isBlank()
+                        ? "<tr><td class='label'>Cédula:</td><td class='value'>" + escaparHtml(request.clienteCedula)
+                                + "</td></tr>"
+                        : "")
+                +
+                (request.clienteTelefono != null && !request.clienteTelefono.isBlank()
+                        ? "<tr><td class='label'>Teléfono:</td><td class='value'>"
+                                + escaparHtml(request.clienteTelefono) + "</td></tr>"
+                        : "")
+                +
+                (request.clienteCorreo != null && !request.clienteCorreo.isBlank()
+                        ? "<tr><td class='label'>Correo:</td><td class='value'>" + escaparHtml(request.clienteCorreo)
+                                + "</td></tr>"
+                        : "")
+                +
                 "</table>" +
                 "</div>" +
                 "<div>" +
                 "<div class='section-title'>Equipo</div>" +
                 "<table class='info-table'>" +
-                "<tr><td class='label'>Marca/Modelo:</td><td class='value'>" + escaparHtml(request.equipo) + "</td></tr>" +
-                "<tr><td class='label'>N° Serie:</td><td class='value'><b>" + escaparHtml(numeroSerie) + "</b></td></tr>" +
+                "<tr><td class='label'>Marca/Modelo:</td><td class='value'>" + escaparHtml(request.equipo)
+                + "</td></tr>" +
+                "<tr><td class='label'>N° Serie:</td><td class='value'><b>" + escaparHtml(numeroSerie)
+                + "</b></td></tr>" +
                 "</table>" +
                 "</div>" +
                 "</div>" +
@@ -443,7 +475,9 @@ public class FirmaController {
                 // Técnico Encargado
                 "<div class='section-title'>Técnico Encargado</div>" +
                 "<table class='info-table'>" +
-                "<tr><td class='label' style='width:15%'>Nombre:</td><td class='value' style='width:85%'>" + escaparHtml(request.tecnicoNombre != null ? request.tecnicoNombre : "No especificado") + "</td></tr>" +
+                "<tr><td class='label' style='width:15%'>Nombre:</td><td class='value' style='width:85%'>"
+                + escaparHtml(request.tecnicoNombre != null ? request.tecnicoNombre : "No especificado") + "</td></tr>"
+                +
                 "</table>" +
 
                 // Servicio/Procedimiento
@@ -453,8 +487,10 @@ public class FirmaController {
                 // Declaración Legal
                 "<div class='legal-box'>" +
                 "<div class='legal-title'>Conformidad con el Procedimiento</div>" +
-                "<p class='legal-text'>El cliente declara estar conforme con el procedimiento técnico propuesto para la resolución del inconveniente reportado en el equipo y se compromete a permitir que sea realizado. El presente documento sirve como constancia de aceptación y autorización para proceder con el servicio técnico.</p>" +
-                "<p class='legal-text'><b>VALIDEZ DE LA FIRMA DIGITAL:</b> La firma digital plasmada en este documento tiene plena validez jurídica como constancia de la recepción del servicio, de conformidad con la legislación ecuatoriana aplicable a los mensajes de datos y firmas electrónicas. El cliente reconoce que la firma capturada mediante dispositivo electrónico constituye manifestación inequívoca de su voluntad, con los mismos efectos probatorios que una firma manuscrita, y que el presente documento no podrá ser desconocido por el hecho de haberse generado, aceptado y suscrito por medios digitales.</p>" +
+                "<p class='legal-text'>El cliente declara estar conforme con el procedimiento técnico propuesto para la resolución del inconveniente reportado en el equipo y se compromete a permitir que sea realizado. El presente documento sirve como constancia de aceptación y autorización para proceder con el servicio técnico.</p>"
+                +
+                "<p class='legal-text'><b>VALIDEZ DE LA FIRMA DIGITAL:</b> La firma digital plasmada en este documento tiene plena validez jurídica como constancia de la recepción del servicio, de conformidad con la legislación ecuatoriana aplicable a los mensajes de datos y firmas electrónicas. El cliente reconoce que la firma capturada mediante dispositivo electrónico constituye manifestación inequívoca de su voluntad, con los mismos efectos probatorios que una firma manuscrita, y que el presente documento no podrá ser desconocido por el hecho de haberse generado, aceptado y suscrito por medios digitales.</p>"
+                +
                 "</div>" +
 
                 // Firma
@@ -494,28 +530,30 @@ public class FirmaController {
         if (request.firmante != null) {
             firmanteNombre = request.firmante.nombre != null ? request.firmante.nombre : request.cliente;
             firmanteCedula = request.firmante.cedula != null ? request.firmante.cedula : "";
-            firmanteRelacion = request.firmante.relacion != null ? request.firmante.relacion : (esTercero ? "Representante" : "Cliente");
+            firmanteRelacion = request.firmante.relacion != null ? request.firmante.relacion
+                    : (esTercero ? "Representante" : "Cliente");
         }
 
         // Número de serie del equipo
-        String numeroSerie = request.equipoNumeroSerie != null && !request.equipoNumeroSerie.isBlank() 
-            ? request.equipoNumeroSerie : "No disponible";
+        String numeroSerie = request.equipoNumeroSerie != null && !request.equipoNumeroSerie.isBlank()
+                ? request.equipoNumeroSerie
+                : "No disponible";
 
         // Sección adicional para terceros (compacta)
         String seccionFirmante = "";
         if (esTercero) {
-            seccionFirmante = 
-                "<div class='section-title'>Tercero Autorizado</div>" +
-                "<table class='info-table'>" +
-                "<tr><td class='label'>Nombre:</td><td class='value'>" + escaparHtml(firmanteNombre) + "</td>" +
-                "<td class='label'>Cédula:</td><td class='value'>" + escaparHtml(firmanteCedula) + "</td>" +
-                "<td class='label'>Relación:</td><td class='value'>" + escaparHtml(firmanteRelacion) + "</td></tr>" +
-                "</table>";
+            seccionFirmante = "<div class='section-title'>Tercero Autorizado</div>" +
+                    "<table class='info-table'>" +
+                    "<tr><td class='label'>Nombre:</td><td class='value'>" + escaparHtml(firmanteNombre) + "</td>" +
+                    "<td class='label'>Cédula:</td><td class='value'>" + escaparHtml(firmanteCedula) + "</td>" +
+                    "<td class='label'>Relación:</td><td class='value'>" + escaparHtml(firmanteRelacion) + "</td></tr>"
+                    +
+                    "</table>";
         }
 
-        String firmaLabel = esTercero 
-            ? escaparHtml(firmanteNombre) + " (" + escaparHtml(firmanteRelacion) + ")"
-            : "Firma del Cliente";
+        String firmaLabel = esTercero
+                ? escaparHtml(firmanteNombre) + " (" + escaparHtml(firmanteRelacion) + ")"
+                : "Firma del Cliente";
 
         // Color morado del sistema
         String colorPrimario = "#7c3aed"; // Violet-600
@@ -528,27 +566,40 @@ public class FirmaController {
                 "<meta charset='UTF-8' />" +
                 "<style>" +
                 "@page { size: A4; margin: 1.5cm; }" +
-                "body { font-family: 'Helvetica', 'Arial', sans-serif; color: #333; line-height: 1.4; font-size: 10px; margin: 0; padding: 0; }" +
-                ".header-table { width: 100%; border-bottom: 3px solid " + colorPrimario + "; padding-bottom: 10px; margin-bottom: 15px; }" +
+                "body { font-family: 'Helvetica', 'Arial', sans-serif; color: #333; line-height: 1.4; font-size: 10px; margin: 0; padding: 0; }"
+                +
+                ".header-table { width: 100%; border-bottom: 3px solid " + colorPrimario
+                + "; padding-bottom: 10px; margin-bottom: 15px; }" +
                 ".header-logo { width: 35%; vertical-align: middle; }" +
                 ".header-info { width: 65%; text-align: right; vertical-align: middle; }" +
-                ".document-title { font-size: 16px; font-weight: bold; color: " + colorPrimario + "; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 5px 0; }" +
+                ".document-title { font-size: 16px; font-weight: bold; color: " + colorPrimario
+                + "; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 5px 0; }" +
                 ".document-subtitle { font-size: 10px; color: #666; margin: 0 0 5px 0; }" +
                 ".orden-numero { font-size: 11px; color: " + colorPrimarioOscuro + "; font-weight: bold; }" +
-                ".section-title { background-color: " + colorPrimarioClaro + "; padding: 6px 10px; font-weight: bold; border-left: 4px solid " + colorPrimario + "; margin-top: 12px; margin-bottom: 8px; font-size: 11px; color: " + colorPrimarioOscuro + "; }" +
+                ".section-title { background-color: " + colorPrimarioClaro
+                + "; padding: 6px 10px; font-weight: bold; border-left: 4px solid " + colorPrimario
+                + "; margin-top: 12px; margin-bottom: 8px; font-size: 11px; color: " + colorPrimarioOscuro + "; }" +
                 ".info-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }" +
                 ".info-table td { padding: 5px 8px; border-bottom: 1px solid #e0e0e0; font-size: 10px; }" +
                 ".label { font-weight: bold; color: #555; background-color: #fafafa; white-space: nowrap; }" +
                 ".value { color: #000; }" +
-                ".procedimiento-box { background-color: #f9f9f9; border: 1px solid #ddd; padding: 8px; border-radius: 4px; margin-bottom: 10px; text-align: justify; white-space: pre-wrap; line-height: 1.4; font-size: 9px; max-height: 80px; overflow: hidden; }" +
-                ".legal-box { border: 2px solid " + colorPrimario + "; background-color: " + colorPrimarioClaro + "; padding: 10px; font-size: 8px; text-align: justify; color: #333; margin-top: 12px; border-radius: 4px; }" +
-                ".legal-title { font-weight: bold; font-size: 10px; color: " + colorPrimarioOscuro + "; margin-bottom: 8px; text-align: center; text-transform: uppercase; }" +
+                ".procedimiento-box { background-color: #f9f9f9; border: 1px solid #ddd; padding: 8px; border-radius: 4px; margin-bottom: 10px; text-align: justify; white-space: pre-wrap; line-height: 1.4; font-size: 9px; max-height: 80px; overflow: hidden; }"
+                +
+                ".legal-box { border: 2px solid " + colorPrimario + "; background-color: " + colorPrimarioClaro
+                + "; padding: 10px; font-size: 8px; text-align: justify; color: #333; margin-top: 12px; border-radius: 4px; }"
+                +
+                ".legal-title { font-weight: bold; font-size: 10px; color: " + colorPrimarioOscuro
+                + "; margin-bottom: 8px; text-align: center; text-transform: uppercase; }" +
                 ".legal-text { margin-bottom: 6px; line-height: 1.4; }" +
-                ".tercero-notice { background-color: #fef3c7; border: 1px solid #f59e0b; padding: 6px; margin-top: 8px; border-radius: 3px; font-size: 8px; }" +
+                ".tercero-notice { background-color: #fef3c7; border: 1px solid #f59e0b; padding: 6px; margin-top: 8px; border-radius: 3px; font-size: 8px; }"
+                +
                 ".signature-section { margin-top: 15px; }" +
-                ".signature-box { width: 280px; margin: 0 auto; text-align: center; padding: 10px; border: 1px dashed " + colorPrimario + "; border-radius: 6px; background-color: #fafafa; }" +
-                ".signature-line { border-top: 2px solid #333; margin-top: 5px; padding-top: 5px; font-weight: bold; font-size: 9px; }" +
-                ".footer { text-align: center; font-size: 8px; color: #888; border-top: 1px solid #ddd; padding-top: 8px; margin-top: 15px; }" +
+                ".signature-box { width: 280px; margin: 0 auto; text-align: center; padding: 10px; border: 1px dashed "
+                + colorPrimario + "; border-radius: 6px; background-color: #fafafa; }" +
+                ".signature-line { border-top: 2px solid #333; margin-top: 5px; padding-top: 5px; font-weight: bold; font-size: 9px; }"
+                +
+                ".footer { text-align: center; font-size: 8px; color: #888; border-top: 1px solid #ddd; padding-top: 8px; margin-top: 15px; }"
+                +
                 ".two-col { display: table; width: 100%; }" +
                 ".two-col > div { display: table-cell; width: 50%; vertical-align: top; padding-right: 10px; }" +
                 ".two-col > div:last-child { padding-right: 0; padding-left: 10px; }" +
@@ -563,7 +614,8 @@ public class FirmaController {
                 "<td class='header-info'>" +
                 "<div class='document-title'>Acta de Conformidad del Servicio Recibido</div>" +
                 "<div class='document-subtitle'>Documento de Constancia de Entrega y Aceptación</div>" +
-                "<div class='orden-numero'>OT N°: " + escaparHtml(request.numeroOrden) + " | Fecha: " + fechaEmision + "</div>" +
+                "<div class='orden-numero'>OT N°: " + escaparHtml(request.numeroOrden) + " | Fecha: " + fechaEmision
+                + "</div>" +
                 "</td>" +
                 "</tr>" +
                 "</table>" +
@@ -574,17 +626,22 @@ public class FirmaController {
                 "<div class='section-title'>Cliente</div>" +
                 "<table class='info-table'>" +
                 "<tr><td class='label'>Nombre:</td><td class='value'>" + escaparHtml(request.cliente) + "</td></tr>" +
-                "<tr><td class='label'>Cédula:</td><td class='value'>" + escaparHtml(request.clienteCedula) + "</td></tr>" +
-                "<tr><td class='label'>Teléfono:</td><td class='value'>" + escaparHtml(request.clienteTelefono) + "</td></tr>" +
-                "<tr><td class='label'>Correo:</td><td class='value'>" + escaparHtml(request.clienteCorreo) + "</td></tr>" +
+                "<tr><td class='label'>Cédula:</td><td class='value'>" + escaparHtml(request.clienteCedula)
+                + "</td></tr>" +
+                "<tr><td class='label'>Teléfono:</td><td class='value'>" + escaparHtml(request.clienteTelefono)
+                + "</td></tr>" +
+                "<tr><td class='label'>Correo:</td><td class='value'>" + escaparHtml(request.clienteCorreo)
+                + "</td></tr>" +
                 "</table>" +
                 "</div>" +
                 "<div>" +
                 "<div class='section-title'>Equipo</div>" +
                 "<table class='info-table'>" +
                 "<tr><td class='label'>Tipo:</td><td class='value'>" + escaparHtml(request.equipoTipo) + "</td></tr>" +
-                "<tr><td class='label'>Marca/Modelo:</td><td class='value'>" + escaparHtml(request.equipo) + "</td></tr>" +
-                "<tr><td class='label'>N° Serie:</td><td class='value'><b>" + escaparHtml(numeroSerie) + "</b></td></tr>" +
+                "<tr><td class='label'>Marca/Modelo:</td><td class='value'>" + escaparHtml(request.equipo)
+                + "</td></tr>" +
+                "<tr><td class='label'>N° Serie:</td><td class='value'><b>" + escaparHtml(numeroSerie)
+                + "</b></td></tr>" +
                 "</table>" +
                 "</div>" +
                 "</div>" +
@@ -592,8 +649,10 @@ public class FirmaController {
                 // Técnico Encargado
                 "<div class='section-title'>Técnico Encargado</div>" +
                 "<table class='info-table'>" +
-                "<tr><td class='label' style='width:15%'>Nombre:</td><td class='value' style='width:35%'>" + escaparHtml(request.tecnicoNombre) + "</td>" +
-                "<td class='label' style='width:15%'>Cédula:</td><td class='value' style='width:35%'>" + escaparHtml(request.tecnicoCedula) + "</td></tr>" +
+                "<tr><td class='label' style='width:15%'>Nombre:</td><td class='value' style='width:35%'>"
+                + escaparHtml(request.tecnicoNombre) + "</td>" +
+                "<td class='label' style='width:15%'>Cédula:</td><td class='value' style='width:35%'>"
+                + escaparHtml(request.tecnicoCedula) + "</td></tr>" +
                 "</table>" +
 
                 // Servicio Realizado
@@ -606,12 +665,16 @@ public class FirmaController {
                 // Declaración Legal compacta
                 "<div class='legal-box'>" +
                 "<div class='legal-title'>Declaración de Conformidad</div>" +
-                "<p class='legal-text'>Por medio del presente documento, el cliente declara haber revisado el funcionamiento del equipo, el estado de sus componentes físicos, y acepta el servicio técnico realizado a su entera satisfacción. Se libera a la empresa de toda responsabilidad sobre fallas futuras no relacionadas con el servicio técnico prestado o derivadas del mal uso del dispositivo.</p>" +
-                "<p class='legal-text'>La firma digital plasmada en este documento tiene plena validez jurídica como constancia de la recepción del servicio, de conformidad con la legislación ecuatoriana aplicable a los mensajes de datos y firmas electrónicas. El cliente reconoce que la firma capturada mediante dispositivo electrónico constituye manifestación inequívoca de su voluntad, con los mismos efectos probatorios que una firma manuscrita, y que el presente documento no podrá ser desconocido por el hecho de haberse generado, aceptado y suscrito por medios digitales.</p>" +
-                (esTercero 
-                    ? "<div class='tercero-notice'><b>Nota:</b> Documento suscrito por <b>" + escaparHtml(firmanteNombre) + "</b> (C.I.: " + escaparHtml(firmanteCedula) + "), como <b>" + escaparHtml(firmanteRelacion) + "</b> del cliente.</div>"
-                    : ""
-                ) +
+                "<p class='legal-text'>Por medio del presente documento, el cliente declara haber revisado el funcionamiento del equipo, el estado de sus componentes físicos, y acepta el servicio técnico realizado a su entera satisfacción. Se libera a la empresa de toda responsabilidad sobre fallas futuras no relacionadas con el servicio técnico prestado o derivadas del mal uso del dispositivo.</p>"
+                +
+                "<p class='legal-text'>La firma digital plasmada en este documento tiene plena validez jurídica como constancia de la recepción del servicio, de conformidad con la legislación ecuatoriana aplicable a los mensajes de datos y firmas electrónicas. El cliente reconoce que la firma capturada mediante dispositivo electrónico constituye manifestación inequívoca de su voluntad, con los mismos efectos probatorios que una firma manuscrita, y que el presente documento no podrá ser desconocido por el hecho de haberse generado, aceptado y suscrito por medios digitales.</p>"
+                +
+                (esTercero
+                        ? "<div class='tercero-notice'><b>Nota:</b> Documento suscrito por <b>"
+                                + escaparHtml(firmanteNombre) + "</b> (C.I.: " + escaparHtml(firmanteCedula)
+                                + "), como <b>" + escaparHtml(firmanteRelacion) + "</b> del cliente.</div>"
+                        : "")
+                +
                 "</div>" +
 
                 // Firma

@@ -1,6 +1,5 @@
 package com.newbie.newbiecore.service;
 
-
 import com.newbie.newbiecore.dto.OrdenTrabajo.ImagenDto;
 import com.newbie.newbiecore.entity.CategoriaImagen;
 import com.newbie.newbiecore.entity.Imagen;
@@ -27,8 +26,8 @@ public class OrdenTrabajoImagenService {
     private final Path uploadPath;
 
     public OrdenTrabajoImagenService(OrdenTrabajoRepository ordenTrabajoRepository,
-                                     OrdenTrabajoImagenRepository ordenTrabajoImagenRepository,
-                                     @Value("${app.upload-dir:uploads}") String uploadDir) {
+            OrdenTrabajoImagenRepository ordenTrabajoImagenRepository,
+            @Value("${app.upload-dir:uploads}") String uploadDir) {
         this.ordenTrabajoRepository = ordenTrabajoRepository;
         this.ordenTrabajoImagenRepository = ordenTrabajoImagenRepository;
         this.uploadPath = Paths.get(uploadDir).toAbsolutePath().normalize();
@@ -44,9 +43,9 @@ public class OrdenTrabajoImagenService {
 
     @Transactional
     public OrdenTrabajo subirImagenes(Long ordenId,
-                                      List<MultipartFile> files,
-                                      String categoriaStr,
-                                      String descripcionGlobal) throws IOException {
+            List<MultipartFile> files,
+            String categoriaStr,
+            String descripcionGlobal) throws IOException {
 
         if (files == null || files.isEmpty()) {
             throw new IllegalArgumentException("Debes enviar al menos un archivo");
@@ -57,17 +56,17 @@ public class OrdenTrabajoImagenService {
 
         // Estructura: OT-00015/imagenes/INGRESO/, OT-00015/imagenes/DIAGNOSTICO/, etc.
         String folderName = orden.getNumeroOrden();
-        
+
         CategoriaImagen categoria = CategoriaImagen.valueOf(
-                categoriaStr == null ? "OTRO" : categoriaStr.toUpperCase()
-        );
-        
+                categoriaStr == null ? "OTRO" : categoriaStr.toUpperCase());
+
         // Crear estructura: numeroOrden/imagenes/CATEGORIA/
         Path imagenesPath = uploadPath.resolve(folderName).resolve("imagenes").resolve(categoria.name());
         Files.createDirectories(imagenesPath);
 
         for (MultipartFile file : files) {
-            if (file.isEmpty()) continue;
+            if (file.isEmpty())
+                continue;
 
             String fileName = UUID.randomUUID() + "-" + file.getOriginalFilename();
             Path filePath = imagenesPath.resolve(fileName);
@@ -102,8 +101,7 @@ public class OrdenTrabajoImagenService {
                         img.getRuta(),
                         img.getCategoria(),
                         img.getDescripcion(),
-                        img.getFechaSubida()
-                ))
+                        img.getFechaSubida()))
                 .toList();
     }
 }

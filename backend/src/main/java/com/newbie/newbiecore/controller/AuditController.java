@@ -43,7 +43,7 @@ public class AuditController {
     public ResponseEntity<Page<AuditLog>> listarTodos(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
-        
+
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "timestamp"));
         Page<AuditLog> logs = auditLogRepository.findAll(pageable);
         return ResponseEntity.ok(logs);
@@ -87,10 +87,10 @@ public class AuditController {
     public ResponseEntity<List<AuditLog>> porRangoFechas(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaInicio,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaFin) {
-        
+
         LocalDateTime inicio = fechaInicio.atStartOfDay();
         LocalDateTime fin = fechaFin.atTime(LocalTime.MAX);
-        
+
         List<AuditLog> logs = auditService.obtenerPorRangoFechas(inicio, fin);
         return ResponseEntity.ok(logs);
     }
@@ -112,23 +112,23 @@ public class AuditController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> estadisticas() {
         Map<String, Object> stats = new HashMap<>();
-        
+
         long totalRegistros = auditLogRepository.count();
-        
+
         // Registros de hoy
         LocalDateTime inicioHoy = LocalDate.now().atStartOfDay();
         LocalDateTime finHoy = LocalDate.now().atTime(LocalTime.MAX);
         List<AuditLog> logsHoy = auditService.obtenerPorRangoFechas(inicioHoy, finHoy);
-        
+
         // Registros de la semana
         LocalDateTime inicioSemana = LocalDate.now().minusDays(7).atStartOfDay();
         List<AuditLog> logsSemana = auditService.obtenerPorRangoFechas(inicioSemana, finHoy);
-        
+
         stats.put("totalRegistros", totalRegistros);
         stats.put("registrosHoy", logsHoy.size());
         stats.put("registrosSemana", logsSemana.size());
         stats.put("ultimosRegistros", logsHoy.stream().limit(10).toList());
-        
+
         return ResponseEntity.ok(stats);
     }
 
@@ -140,7 +140,7 @@ public class AuditController {
     public ResponseEntity<Page<AuditLog>> cambiosConfiguracion(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        
+
         Pageable pageable = PageRequest.of(page, size);
         Page<AuditLog> logs = auditLogRepository.findConfigurationChanges(pageable);
         return ResponseEntity.ok(logs);

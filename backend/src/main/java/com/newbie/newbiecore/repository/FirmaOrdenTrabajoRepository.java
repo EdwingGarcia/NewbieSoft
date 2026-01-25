@@ -30,13 +30,17 @@ public interface FirmaOrdenTrabajoRepository extends JpaRepository<FirmaOrdenTra
     // Buscar firmas por cédula del firmante
     List<FirmaOrdenTrabajo> findByFirmanteCedula(String cedula);
 
-    // Obtener solo fecha, nombre y tipo de firmante (sin cargar el LOB) - ordenado por fecha más reciente
+    // Obtener solo fecha, nombre y tipo de firmante (sin cargar el LOB) - ordenado
+    // por fecha más reciente
     @Query("SELECT f.fechaFirma FROM FirmaOrdenTrabajo f WHERE f.numeroOrden = :numeroOrden AND f.tipoFirma = :tipoFirma ORDER BY f.fechaFirma DESC LIMIT 1")
-    Optional<Instant> findFechaFirmaByNumeroOrdenAndTipoFirma(@Param("numeroOrden") String numeroOrden, @Param("tipoFirma") TipoFirmaOT tipoFirma);
+    Optional<Instant> findFechaFirmaByNumeroOrdenAndTipoFirma(@Param("numeroOrden") String numeroOrden,
+            @Param("tipoFirma") TipoFirmaOT tipoFirma);
 
     @Query("SELECT f.firmanteNombre FROM FirmaOrdenTrabajo f WHERE f.numeroOrden = :numeroOrden AND f.tipoFirma = :tipoFirma ORDER BY f.fechaFirma DESC LIMIT 1")
-    Optional<String> findFirmanteNombreByNumeroOrdenAndTipoFirma(@Param("numeroOrden") String numeroOrden, @Param("tipoFirma") TipoFirmaOT tipoFirma);
+    Optional<String> findFirmanteNombreByNumeroOrdenAndTipoFirma(@Param("numeroOrden") String numeroOrden,
+            @Param("tipoFirma") TipoFirmaOT tipoFirma);
 
     @Query("SELECT f.tipoFirmante FROM FirmaOrdenTrabajo f WHERE f.numeroOrden = :numeroOrden AND f.tipoFirma = :tipoFirma ORDER BY f.fechaFirma DESC LIMIT 1")
-    Optional<String> findTipoFirmanteByNumeroOrdenAndTipoFirma(@Param("numeroOrden") String numeroOrden, @Param("tipoFirma") TipoFirmaOT tipoFirma);
+    Optional<String> findTipoFirmanteByNumeroOrdenAndTipoFirma(@Param("numeroOrden") String numeroOrden,
+            @Param("tipoFirma") TipoFirmaOT tipoFirma);
 }
