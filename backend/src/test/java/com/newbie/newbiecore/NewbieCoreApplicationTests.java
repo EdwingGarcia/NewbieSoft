@@ -1,11 +1,14 @@
 package com.newbie.newbiecore;
 
+import com.newbie.newbiecore.config.TestContainersConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 
 @SpringBootTest
-@ActiveProfiles("test")   // 👈 este perfil hace que NO se cree GoogleDriveService
+@Import(TestContainersConfig.class)
+@ActiveProfiles("test")
 class NewbieCoreApplicationTests {
 
     @Test
