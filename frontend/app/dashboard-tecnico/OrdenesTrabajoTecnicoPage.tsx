@@ -964,6 +964,9 @@ export default function OrdenesTrabajoPage() {
     const startIndex = (currentPage - 1) * itemsPerPage;
     const currentOrdenes = ordenesFiltradas.slice(startIndex, startIndex + itemsPerPage);
 
+    // 🔒 Determinar si la OT está cerrada (solo lectura)
+    const esCerrada = detalle?.estado?.toUpperCase() === "CERRADA";
+
     /* ===== GET lista - Solo las órdenes del técnico logueado ===== */
     const fetchOrdenes = useCallback(async () => {
         setLoading(true);
@@ -2633,15 +2636,17 @@ export default function OrdenesTrabajoPage() {
                                                                 </div>
 
                                                                 {/* ✅ BOTÓN NUEVA FICHA CON LÓGICA DE MODAL */}
-                                                                <Button
-                                                                    type="button"
-                                                                    size="sm"
-                                                                    className="h-8 bg-slate-900 text-[11px] text-white hover:bg-slate-800"
-                                                                    onClick={() => setShowCrearFichaTecnica(true)}
-                                                                >
-                                                                    <Plus className="h-4 w-4 mr-1" />
-                                                                    Nueva ficha
-                                                                </Button>
+                                                                {!esCerrada && (
+                                                                    <Button
+                                                                        type="button"
+                                                                        size="sm"
+                                                                        className="h-8 bg-slate-900 text-[11px] text-white hover:bg-slate-800"
+                                                                        onClick={() => setShowCrearFichaTecnica(true)}
+                                                                    >
+                                                                        <Plus className="h-4 w-4 mr-1" />
+                                                                        Nueva ficha
+                                                                    </Button>
+                                                                )}
                                                             </div>
 
                                                             <div className="mt-3">
@@ -2707,20 +2712,22 @@ export default function OrdenesTrabajoPage() {
                                                                                     </span>
 
                                                                                     {/* Eliminar (no abre) */}
-                                                                                    <button
-                                                                                        type="button"
-                                                                                        onClick={(e) => {
-                                                                                            e.stopPropagation();
-                                                                                            const ok = window.confirm(`¿Eliminar la ficha #${f.id}?`);
-                                                                                            if (!ok) return;
-                                                                                            eliminarFichaTecnica(f.id);
-                                                                                        }}
-                                                                                        className="ml-1 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-700 opacity-0 transition hover:bg-rose-100 group-hover:opacity-100"
-                                                                                        title="Eliminar ficha"
-                                                                                        aria-label={`Eliminar ficha ${f.id}`}
-                                                                                    >
-                                                                                        <X className="h-4 w-4" />
-                                                                                    </button>
+                                                                                    {!esCerrada && (
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            onClick={(e) => {
+                                                                                                e.stopPropagation();
+                                                                                                const ok = window.confirm(`¿Eliminar la ficha #${f.id}?`);
+                                                                                                if (!ok) return;
+                                                                                                eliminarFichaTecnica(f.id);
+                                                                                            }}
+                                                                                            className="ml-1 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-700 opacity-0 transition hover:bg-rose-100 group-hover:opacity-100"
+                                                                                            title="Eliminar ficha"
+                                                                                            aria-label={`Eliminar ficha ${f.id}`}
+                                                                                        >
+                                                                                            <X className="h-4 w-4" />
+                                                                                        </button>
+                                                                                    )}
                                                                                 </div>
                                                                             </div>
                                                                         ))}
@@ -2737,7 +2744,8 @@ export default function OrdenesTrabajoPage() {
                                                                 value={diagEdit}
                                                                 onChange={(e) => setDiagEdit(e.target.value)}
                                                                 placeholder="Describe el diagnóstico, pruebas realizadas y trabajo ejecutado..."
-                                                                className="min-h-[110px] w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+                                                                disabled={esCerrada}
+                                                                className={`min-h-[110px] w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 ${esCerrada ? 'bg-slate-100 cursor-not-allowed opacity-70' : ''}`}
                                                             />
 
                                                             <label className="text-[11px] font-medium text-slate-700">
@@ -2747,7 +2755,8 @@ export default function OrdenesTrabajoPage() {
                                                                 value={obsRecEdit}
                                                                 onChange={(e) => setObsRecEdit(e.target.value)}
                                                                 placeholder="Notas finales para el cliente, recomendaciones, etc."
-                                                                className="min-h-[110px] w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+                                                                disabled={esCerrada}
+                                                                className={`min-h-[110px] w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 ${esCerrada ? 'bg-slate-100 cursor-not-allowed opacity-70' : ''}`}
                                                             />
                                                         </div>
 
@@ -2762,15 +2771,17 @@ export default function OrdenesTrabajoPage() {
                                                                     <p className="text-center text-[11px] text-emerald-700">
                                                                         El cliente ya ha firmado la conformidad del procedimiento.
                                                                     </p>
-                                                                    <Button
-                                                                        type="button"
-                                                                        variant="outline"
-                                                                        onClick={() => iniciarFirmaConformidad("conformidad")}
-                                                                        className="flex items-center gap-2 border-emerald-400 text-emerald-700 hover:bg-emerald-100"
-                                                                    >
-                                                                        <PenTool className="h-4 w-4" />
-                                                                        Firmar Nuevamente
-                                                                    </Button>
+                                                                    {!esCerrada && (
+                                                                        <Button
+                                                                            type="button"
+                                                                            variant="outline"
+                                                                            onClick={() => iniciarFirmaConformidad("conformidad")}
+                                                                            className="flex items-center gap-2 border-emerald-400 text-emerald-700 hover:bg-emerald-100"
+                                                                        >
+                                                                            <PenTool className="h-4 w-4" />
+                                                                            Firmar Nuevamente
+                                                                        </Button>
+                                                                    )}
                                                                 </>
                                                             ) : (
                                                                 <>
@@ -2781,14 +2792,16 @@ export default function OrdenesTrabajoPage() {
                                                                     <p className="text-center text-[11px] text-blue-700">
                                                                         El cliente debe firmar para confirmar que acepta el procedimiento técnico propuesto.
                                                                     </p>
-                                                                    <Button
-                                                                        type="button"
-                                                                        onClick={() => iniciarFirmaConformidad("conformidad")}
-                                                                        className="flex items-center gap-2 bg-blue-600 text-white hover:bg-blue-700"
-                                                                    >
-                                                                        <PenTool className="h-4 w-4" />
-                                                                        Abrir Panel de Firma
-                                                                    </Button>
+                                                                    {!esCerrada && (
+                                                                        <Button
+                                                                            type="button"
+                                                                            onClick={() => iniciarFirmaConformidad("conformidad")}
+                                                                            className="flex items-center gap-2 bg-blue-600 text-white hover:bg-blue-700"
+                                                                        >
+                                                                            <PenTool className="h-4 w-4" />
+                                                                            Abrir Panel de Firma
+                                                                        </Button>
+                                                                    )}
                                                                 </>
                                                             )}
                                                         </div>
@@ -2847,15 +2860,17 @@ export default function OrdenesTrabajoPage() {
                                                                         <p className="text-center text-[11px] text-emerald-700">
                                                                             El cliente ya ha firmado el recibo de entrega del equipo.
                                                                         </p>
-                                                                        <Button
-                                                                            type="button"
-                                                                            variant="outline"
-                                                                            onClick={iniciarFirmaRecibo}
-                                                                            className="mt-3 flex items-center gap-2 border-emerald-400 text-emerald-700 hover:bg-emerald-100"
-                                                                        >
-                                                                            <PenTool className="h-4 w-4" />
-                                                                            Firmar Nuevamente
-                                                                        </Button>
+                                                                        {!esCerrada && (
+                                                                            <Button
+                                                                                type="button"
+                                                                                variant="outline"
+                                                                                onClick={iniciarFirmaRecibo}
+                                                                                className="mt-3 flex items-center gap-2 border-emerald-400 text-emerald-700 hover:bg-emerald-100"
+                                                                            >
+                                                                                <PenTool className="h-4 w-4" />
+                                                                                Firmar Nuevamente
+                                                                            </Button>
+                                                                        )}
                                                                     </>
                                                                 ) : (
                                                                     <>
@@ -2866,14 +2881,16 @@ export default function OrdenesTrabajoPage() {
                                                                         <p className="text-center text-[11px] text-slate-600 mb-4">
                                                                             El cliente o un tercero autorizado debe firmar para confirmar la entrega del equipo.
                                                                         </p>
-                                                                        <Button
-                                                                            type="button"
-                                                                            onClick={iniciarFirmaRecibo}
-                                                                            className="flex items-center gap-2 bg-emerald-600 text-sm text-white hover:bg-emerald-700"
-                                                                        >
-                                                                            <PenTool className="h-4 w-4" />
-                                                                            Abrir Panel de Firma
-                                                                        </Button>
+                                                                        {!esCerrada && (
+                                                                            <Button
+                                                                                type="button"
+                                                                                onClick={iniciarFirmaRecibo}
+                                                                                className="flex items-center gap-2 bg-emerald-600 text-sm text-white hover:bg-emerald-700"
+                                                                            >
+                                                                                <PenTool className="h-4 w-4" />
+                                                                                Abrir Panel de Firma
+                                                                            </Button>
+                                                                        )}
                                                                     </>
                                                                 )}
                                                             </div>
@@ -3000,156 +3017,168 @@ export default function OrdenesTrabajoPage() {
                                                     )}
                                                 </div>
 
-                                                <div className="rounded-xl border-2 border-dashed border-slate-200 bg-gradient-to-br from-slate-50 to-white p-4 transition-all hover:border-blue-300 hover:bg-blue-50/30">
-                                                    <div className="mb-3 flex items-center justify-between">
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100">
-                                                                <Upload className="h-4 w-4 text-blue-600" />
+                                                {esCerrada ? (
+                                                    <div className="rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 p-6">
+                                                        <div className="flex flex-col items-center justify-center gap-2 text-center">
+                                                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100">
+                                                                <span className="text-2xl">🔒</span>
                                                             </div>
-                                                            <div>
-                                                                <p className="text-xs font-semibold text-slate-700">Subir nuevas imágenes</p>
-                                                                <p className="text-[10px] text-slate-400">Arrastra o selecciona archivos</p>
-                                                            </div>
+                                                            <p className="text-sm font-medium text-slate-600">Orden cerrada - Solo lectura</p>
+                                                            <p className="text-xs text-slate-400">No se pueden subir más imágenes</p>
                                                         </div>
-                                                        <Select value={categoriaImg} onValueChange={setCategoriaImg}>
-                                                            <SelectTrigger className="h-8 w-[130px] border-slate-200 bg-white text-xs shadow-sm">
-                                                                <SelectValue placeholder="Categoría" />
-                                                            </SelectTrigger>
-                                                            <SelectContent>
-                                                                <SelectItem value="INGRESO">
-                                                                    <span className="flex items-center gap-2">
-                                                                        <span className="h-2 w-2 rounded-full bg-green-500"></span> Ingreso
-                                                                    </span>
-                                                                </SelectItem>
-                                                                <SelectItem value="DIAGNOSTICO">
-                                                                    <span className="flex items-center gap-2">
-                                                                        <span className="h-2 w-2 rounded-full bg-blue-500"></span> Diagnóstico
-                                                                    </span>
-                                                                </SelectItem>
-                                                                <SelectItem value="REPARACION">
-                                                                    <span className="flex items-center gap-2">
-                                                                        <span className="h-2 w-2 rounded-full bg-orange-500"></span> Reparación
-                                                                    </span>
-                                                                </SelectItem>
-                                                                <SelectItem value="ENTREGA">
-                                                                    <span className="flex items-center gap-2">
-                                                                        <span className="h-2 w-2 rounded-full bg-purple-500"></span> Entrega
-                                                                    </span>
-                                                                </SelectItem>
-                                                                <SelectItem value="OTRO">
-                                                                    <span className="flex items-center gap-2">
-                                                                        <span className="h-2 w-2 rounded-full bg-slate-400"></span> Otro
-                                                                    </span>
-                                                                </SelectItem>
-                                                            </SelectContent>
-                                                        </Select>
                                                     </div>
-
-                                                    <label
-                                                        className="group relative flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-200 bg-white py-6 transition-all hover:border-blue-400 hover:bg-blue-50/50"
-                                                        onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('border-blue-400', 'bg-blue-50'); }}
-                                                        onDragLeave={(e) => { e.currentTarget.classList.remove('border-blue-400', 'bg-blue-50'); }}
-                                                        onDrop={(e) => {
-                                                            e.preventDefault();
-                                                            e.currentTarget.classList.remove('border-blue-400', 'bg-blue-50');
-                                                            const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
-                                                            if (files.length > 0) setImagenesNuevas(prev => [...prev, ...files]);
-                                                        }}
-                                                    >
-                                                        <input
-                                                            type="file"
-                                                            accept="image/*"
-                                                            multiple
-                                                            onChange={(e) => setImagenesNuevas(prev => [...prev, ...Array.from(e.target.files || [])])}
-                                                            className="absolute inset-0 cursor-pointer opacity-0"
-                                                        />
-                                                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 transition-all group-hover:bg-blue-100 group-hover:scale-110">
-                                                            <Camera className="h-6 w-6 text-slate-400 transition-colors group-hover:text-blue-500" />
+                                                ) : (
+                                                    <div className="rounded-xl border-2 border-dashed border-slate-200 bg-gradient-to-br from-slate-50 to-white p-4 transition-all hover:border-blue-300 hover:bg-blue-50/30">
+                                                        <div className="mb-3 flex items-center justify-between">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100">
+                                                                    <Upload className="h-4 w-4 text-blue-600" />
+                                                                </div>
+                                                                <div>
+                                                                    <p className="text-xs font-semibold text-slate-700">Subir nuevas imágenes</p>
+                                                                    <p className="text-[10px] text-slate-400">Arrastra o selecciona archivos</p>
+                                                                </div>
+                                                            </div>
+                                                            <Select value={categoriaImg} onValueChange={setCategoriaImg}>
+                                                                <SelectTrigger className="h-8 w-[130px] border-slate-200 bg-white text-xs shadow-sm">
+                                                                    <SelectValue placeholder="Categoría" />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    <SelectItem value="INGRESO">
+                                                                        <span className="flex items-center gap-2">
+                                                                            <span className="h-2 w-2 rounded-full bg-green-500"></span> Ingreso
+                                                                        </span>
+                                                                    </SelectItem>
+                                                                    <SelectItem value="DIAGNOSTICO">
+                                                                        <span className="flex items-center gap-2">
+                                                                            <span className="h-2 w-2 rounded-full bg-blue-500"></span> Diagnóstico
+                                                                        </span>
+                                                                    </SelectItem>
+                                                                    <SelectItem value="REPARACION">
+                                                                        <span className="flex items-center gap-2">
+                                                                            <span className="h-2 w-2 rounded-full bg-orange-500"></span> Reparación
+                                                                        </span>
+                                                                    </SelectItem>
+                                                                    <SelectItem value="ENTREGA">
+                                                                        <span className="flex items-center gap-2">
+                                                                            <span className="h-2 w-2 rounded-full bg-purple-500"></span> Entrega
+                                                                        </span>
+                                                                    </SelectItem>
+                                                                    <SelectItem value="OTRO">
+                                                                        <span className="flex items-center gap-2">
+                                                                            <span className="h-2 w-2 rounded-full bg-slate-400"></span> Otro
+                                                                        </span>
+                                                                    </SelectItem>
+                                                                </SelectContent>
+                                                            </Select>
                                                         </div>
-                                                        <p className="mt-2 text-xs font-medium text-slate-600">Haz clic o arrastra imágenes aquí</p>
-                                                        <p className="text-[10px] text-slate-400">PNG, JPG hasta 10MB cada una</p>
-                                                    </label>
 
-                                                    {/* Botón para tomar foto con cámara (móviles) */}
-                                                    <div className="mt-3 flex justify-center">
-                                                        <label className="group flex cursor-pointer items-center gap-2 rounded-lg border border-emerald-200 bg-gradient-to-r from-emerald-50 to-green-50 px-4 py-2.5 transition-all hover:border-emerald-400 hover:from-emerald-100 hover:to-green-100 hover:shadow-md">
+                                                        <label
+                                                            className="group relative flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-200 bg-white py-6 transition-all hover:border-blue-400 hover:bg-blue-50/50"
+                                                            onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('border-blue-400', 'bg-blue-50'); }}
+                                                            onDragLeave={(e) => { e.currentTarget.classList.remove('border-blue-400', 'bg-blue-50'); }}
+                                                            onDrop={(e) => {
+                                                                e.preventDefault();
+                                                                e.currentTarget.classList.remove('border-blue-400', 'bg-blue-50');
+                                                                const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+                                                                if (files.length > 0) setImagenesNuevas(prev => [...prev, ...files]);
+                                                            }}
+                                                        >
                                                             <input
                                                                 type="file"
                                                                 accept="image/*"
-                                                                capture="environment"
-                                                                onChange={(e) => {
-                                                                    const files = Array.from(e.target.files || []);
-                                                                    if (files.length > 0) setImagenesNuevas(prev => [...prev, ...files]);
-                                                                    e.target.value = '';
-                                                                }}
-                                                                className="hidden"
+                                                                multiple
+                                                                onChange={(e) => setImagenesNuevas(prev => [...prev, ...Array.from(e.target.files || [])])}
+                                                                className="absolute inset-0 cursor-pointer opacity-0"
                                                             />
-                                                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 transition-all group-hover:bg-emerald-200 group-hover:scale-110">
-                                                                <Camera className="h-4 w-4 text-emerald-600" />
+                                                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 transition-all group-hover:bg-blue-100 group-hover:scale-110">
+                                                                <Camera className="h-6 w-6 text-slate-400 transition-colors group-hover:text-blue-500" />
                                                             </div>
-                                                            <div>
-                                                                <p className="text-xs font-semibold text-emerald-700">Tomar foto</p>
-                                                                <p className="text-[10px] text-emerald-500">Usar cámara del dispositivo</p>
-                                                            </div>
+                                                            <p className="mt-2 text-xs font-medium text-slate-600">Haz clic o arrastra imágenes aquí</p>
+                                                            <p className="text-[10px] text-slate-400">PNG, JPG hasta 10MB cada una</p>
                                                         </label>
-                                                    </div>
 
-                                                    {imagenesNuevas.length > 0 && (
-                                                        <div className="mt-4">
-                                                            <div className="mb-2 flex items-center justify-between">
-                                                                <span className="text-[11px] font-medium text-slate-600">
-                                                                    {imagenesNuevas.length} imagen{imagenesNuevas.length > 1 ? 'es' : ''} seleccionada{imagenesNuevas.length > 1 ? 's' : ''}
-                                                                </span>
-                                                                <button
-                                                                    onClick={() => setImagenesNuevas([])}
-                                                                    className="text-[10px] text-red-500 hover:text-red-600 hover:underline"
-                                                                >
-                                                                    Quitar todas
-                                                                </button>
-                                                            </div>
-                                                            <div className="grid grid-cols-4 gap-2 sm:grid-cols-5 md:grid-cols-6">
-                                                                {imagenesNuevas.map((file, index) => (
-                                                                    <div
-                                                                        key={index}
-                                                                        className="group relative aspect-square overflow-hidden rounded-lg border border-slate-200 bg-slate-100 shadow-sm transition-all hover:shadow-md hover:scale-[1.02]"
-                                                                    >
-                                                                        <img
-                                                                            src={URL.createObjectURL(file)}
-                                                                            alt="Previsualización"
-                                                                            className="h-full w-full object-cover"
-                                                                        />
-                                                                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-                                                                        <button
-                                                                            onClick={() => setImagenesNuevas((prev) => prev.filter((_, i) => i !== index))}
-                                                                            className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-red-500/90 text-white opacity-0 shadow-lg transition-all hover:bg-red-600 hover:scale-110 group-hover:opacity-100"
-                                                                            title="Quitar imagen"
-                                                                        >
-                                                                            <X className="h-3.5 w-3.5" />
-                                                                        </button>
-                                                                        <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-1.5 py-1">
-                                                                            <p className="truncate text-[9px] font-medium text-white">{file.name}</p>
-                                                                            <p className="text-[8px] text-slate-300">{(file.size / 1024).toFixed(0)} KB</p>
-                                                                        </div>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
+                                                        {/* Botón para tomar foto con cámara (móviles) */}
+                                                        <div className="mt-3 flex justify-center">
+                                                            <label className="group flex cursor-pointer items-center gap-2 rounded-lg border border-emerald-200 bg-gradient-to-r from-emerald-50 to-green-50 px-4 py-2.5 transition-all hover:border-emerald-400 hover:from-emerald-100 hover:to-green-100 hover:shadow-md">
+                                                                <input
+                                                                    type="file"
+                                                                    accept="image/*"
+                                                                    capture="environment"
+                                                                    onChange={(e) => {
+                                                                        const files = Array.from(e.target.files || []);
+                                                                        if (files.length > 0) setImagenesNuevas(prev => [...prev, ...files]);
+                                                                        e.target.value = '';
+                                                                    }}
+                                                                    className="hidden"
+                                                                />
+                                                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 transition-all group-hover:bg-emerald-200 group-hover:scale-110">
+                                                                    <Camera className="h-4 w-4 text-emerald-600" />
+                                                                </div>
+                                                                <div>
+                                                                    <p className="text-xs font-semibold text-emerald-700">Tomar foto</p>
+                                                                    <p className="text-[10px] text-emerald-500">Usar cámara del dispositivo</p>
+                                                                </div>
+                                                            </label>
                                                         </div>
-                                                    )}
 
-                                                    <div className="mt-4 flex items-center justify-between">
-                                                        <p className="text-[10px] text-slate-400">
-                                                            {imagenesNuevas.length === 0 ? 'Selecciona imágenes para subir' : `Listo para subir ${imagenesNuevas.length} archivo${imagenesNuevas.length > 1 ? 's' : ''}`}
-                                                        </p>
-                                                        <Button
-                                                            onClick={subirImagenes}
-                                                            disabled={imagenesNuevas.length === 0}
-                                                            className="flex h-9 items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-500 px-4 text-xs font-medium text-white shadow-md transition-all hover:from-blue-700 hover:to-blue-600 hover:shadow-lg disabled:from-slate-300 disabled:to-slate-300 disabled:shadow-none"
-                                                        >
-                                                            <Upload className="h-4 w-4" />
-                                                            Subir imágenes
-                                                        </Button>
+                                                        {imagenesNuevas.length > 0 && (
+                                                            <div className="mt-4">
+                                                                <div className="mb-2 flex items-center justify-between">
+                                                                    <span className="text-[11px] font-medium text-slate-600">
+                                                                        {imagenesNuevas.length} imagen{imagenesNuevas.length > 1 ? 'es' : ''} seleccionada{imagenesNuevas.length > 1 ? 's' : ''}
+                                                                    </span>
+                                                                    <button
+                                                                        onClick={() => setImagenesNuevas([])}
+                                                                        className="text-[10px] text-red-500 hover:text-red-600 hover:underline"
+                                                                    >
+                                                                        Quitar todas
+                                                                    </button>
+                                                                </div>
+                                                                <div className="grid grid-cols-4 gap-2 sm:grid-cols-5 md:grid-cols-6">
+                                                                    {imagenesNuevas.map((file, index) => (
+                                                                        <div
+                                                                            key={index}
+                                                                            className="group relative aspect-square overflow-hidden rounded-lg border border-slate-200 bg-slate-100 shadow-sm transition-all hover:shadow-md hover:scale-[1.02]"
+                                                                        >
+                                                                            <img
+                                                                                src={URL.createObjectURL(file)}
+                                                                                alt="Previsualización"
+                                                                                className="h-full w-full object-cover"
+                                                                            />
+                                                                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+                                                                            <button
+                                                                                onClick={() => setImagenesNuevas((prev) => prev.filter((_, i) => i !== index))}
+                                                                                className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-red-500/90 text-white opacity-0 shadow-lg transition-all hover:bg-red-600 hover:scale-110 group-hover:opacity-100"
+                                                                                title="Quitar imagen"
+                                                                            >
+                                                                                <X className="h-3.5 w-3.5" />
+                                                                            </button>
+                                                                            <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-1.5 py-1">
+                                                                                <p className="truncate text-[9px] font-medium text-white">{file.name}</p>
+                                                                                <p className="text-[8px] text-slate-300">{(file.size / 1024).toFixed(0)} KB</p>
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        )}
+
+                                                        <div className="mt-4 flex items-center justify-between">
+                                                            <p className="text-[10px] text-slate-400">
+                                                                {imagenesNuevas.length === 0 ? 'Selecciona imágenes para subir' : `Listo para subir ${imagenesNuevas.length} archivo${imagenesNuevas.length > 1 ? 's' : ''}`}
+                                                            </p>
+                                                            <Button
+                                                                onClick={subirImagenes}
+                                                                disabled={imagenesNuevas.length === 0}
+                                                                className="flex h-9 items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-500 px-4 text-xs font-medium text-white shadow-md transition-all hover:from-blue-700 hover:to-blue-600 hover:shadow-lg disabled:from-slate-300 disabled:to-slate-300 disabled:shadow-none"
+                                                            >
+                                                                <Upload className="h-4 w-4" />
+                                                                Subir imágenes
+                                                            </Button>
+                                                        </div>
                                                     </div>
-                                                </div>
+                                                )}
 
 
                                             </CardContent>
@@ -3179,31 +3208,38 @@ export default function OrdenesTrabajoPage() {
                                         </div>
                                     </div>
 
-                                    <div className="flex gap-2">
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            disabled={guardando}
-                                            onClick={() => guardarCambiosOrden(false)}
-                                            className="flex h-9 items-center gap-2 border-slate-300 text-[11px] text-slate-700"
-                                        >
-                                            {guardando && <Loader2 className="h-4 w-4 animate-spin" />}
-                                            Guardar
-                                        </Button>
+                                    {esCerrada ? (
+                                        <div className="flex items-center gap-2 rounded-lg bg-slate-100 px-4 py-2">
+                                            <span className="text-lg">🔒</span>
+                                            <span className="text-sm font-medium text-slate-600">Orden Cerrada - Solo lectura</span>
+                                        </div>
+                                    ) : (
+                                        <div className="flex gap-2">
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                disabled={guardando}
+                                                onClick={() => guardarCambiosOrden(false)}
+                                                className="flex h-9 items-center gap-2 border-slate-300 text-[11px] text-slate-700"
+                                            >
+                                                {guardando && <Loader2 className="h-4 w-4 animate-spin" />}
+                                                Guardar
+                                            </Button>
 
-                                        <Button
-                                            type="button"
-                                            size="sm"
-                                            disabled={guardando || !reciboFirmado}
-                                            onClick={cerrarOrden}
-                                            className={`flex h-9 items-center gap-2 text-[11px] ${reciboFirmado ? 'bg-slate-900 text-slate-50 hover:bg-slate-800' : 'bg-slate-300 text-slate-500 cursor-not-allowed'}`}
-                                            title={!reciboFirmado ? "Requiere firma de recibo de entrega" : "Cerrar orden de trabajo"}
-                                        >
-                                            {guardando && <Loader2 className="h-4 w-4 animate-spin" />}
-                                            Cerrar OT
-                                        </Button>
-                                    </div>
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                disabled={guardando || !reciboFirmado}
+                                                onClick={cerrarOrden}
+                                                className={`flex h-9 items-center gap-2 text-[11px] ${reciboFirmado ? 'bg-slate-900 text-slate-50 hover:bg-slate-800' : 'bg-slate-300 text-slate-500 cursor-not-allowed'}`}
+                                                title={!reciboFirmado ? "Requiere firma de recibo de entrega" : "Cerrar orden de trabajo"}
+                                            >
+                                                {guardando && <Loader2 className="h-4 w-4 animate-spin" />}
+                                                Cerrar OT
+                                            </Button>
+                                        </div>
+                                    )}
                                 </div>
                             </footer>
 

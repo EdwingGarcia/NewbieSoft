@@ -11,9 +11,13 @@ import com.newbie.newbiecore.repository.FichaTecnicaRepository;
 import com.newbie.newbiecore.repository.OrdenTrabajoRepository;
 import com.newbie.newbiecore.repository.UsuarioRepository;
 import com.newbie.newbiecore.util.FichaTecnicaAutoFillHelper;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -22,20 +26,25 @@ import java.util.stream.Collectors;
 @Service
 public class FichaTecnicaService {
 
+    @Value("${app.upload-dir}")
+    private String uploadDir;
+
     private final FichaTecnicaRepository fichaTecnicaRepository;
     private final UsuarioRepository usuarioRepository;
     private final EquipoRepository equipoRepository;
     private final OrdenTrabajoRepository ordenTrabajoRepository;
+    private final FichaTecnicaPdfService fichaTecnicaPdfService;
 
     public FichaTecnicaService(FichaTecnicaRepository fichaTecnicaRepository,
             UsuarioRepository usuarioRepository,
             EquipoRepository equipoRepository,
-            OrdenTrabajoRepository ordenTrabajoRepository) {
+            OrdenTrabajoRepository ordenTrabajoRepository,
+            FichaTecnicaPdfService fichaTecnicaPdfService) {
         this.fichaTecnicaRepository = fichaTecnicaRepository;
         this.usuarioRepository = usuarioRepository;
         this.equipoRepository = equipoRepository;
         this.ordenTrabajoRepository = ordenTrabajoRepository;
-
+        this.fichaTecnicaPdfService = fichaTecnicaPdfService;
     }
 
     /*
@@ -125,13 +134,25 @@ public class FichaTecnicaService {
      * ✏️ Actualizar la ficha completa desde el DTO.
      * Se respeta el id, equipoId, ordenTrabajoId y tecnicoId originales (no se
      * cambian aquí).
+     * Si el estado es "CERRADA", genera automáticamente el PDF.
      */
     @Transactional
     public Optional<FichaTecnicaDTO> actualizarDesdeDTO(Long fichaId, FichaTecnicaDTO dto) {
         return fichaTecnicaRepository.findById(fichaId)
                 .map(ficha -> {
                     aplicarDtoEnEntidad(dto, ficha);
-                    return FichaTecnicaMapper.toDTO(fichaTecnicaRepository.save(ficha));
+                    FichaTecnica fichaSaved = fichaTecnicaRepository.save(ficha);
+                    FichaTecnicaDTO resultDto = FichaTecnicaMapper.toDTO(fichaSaved);
+
+                    // 📄 Si la ficha se cierra, generar PDF automáticamente
+                    if ("CERRADA".equalsIgnoreCase(dto.getEstado())) {
+                        OrdenTrabajo orden = fichaSaved.getOrdenTrabajo();
+                        if (orden != null && orden.getNumeroOrden() != null) {
+                            fichaTecnicaPdfService.generarYGuardarPdf(resultDto, orden.getNumeroOrden());
+                        }
+                    }
+
+                    return resultDto;
                 });
     }
 
@@ -219,12 +240,30 @@ public class FichaTecnicaService {
      * ===========================================================
      */
 
-    /** 🗑️ Eliminar ficha técnica por id */
+    /** 🗑️ Eliminar ficha técnica por id y su PDF asociado */
     @Transactional
     public void eliminar(Long id) {
-        if (!fichaTecnicaRepository.existsById(id)) {
-            throw new IllegalArgumentException("Ficha técnica no encontrada");
+        FichaTecnica ficha = fichaTecnicaRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Ficha técnica no encontrada"));
+
+        // Obtener el número de orden para construir la ruta del PDF
+        OrdenTrabajo orden = ficha.getOrdenTrabajo();
+        if (orden != null && orden.getNumeroOrden() != null) {
+            try {
+                Path pdfPath = Paths.get(uploadDir)
+                        .resolve(orden.getNumeroOrden())
+                        .resolve("documentos")
+                        .resolve("Ficha_Tecnica_" + id + ".pdf");
+
+                if (Files.exists(pdfPath)) {
+                    Files.delete(pdfPath);
+                    System.out.println("✅ PDF de Ficha Técnica eliminado: " + pdfPath);
+                }
+            } catch (Exception e) {
+                System.err.println("⚠️ Error al eliminar PDF de ficha: " + e.getMessage());
+            }
         }
+
         fichaTecnicaRepository.deleteById(id);
     }
 

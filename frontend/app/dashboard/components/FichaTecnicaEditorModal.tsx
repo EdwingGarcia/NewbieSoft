@@ -2026,8 +2026,8 @@ export default function FichaTecnicaEditorModal({
                   <p className="text-xs font-medium text-slate-700">
                     Ficha #{detalleForm.id ?? "Nueva"}
                     <span className={`ml-2 text-[10px] px-2 py-0.5 rounded-full ${fichaCerrada
-                        ? "bg-green-100 text-green-700"
-                        : "bg-amber-100 text-amber-700"
+                      ? "bg-green-100 text-green-700"
+                      : "bg-amber-100 text-amber-700"
                       }`}>
                       {fichaCerrada ? "Cerrada" : "Borrador"}
                     </span>
@@ -2041,19 +2041,6 @@ export default function FichaTecnicaEditorModal({
               </div>
 
               <div className="flex gap-2">
-                {/* Botón Exportar PDF */}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={descargarPdf}
-                  disabled={!detalleForm.id}
-                  className="h-10 px-4 border-violet-300 text-xs font-medium text-violet-700 hover:bg-violet-50"
-                >
-                  <FileUp className="h-4 w-4 mr-2" />
-                  Exportar PDF
-                </Button>
-
                 <Button
                   type="button"
                   variant="outline"
