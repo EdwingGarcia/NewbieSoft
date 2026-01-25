@@ -3402,14 +3402,14 @@ export default function OrdenesTrabajoPage() {
                                             type="button"
                                             onClick={() => setTipoFirmante("cliente")}
                                             className={`flex-1 p-4 rounded-xl border-2 text-left transition-all ${tipoFirmante === "cliente"
-                                                    ? "border-emerald-500 bg-emerald-50"
-                                                    : "border-slate-200 hover:border-slate-300"
+                                                ? "border-emerald-500 bg-emerald-50"
+                                                : "border-slate-200 hover:border-slate-300"
                                                 }`}
                                         >
                                             <div className="flex items-center gap-3">
                                                 <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${tipoFirmante === "cliente"
-                                                        ? "border-emerald-500 bg-emerald-500"
-                                                        : "border-slate-300"
+                                                    ? "border-emerald-500 bg-emerald-500"
+                                                    : "border-slate-300"
                                                     }`}>
                                                     {tipoFirmante === "cliente" && <Check className="h-3 w-3 text-white" />}
                                                 </div>
@@ -3423,14 +3423,14 @@ export default function OrdenesTrabajoPage() {
                                             type="button"
                                             onClick={() => setTipoFirmante("tercero")}
                                             className={`flex-1 p-4 rounded-xl border-2 text-left transition-all ${tipoFirmante === "tercero"
-                                                    ? "border-emerald-500 bg-emerald-50"
-                                                    : "border-slate-200 hover:border-slate-300"
+                                                ? "border-emerald-500 bg-emerald-50"
+                                                : "border-slate-200 hover:border-slate-300"
                                                 }`}
                                         >
                                             <div className="flex items-center gap-3">
                                                 <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${tipoFirmante === "tercero"
-                                                        ? "border-emerald-500 bg-emerald-500"
-                                                        : "border-slate-300"
+                                                    ? "border-emerald-500 bg-emerald-500"
+                                                    : "border-slate-300"
                                                     }`}>
                                                     {tipoFirmante === "tercero" && <Check className="h-3 w-3 text-white" />}
                                                 </div>
@@ -3664,7 +3664,7 @@ export default function OrdenesTrabajoPage() {
                                                         type="button"
                                                         variant="outline"
                                                         size="sm"
-                                                        onClick={() => abrirDocumentoSeguro(detalle.numeroOrden || '', `Informe_Tecnico_${detalle.numeroOrden}.pdf`)}
+                                                        onClick={() => abrirDocumentoSeguro(detalle.numeroOrden || '', `Ficha_Tecnica_${ficha.id}.pdf`)}
                                                         className="text-xs"
                                                     >
                                                         Ver PDF

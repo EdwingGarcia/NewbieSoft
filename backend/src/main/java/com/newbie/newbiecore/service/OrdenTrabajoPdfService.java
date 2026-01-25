@@ -276,10 +276,6 @@ public class OrdenTrabajoPdfService {
                         </tbody>
                     </table>
 
-                    <!-- MOTIVO CIERRE -->
-                    <div class="section-title">Motivo de Cierre</div>
-                    <div class="text-block" style="max-height: 40px;">%s</div>
-
                     <div class="footer">
                         Documento generado electrónicamente por NewbieSoft - Sistema de Gestión de Servicio Técnico
                     </div>
@@ -317,8 +313,7 @@ public class OrdenTrabajoPdfService {
                         generarFilasCostos(dto.costos()),
                         escaparHtml(subtotal),
                         escaparHtml(iva),
-                        escaparHtml(total),
-                        escaparHtml(motivoCierre));
+                        escaparHtml(total));
     }
 
     /*
