@@ -920,13 +920,16 @@ export default function FichaTecnicaEditorModal({
           // Autollenar los campos especificados que no se hayan llenado ya
           setDetalleForm((prev) => {
             if (!prev) return prev;
-            const updated = { ...prev };
+            const updated: FichaTecnicaDTO = { ...prev };
 
             AUTO_FILL_FIELDS.forEach((field) => {
               // Solo llenar si el campo está vacío y hay dato en la ficha anterior
-              if ((updated[field] === null || updated[field] === undefined || updated[field] === "") &&
-                fichaEquipo[field] !== undefined && fichaEquipo[field] !== null) {
-                updated[field] = fichaEquipo[field];
+              const currentValue = updated[field];
+              const previousValue = fichaEquipo[field];
+              if ((currentValue === null || currentValue === undefined || currentValue === "") &&
+                previousValue !== undefined && previousValue !== null) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (updated as any)[field] = previousValue;
               }
             });
 

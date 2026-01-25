@@ -240,6 +240,11 @@ export default function ConfiguracionesPage() {
     const [editedFrontendValues, setEditedFrontendValues] = useState<Record<string, string>>({});
     const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
 
+    // Estados de búsqueda
+    const [searchQuery, setSearchQuery] = useState("");
+    const [searchResults, setSearchResults] = useState<ConfigurationProperty[] | null>(null);
+    const [searching, setSearching] = useState(false);
+
     /* =========================
        Cargar configuraciones Frontend desde localStorage
     ========================= */
@@ -687,8 +692,8 @@ export default function ConfiguracionesPage() {
                                     key={category}
                                     onClick={() => setActiveCategory(category)}
                                     className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all ${isActive
-                                            ? "bg-white shadow-md border border-purple-200"
-                                            : "hover:bg-white/60 border border-transparent"
+                                        ? "bg-white shadow-md border border-purple-200"
+                                        : "hover:bg-white/60 border border-transparent"
                                         }`}
                                 >
                                     <div
@@ -883,8 +888,8 @@ function ConfigurationCard({
                             onClick={() => config.isEditable && onValueChange("true")}
                             disabled={!config.isEditable}
                             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${value === "true"
-                                    ? "bg-green-500 text-white shadow-md"
-                                    : "bg-white border border-slate-200 text-slate-600 hover:border-green-300"
+                                ? "bg-green-500 text-white shadow-md"
+                                : "bg-white border border-slate-200 text-slate-600 hover:border-green-300"
                                 } ${!config.isEditable ? "opacity-50 cursor-not-allowed" : ""}`}
                         >
                             <Check className="w-4 h-4 inline mr-1" />
@@ -894,8 +899,8 @@ function ConfigurationCard({
                             onClick={() => config.isEditable && onValueChange("false")}
                             disabled={!config.isEditable}
                             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${value === "false"
-                                    ? "bg-red-500 text-white shadow-md"
-                                    : "bg-white border border-slate-200 text-slate-600 hover:border-red-300"
+                                ? "bg-red-500 text-white shadow-md"
+                                : "bg-white border border-slate-200 text-slate-600 hover:border-red-300"
                                 } ${!config.isEditable ? "opacity-50 cursor-not-allowed" : ""}`}
                         >
                             <X className="w-4 h-4 inline mr-1" />
