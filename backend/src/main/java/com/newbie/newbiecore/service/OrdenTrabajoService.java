@@ -279,52 +279,46 @@ public class OrdenTrabajoService {
                 String numeroOrden = orden.getNumeroOrden();
                 String emailDestino = cliente.getCorreo();
 
-                // Usamos Paths y toAbsolutePath para asegurar la ruta correcta en el disco
-                Path rutaCarpetaOrigen = Paths.get(uploadDir).resolve(numeroOrden).toAbsolutePath();
-
-                // El ZIP se guardará fuera de la carpeta para no comprimirse a sí mismo
-                String nombreZip = numeroOrden + "_Documentos.zip";
-                Path rutaZipDestino = Paths.get(uploadDir).resolve(nombreZip).toAbsolutePath();
+                // Solo la carpeta de documentos (PDFs), NO las imágenes
+                Path rutaCarpetaDocumentos = Paths.get(uploadDir).resolve(numeroOrden).resolve("documentos")
+                        .toAbsolutePath();
 
                 String asunto = "Entrega de Orden de Trabajo #" + numeroOrden;
                 String cuerpo = "Estimado/a " + cliente.getNombre() + ",\n\n" +
                         "Su orden de trabajo #" + numeroOrden + " ha sido cerrada exitosamente.\n" +
-                        "Adjunto encontrará un archivo comprimido (ZIP) con todas las imágenes y documentos de su servicio.\n\n"
-                        +
+                        "Adjunto encontrará los documentos generados de su servicio.\n\n" +
                         "Gracias por confiar en nosotros.\n\n" +
                         "Atentamente,\n" +
                         "El equipo de NewbieSoft.";
 
                 new Thread(() -> {
                     try {
-                        System.out.println("--- INICIANDO COMPRESIÓN ---");
-                        System.out.println("Carpeta origen: " + rutaCarpetaOrigen);
-                        System.out.println("Destino ZIP: " + rutaZipDestino);
+                        System.out.println("--- PREPARANDO ENVÍO DE DOCUMENTOS ---");
+                        System.out.println("Carpeta documentos: " + rutaCarpetaDocumentos);
 
-                        // Verificar si existe la carpeta origen
-                        if (!Files.exists(rutaCarpetaOrigen)) {
-                            System.out.println("ADVERTENCIA: La carpeta de la orden NO EXISTE. No se enviará ZIP.");
+                        // Verificar si existe la carpeta de documentos
+                        if (!Files.exists(rutaCarpetaDocumentos)) {
+                            System.out.println("ADVERTENCIA: La carpeta de documentos NO EXISTE.");
                             mailService.sendEmail(emailDestino, asunto,
-                                    cuerpo + "\n\n(Nota: No se encontraron archivos para adjuntar).");
+                                    cuerpo + "\n\n(Nota: No se encontraron documentos para adjuntar).");
                             return;
                         }
 
-                        // Crear el ZIP con Java NIO (más robusto para recorrer todo)
-                        boolean zipCreado = zipFolderRecursivo(rutaCarpetaOrigen, rutaZipDestino);
+                        // Obtener todos los archivos PDF de la carpeta
+                        java.util.List<java.io.File> archivosPdf = new java.util.ArrayList<>();
+                        try (java.util.stream.Stream<Path> archivos = Files.list(rutaCarpetaDocumentos)) {
+                            archivos.filter(p -> p.toString().toLowerCase().endsWith(".pdf"))
+                                    .forEach(p -> archivosPdf.add(p.toFile()));
+                        }
 
-                        if (zipCreado) {
-                            System.out.println(
-                                    "ZIP creado correctamente. Tamaño: " + Files.size(rutaZipDestino) + " bytes.");
-                            mailService.sendEmailWithAttachment(emailDestino, asunto, cuerpo,
-                                    rutaZipDestino.toString());
-                            System.out.println("Correo enviado con ZIP.");
-
-                            // Opcional: Eliminar ZIP después de enviar
-                            // Files.deleteIfExists(rutaZipDestino);
-                        } else {
-                            System.out.println("El ZIP no se creó (carpeta vacía). Enviando correo sin adjunto.");
+                        if (archivosPdf.isEmpty()) {
+                            System.out.println("No se encontraron archivos PDF en la carpeta.");
                             mailService.sendEmail(emailDestino, asunto,
-                                    cuerpo + "\n\n(Nota: La carpeta de documentos estaba vacía).");
+                                    cuerpo + "\n\n(Nota: No se encontraron documentos PDF para adjuntar).");
+                        } else {
+                            System.out.println("Encontrados " + archivosPdf.size() + " documentos PDF.");
+                            mailService.sendEmailWithMultipleAttachments(emailDestino, asunto, cuerpo, archivosPdf);
+                            System.out.println("Correo enviado con documentos adjuntos.");
                         }
 
                     } catch (Exception e) {

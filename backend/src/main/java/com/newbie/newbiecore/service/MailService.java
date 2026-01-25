@@ -9,6 +9,7 @@ import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
+import java.util.List;
 
 @Service
 public class MailService {
@@ -71,6 +72,39 @@ public class MailService {
         } catch (MessagingException e) {
             e.printStackTrace();
             throw new RuntimeException("Error al enviar correo con adjunto: " + e.getMessage());
+        }
+    }
+
+    // ===========================================
+    // NUEVO MÉTODO: Enviar MÚLTIPLES archivos adjuntos
+    // ===========================================
+    public void sendEmailWithMultipleAttachments(String to, String subject, String body, List<File> archivos) {
+        try {
+            System.out.println("Intentando enviar correo con " + archivos.size() + " archivos adjuntos");
+
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true);
+
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(body);
+
+            for (File archivo : archivos) {
+                if (archivo.exists()) {
+                    FileSystemResource fileResource = new FileSystemResource(archivo);
+                    helper.addAttachment(archivo.getName(), fileResource);
+                    System.out.println(" -> Adjuntando: " + archivo.getName());
+                } else {
+                    System.out.println(" -> ADVERTENCIA: Archivo no existe: " + archivo.getAbsolutePath());
+                }
+            }
+
+            mailSender.send(message);
+            System.out.println("Correo enviado con " + archivos.size() + " documentos a: " + to);
+
+        } catch (MessagingException e) {
+            e.printStackTrace();
+            throw new RuntimeException("Error al enviar correo con múltiples adjuntos: " + e.getMessage());
         }
     }
 }
