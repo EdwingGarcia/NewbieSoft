@@ -39,7 +39,8 @@ public class EquipoService {
         this.parser = parser;
     }
     public List<EquipoListDto> listarTodosParaCombobox() {
-        return equipoRepository.findAll()
+        // Ordenar por fecha de registro descendente (más reciente primero)
+        return equipoRepository.findAllByOrderByFechaRegistroDesc()
                 .stream()
                 .map(this::mapToListDto)
                 .toList();
@@ -90,12 +91,14 @@ public class EquipoService {
     }
 
     public List<EquipoDto> listarPorCliente(String clienteCedula) {
-        return equipoRepository.findByUsuario_Cedula(clienteCedula)
+        // Ordenar por fecha de registro descendente (más reciente primero)
+        return equipoRepository.findByUsuario_CedulaOrderByFechaRegistroDesc(clienteCedula)
                 .stream().map(this::mapToDto).collect(Collectors.toList());
     }
 
     public List<EquipoDto> listarTodosLosEquipos() {
-        return equipoRepository.findAll()
+        // Ordenar por fecha de registro descendente (más reciente primero)
+        return equipoRepository.findAllByOrderByFechaRegistroDesc()
                 .stream().map(this::mapToDto).collect(Collectors.toList());
     }
 
@@ -163,7 +166,8 @@ public class EquipoService {
             .anyMatch(a -> a.getAuthority().equals("ROLE_TECNICO"));
     if (!esTecnico) throw new RuntimeException("Solo técnicos pueden consultar mis-equipos.");
 
-    return equipoRepository.findByTecnico_Cedula(tecnico.getCedula())
+    // Ordenar por fecha de registro descendente (más reciente primero)
+    return equipoRepository.findByTecnico_CedulaOrderByFechaRegistroDesc(tecnico.getCedula())
             .stream().map(this::mapToDto)
             .collect(Collectors.toList());  
     }

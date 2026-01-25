@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
+import com.newbie.newbiecore.audit.AuditService;
 import com.newbie.newbiecore.dto.Auth.LoginRequest;
 import com.newbie.newbiecore.dto.Auth.LoginResponse;
 import com.newbie.newbiecore.dto.RegisterRequest;
@@ -37,19 +38,22 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final JwtUtils jwtUtils;
     private final BlacklistedTokenRepository blacklistedTokenRepository;
+    private final AuditService auditService;
 
     public AuthService(UsuarioRepository usuarioRepository,
                        RolRepository rolRepository,
                        PasswordEncoder passwordEncoder,
                        AuthenticationManager authenticationManager,
                        JwtUtils jwtUtils,
-                       BlacklistedTokenRepository blacklistedTokenRepository) {
+                       BlacklistedTokenRepository blacklistedTokenRepository,
+                       AuditService auditService) {
         this.usuarioRepository = usuarioRepository;
         this.rolRepository = rolRepository;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
         this.jwtUtils = jwtUtils;
         this.blacklistedTokenRepository = blacklistedTokenRepository;
+        this.auditService = auditService;
     }
 
     public Usuario getUsuarioAutenticado() {
@@ -94,11 +98,13 @@ public class AuthService {
         Usuario usuario = usuarioRepository.findByCorreo(request.getCorreo())
                 .orElseThrow(() -> {
                     logger.warn("Usuario no encontrado: {}", request.getCorreo());
+                    auditService.registrarLogin(request.getCorreo(), false);
                     return new RuntimeException("Usuario no encontrado");
                 });
 
         if (!passwordEncoder.matches(request.getPassword(), usuario.getPassword())) {
             logger.warn("Contraseña incorrecta para usuario: {}", request.getCorreo());
+            auditService.registrarLogin(request.getCorreo(), false);
             throw new RuntimeException("Usuario o contraseña incorrectos");
         }
 
@@ -114,6 +120,9 @@ public class AuthService {
 
         String accessToken = jwtUtils.generateToken(userDetails);
         String refreshToken = jwtUtils.generateRefreshToken(userDetails);
+
+        // Registrar login exitoso
+        auditService.registrarLogin(request.getCorreo(), true);
 
         return new LoginResponse(
                 accessToken,
@@ -193,6 +202,9 @@ public class AuthService {
     // Logout con blacklist persistente
     public void logout(String token) {
         try {
+            // Obtener usuario antes de invalidar
+            String username = jwtUtils.extractUsername(token);
+            
             Date expiration = jwtUtils.getExpirationDate(token);
 
             BlacklistedToken blacklistedToken = BlacklistedToken.builder()
@@ -204,6 +216,10 @@ public class AuthService {
                     .build();
 
             blacklistedTokenRepository.save(blacklistedToken);
+            
+            // Registrar logout en auditoría
+            auditService.registrarLogout(username);
+            
             logger.info("Token agregado a blacklist correctamente");
         } catch (Exception e) {
             logger.error("Error al invalidar token: {}", e.getMessage());

@@ -13,6 +13,8 @@ import org.springframework.util.AntPathMatcher;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.HandlerMapping;
 
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 @RefreshScope
@@ -32,6 +34,9 @@ public class SecureFileController {
         String path = (String) request.getAttribute(HandlerMapping.PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE);
         String bestMatchPattern = (String) request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE);
         String relativePath = new AntPathMatcher().extractPathWithinPattern(bestMatchPattern, path);
+
+        // 🔧 FIX: Decodificar URL (convertir %20 a espacios, etc.)
+        relativePath = URLDecoder.decode(relativePath, StandardCharsets.UTF_8);
 
         try {
             Path file = Paths.get(uploadDir).resolve(relativePath).normalize();

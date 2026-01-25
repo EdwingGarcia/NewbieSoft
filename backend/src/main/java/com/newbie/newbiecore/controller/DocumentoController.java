@@ -4,6 +4,12 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
@@ -80,7 +86,57 @@ public class DocumentoController {
     }
 
     /**
-     * Obtener imagen de una orden de trabajo
+     * Obtener imagen de una orden de trabajo (nueva estructura con categoría)
+     * Ruta: /api/documentos/{numeroOrden}/imagenes/{categoria}/{nombreArchivo}
+     * Ejemplo: /api/documentos/OT-00015/imagenes/INGRESO/uuid-foto.jpg
+     */
+    @GetMapping("/{numeroOrden}/imagenes/{categoria}/{nombreArchivo:.+}")
+    public ResponseEntity<byte[]> obtenerImagenConCategoria(
+            @PathVariable String numeroOrden,
+            @PathVariable String categoria,
+            @PathVariable String nombreArchivo,
+            Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body("No autorizado".getBytes());
+        }
+
+        try {
+            String sanitizedNumeroOrden = sanitizePath(numeroOrden);
+            String sanitizedCategoria = sanitizePath(categoria);
+            String sanitizedNombreArchivo = sanitizePath(nombreArchivo);
+
+            // Ruta: baseUploadDir/OT-00015/imagenes/INGRESO/archivo.jpg
+            Path filePath = Paths.get(baseUploadDir, sanitizedNumeroOrden, "imagenes", sanitizedCategoria, sanitizedNombreArchivo)
+                    .normalize();
+
+            Path baseDir = Paths.get(baseUploadDir).normalize().toAbsolutePath();
+            if (!filePath.toAbsolutePath().startsWith(baseDir)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body("Acceso denegado".getBytes());
+            }
+
+            if (!Files.exists(filePath) || !Files.isRegularFile(filePath)) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body("Imagen no encontrada".getBytes());
+            }
+
+            byte[] contenido = Files.readAllBytes(filePath);
+            MediaType mediaType = determinarMediaType(sanitizedNombreArchivo);
+
+            return ResponseEntity.ok()
+                    .contentType(mediaType)
+                    .header(HttpHeaders.CACHE_CONTROL, "max-age=3600")
+                    .body(contenido);
+
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(("Error al leer imagen: " + e.getMessage()).getBytes());
+        }
+    }
+
+    /**
+     * Obtener imagen de una orden de trabajo (compatibilidad con estructura antigua)
      * Ruta: /api/documentos/{numeroOrden}/imagenes/{nombreArchivo}
      */
     @GetMapping("/{numeroOrden}/imagenes/{nombreArchivo:.+}")
@@ -97,6 +153,7 @@ public class DocumentoController {
             String sanitizedNumeroOrden = sanitizePath(numeroOrden);
             String sanitizedNombreArchivo = sanitizePath(nombreArchivo);
 
+            // Intentar primero con estructura antigua (retrocompatibilidad)
             Path filePath = Paths.get(baseUploadDir, sanitizedNumeroOrden, sanitizedNombreArchivo)
                     .normalize();
 
@@ -122,6 +179,54 @@ public class DocumentoController {
         } catch (IOException e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(("Error al leer imagen: " + e.getMessage()).getBytes());
+        }
+    }
+
+    /**
+     * Listar documentos de una orden de trabajo con sus fechas de modificación
+     * Ruta: /api/documentos/{numeroOrden}/listar
+     */
+    @GetMapping("/{numeroOrden}/listar")
+    public ResponseEntity<List<Map<String, Object>>> listarDocumentos(
+            @PathVariable String numeroOrden,
+            Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        try {
+            String sanitizedNumeroOrden = sanitizePath(numeroOrden);
+            Path documentosDir = Paths.get(baseUploadDir, sanitizedNumeroOrden, "documentos").normalize();
+
+            List<Map<String, Object>> documentos = new ArrayList<>();
+
+            if (Files.exists(documentosDir) && Files.isDirectory(documentosDir)) {
+                try (var stream = Files.list(documentosDir)) {
+                    stream.filter(Files::isRegularFile)
+                            .forEach(file -> {
+                                try {
+                                    BasicFileAttributes attrs = Files.readAttributes(file, BasicFileAttributes.class);
+                                    Map<String, Object> docInfo = new HashMap<>();
+                                    docInfo.put("nombre", file.getFileName().toString());
+                                    docInfo.put("tamaño", attrs.size());
+                                    docInfo.put("fechaModificacion", attrs.lastModifiedTime().toMillis());
+                                    docInfo.put("fechaModificacionStr", new java.text.SimpleDateFormat("dd/MM/yyyy HH:mm:ss")
+                                            .format(new java.util.Date(attrs.lastModifiedTime().toMillis())));
+                                    documentos.add(docInfo);
+                                } catch (IOException e) {
+                                    // Ignorar archivos con error de lectura
+                                }
+                            });
+                }
+            }
+
+            // Ordenar por fecha de modificación descendente (más recientes primero)
+            documentos.sort((a, b) -> ((Long) b.get("fechaModificacion")).compareTo((Long) a.get("fechaModificacion")));
+
+            return ResponseEntity.ok(documentos);
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 

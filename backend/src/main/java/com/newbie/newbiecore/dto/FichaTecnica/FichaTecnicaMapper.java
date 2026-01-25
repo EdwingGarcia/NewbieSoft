@@ -16,6 +16,7 @@ public class FichaTecnicaMapper {
                 .equipoId(f.getEquipoId())
                 .ordenTrabajoId(f.getOrdenTrabajo().getId())
                 .tecnicoId(f.getTecnicoId())
+                .estado(f.getEstado())
 
                 // ========= HW AUTO =========
                 .adaptadorRed(f.getAdaptadorRed())

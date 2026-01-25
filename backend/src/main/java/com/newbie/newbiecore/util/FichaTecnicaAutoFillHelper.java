@@ -11,12 +11,31 @@ public class FichaTecnicaAutoFillHelper {
 
     public static void rellenarDesdeHardwareJson(FichaTecnica ficha, Equipo equipo) {
         JsonNode hw = equipo.getHardwareJson();
-        if (hw == null) return;
-
+        
         // Helpers
         java.util.function.BiConsumer<java.util.function.Supplier<Object>, Runnable> onlyIfNull = (getter, setter) -> {
             if (getter.get() == null) setter.run();
         };
+
+        // ==================== DATOS DEL EQUIPO (desde entidad Equipo) ====================
+        onlyIfNull.accept(ficha::getEquipoMarca,
+                () -> ficha.setEquipoMarca(equipo.getMarca()));
+        onlyIfNull.accept(ficha::getEquipoModelo,
+                () -> ficha.setEquipoModelo(equipo.getModelo()));
+        onlyIfNull.accept(ficha::getEquipoSerie,
+                () -> ficha.setEquipoSerie(equipo.getNumeroSerie()));
+        onlyIfNull.accept(ficha::getEquipoNombre,
+                () -> ficha.setEquipoNombre(equipo.getHostname()));
+        onlyIfNull.accept(ficha::getRamTipoEquipo,
+                () -> ficha.setRamTipoEquipo(equipo.getTipo())); // Desktop, Laptop, etc.
+        // SO desde equipo si existe
+        if (equipo.getSistemaOperativo() != null && !equipo.getSistemaOperativo().isEmpty()) {
+            onlyIfNull.accept(ficha::getSoDescripcion,
+                    () -> ficha.setSoDescripcion(equipo.getSistemaOperativo()));
+        }
+
+        // Si no hay hardwareJson, terminar aquí
+        if (hw == null) return;
 
         // CPU
         onlyIfNull.accept(ficha::getCpuNombre,
@@ -33,6 +52,8 @@ public class FichaTecnicaAutoFillHelper {
         // RAM
         onlyIfNull.accept(ficha::getRamCapacidadGb,
                 () -> ficha.setRamCapacidadGb(intFromSizeGb(hw, "Tamaño del módulo"))); // "16 GBytes"
+        onlyIfNull.accept(ficha::getRamFrecuenciaMhz,
+                () -> ficha.setRamFrecuenciaMhz(intFromText(hw, "Velocidad del módulo"))); // MHz
         onlyIfNull.accept(ficha::getRamTecnologiaModulo,
                 () -> ficha.setRamTecnologiaModulo(text(hw, "Tipo de módulo")));
         onlyIfNull.accept(ficha::getRamTipo,
@@ -45,6 +66,21 @@ public class FichaTecnicaAutoFillHelper {
                 () -> ficha.setRamFechaFabricacion(text(hw, "Fecha de fabricación del módulo")));
         onlyIfNull.accept(ficha::getRamLugarFabricacion,
                 () -> ficha.setRamLugarFabricacion(text(hw, "Ubicación de fabricación del módulo")));
+        // RAM ficha física - copiar si no hay valores manuales
+        onlyIfNull.accept(ficha::getRamCapacidadFicha,
+                () -> { 
+                    String cap = text(hw, "Tamaño del módulo");
+                    if (cap != null) ficha.setRamCapacidadFicha(cap);
+                });
+        onlyIfNull.accept(ficha::getRamFrecuenciaFicha,
+                () -> { 
+                    String freq = text(hw, "Velocidad del módulo");
+                    if (freq != null) ficha.setRamFrecuenciaFicha(freq);
+                });
+        onlyIfNull.accept(ficha::getRamTecnologiaFicha,
+                () -> ficha.setRamTecnologiaFicha(text(hw, "Tipo de memoria")));
+        onlyIfNull.accept(ficha::getRamMarcaFicha,
+                () -> ficha.setRamMarcaFicha(text(hw, "Fabricante del módulo de memoria")));
 
         // Disco
         onlyIfNull.accept(ficha::getDiscoModelo,
@@ -57,6 +93,8 @@ public class FichaTecnicaAutoFillHelper {
                 () -> ficha.setDiscoCapacidadStr(text(hw, "Capacidad de la unidad")));
         onlyIfNull.accept(ficha::getDiscoRpm,
                 () -> ficha.setDiscoRpm(intFromText(hw, "Tasa de rotación de medios")));
+        onlyIfNull.accept(ficha::getDiscoTipo,
+                () -> ficha.setDiscoTipo(text(hw, "Tipo de unidad"))); // SSD, HDD, NVMe
         onlyIfNull.accept(ficha::getDiscoLetras,
                 () -> ficha.setDiscoLetras(text(hw, "Drive Letter(s)")));
         onlyIfNull.accept(ficha::getDiscoWwn,
@@ -73,18 +111,57 @@ public class FichaTecnicaAutoFillHelper {
                 () -> ficha.setDiscoErroresLectura(text(hw, "[01] Tasa de errores en la lectura")));
         onlyIfNull.accept(ficha::getDiscoErrorCrc,
                 () -> ficha.setDiscoErrorCrc(text(hw, "[C7] Tasa de error UltraDMA/SATA CRC")));
+        // Disco ficha física - copiar valores detectados
+        onlyIfNull.accept(ficha::getDiscoTipoFicha,
+                () -> ficha.setDiscoTipoFicha(text(hw, "Tipo de unidad")));
+        onlyIfNull.accept(ficha::getDiscoMarcaFicha,
+                () -> ficha.setDiscoMarcaFicha(text(hw, "Fabricante de la unidad")));
+        onlyIfNull.accept(ficha::getDiscoCapacidadFicha,
+                () -> ficha.setDiscoCapacidadFicha(text(hw, "Capacidad de la unidad")));
+        onlyIfNull.accept(ficha::getDiscoSerieFicha,
+                () -> ficha.setDiscoSerieFicha(text(hw, "Número de serie de la unidad")));
 
         // GPU / mainboard / buses
         onlyIfNull.accept(ficha::getGpuNombre,
                 () -> ficha.setGpuNombre(text(hw, "Tarjeta grafica")));
+        onlyIfNull.accept(ficha::getGraficaTipo,
+                () -> {
+                    String gpu = text(hw, "Tarjeta grafica");
+                    if (gpu != null) {
+                        if (gpu.toLowerCase().contains("intel") || gpu.toLowerCase().contains("integrad")) {
+                            ficha.setGraficaTipo("Integrada");
+                        } else if (gpu.toLowerCase().contains("nvidia") || gpu.toLowerCase().contains("amd") || gpu.toLowerCase().contains("radeon") || gpu.toLowerCase().contains("geforce")) {
+                            ficha.setGraficaTipo("Dedicada");
+                        }
+                    }
+                });
         onlyIfNull.accept(ficha::getMainboardModelo,
                 () -> ficha.setMainboardModelo(text(hw, "Modelo de placa base")));
+        onlyIfNull.accept(ficha::getMainboardModeloFicha,
+                () -> ficha.setMainboardModeloFicha(text(hw, "Modelo de placa base")));
         onlyIfNull.accept(ficha::getChipset,
                 () -> ficha.setChipset(text(hw, "Chipset de la placa base")));
         onlyIfNull.accept(ficha::getPciExpressVersion,
                 () -> ficha.setPciExpressVersion(text(hw, "Versión de PCI Express admitida")));
         onlyIfNull.accept(ficha::getUsbVersion,
                 () -> ficha.setUsbVersion(text(hw, "Versión USB admitida")));
+
+        // Procesador marca/modelo (ficha física)
+        onlyIfNull.accept(ficha::getProcesadorMarca,
+                () -> {
+                    String cpu = text(hw, "Nombre del procesador");
+                    if (cpu != null) {
+                        if (cpu.toLowerCase().contains("intel")) {
+                            ficha.setProcesadorMarca("Intel");
+                        } else if (cpu.toLowerCase().contains("amd")) {
+                            ficha.setProcesadorMarca("AMD");
+                        } else if (cpu.toLowerCase().contains("apple") || cpu.toLowerCase().contains("m1") || cpu.toLowerCase().contains("m2")) {
+                            ficha.setProcesadorMarca("Apple");
+                        }
+                    }
+                });
+        onlyIfNull.accept(ficha::getProcesadorModelo,
+                () -> ficha.setProcesadorModelo(text(hw, "Nombre del procesador")));
 
         // Red
         onlyIfNull.accept(ficha::getAdaptadorRed,
@@ -115,6 +192,28 @@ public class FichaTecnicaAutoFillHelper {
                 () -> ficha.setSoDescripcion(text(hw, "Sistema operativo")));
         onlyIfNull.accept(ficha::getSoProveedor,
                 () -> ficha.setSoProveedor(text(hw, "Descripción del proveedor")));
+        // SO ficha física
+        onlyIfNull.accept(ficha::getSoTipo,
+                () -> {
+                    String so = text(hw, "Sistema operativo");
+                    if (so != null) {
+                        if (so.toLowerCase().contains("windows")) {
+                            ficha.setSoTipo("Windows");
+                        } else if (so.toLowerCase().contains("linux") || so.toLowerCase().contains("ubuntu") || so.toLowerCase().contains("debian")) {
+                            ficha.setSoTipo("Linux");
+                        } else if (so.toLowerCase().contains("mac") || so.toLowerCase().contains("darwin")) {
+                            ficha.setSoTipo("macOS");
+                        }
+                    }
+                });
+        onlyIfNull.accept(ficha::getSoVersion,
+                () -> {
+                    String so = text(hw, "Sistema operativo");
+                    if (so != null) {
+                        // Extraer versión del texto, ej: "Windows 10 Pro" -> "10 Pro"
+                        ficha.setSoVersion(so);
+                    }
+                });
 
         // TPM / HVCI
         onlyIfNull.accept(ficha::getTpmPresente, () -> {

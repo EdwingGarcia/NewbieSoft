@@ -39,6 +39,7 @@ interface FichaTecnicaDTO {
     equipoId: number | null;
     ordenTrabajoId: number | null;
     tecnicoId: string | null;
+    estado: string | null; // BORRADOR o CERRADA
 
     adaptadorRed: string | null;
     arranqueUefiPresente: boolean | null;
@@ -447,7 +448,16 @@ export default function FichasTecnicasPage() {
                             className="transition hover:shadow-md cursor-pointer"
                         >
                             <CardHeader>
-                                <CardTitle>Ficha #{ficha.id}</CardTitle>
+                                <div className="flex items-center justify-between">
+                                    <CardTitle>Ficha #{ficha.id}</CardTitle>
+                                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                                        ficha.estado === "CERRADA" 
+                                            ? "bg-green-100 text-green-700" 
+                                            : "bg-yellow-100 text-yellow-700"
+                                    }`}>
+                                        {ficha.estado === "CERRADA" ? "Cerrada" : "Borrador"}
+                                    </span>
+                                </div>
                                 <CardDescription>
                                     <div className="text-sm flex flex-col gap-1 mt-1 text-gray-700">
                                         <div>

@@ -237,8 +237,9 @@ public class OrdenTrabajoService {
 
             Files.createDirectories(documentosDir);
 
+            // PDF resumen del servicio técnico completo
             Path pdfPath = documentosDir.resolve(
-                    "OT-" + ordenGuardada.getNumeroOrden() + ".pdf"
+                    "Resumen_Servicio_" + ordenGuardada.getNumeroOrden() + ".pdf"
             );
 
             Files.write(pdfPath, pdfBytes);

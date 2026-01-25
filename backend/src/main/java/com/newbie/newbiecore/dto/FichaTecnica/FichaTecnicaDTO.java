@@ -22,6 +22,7 @@ public class FichaTecnicaDTO {
     private Long ordenTrabajoId;
     private String tecnicoId;
     private String numeroOrden;
+    private String estado; // BORRADOR o CERRADA
     /* ============== CAMPOS AUTOCOMPLETADOS HW =============== */
 
     // Red / BIOS / Sistema

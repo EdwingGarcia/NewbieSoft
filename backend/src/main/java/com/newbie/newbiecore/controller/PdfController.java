@@ -2,7 +2,6 @@ package com.newbie.newbiecore.controller;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -41,45 +40,27 @@ public class PdfController {
     @PostMapping("/ficha")
     public ResponseEntity<byte[]> generarPdfFicha(@RequestBody FichaTecnicaDTO ficha) {
         try {
-            // 1. OBTENER DATOS REALES DE LA BASE DE DATOS
-            // Usamos acceso directo al campo ordenTrabajoId si es público,
-            // o el getter si lo tienes. Aquí uso getters para el ID por seguridad del objeto.
             if (ficha.getOrdenTrabajoId() != null) {
                 Optional<OrdenTrabajo> otOpt = ordenTrabajoRepository.findById(ficha.getOrdenTrabajoId());
-
                 if (otOpt.isPresent()) {
-                    // CAMBIO: Acceso directo a la propiedad pública, sin setter
                     ficha.setNumeroOrden(otOpt.get().getNumeroOrden());
-                } else {
-                    ficha.setNumeroOrden( "No encontrado");
                 }
             }
 
-            // 2. GENERAR HTML Y PDF
             String html = generarHtmlFicha(ficha);
             byte[] pdfBytes = htmlToPdf(html);
 
-            // 3. GUARDAR EN EL SERVIDOR
-            if (ficha.getOrdenTrabajoId() != null) {
+            if (ficha.getOrdenTrabajoId() != null && ficha.getNumeroOrden() != null) {
                 try {
-                    String carpetaOrden = baseUploadDir + "/" + ficha.getNumeroOrden() ;
-
-                    Path carpetaDocumentos = Path.of(carpetaOrden, "documentos");
+                    Path carpetaDocumentos = Path.of(baseUploadDir, ficha.getNumeroOrden(), "documentos");
                     Files.createDirectories(carpetaDocumentos);
-
-                    String nombreArchivo = "Ficha_Tecnica_" + (ficha.getId() != null ? ficha.getId() : "generada") + ".pdf";
-                    Path pdfPath = carpetaDocumentos.resolve(nombreArchivo);
-
+                    Path pdfPath = carpetaDocumentos.resolve("Ficha_Tecnica_" + ficha.getId() + ".pdf");
                     Files.write(pdfPath, pdfBytes, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-
-                    System.out.println("✅ PDF Ficha guardado exitosamente en: " + pdfPath.toAbsolutePath());
-
                 } catch (Exception e) {
                     System.err.println("Advertencia: No se pudo guardar la copia en el servidor: " + e.getMessage());
                 }
             }
 
-            // 4. DEVOLVER PDF AL NAVEGADOR
             return ResponseEntity.ok()
                     .contentType(MediaType.APPLICATION_PDF)
                     .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=Ficha_Tecnica.pdf")
@@ -95,102 +76,307 @@ public class PdfController {
     private String generarHtmlFicha(FichaTecnicaDTO f) {
         String logoTag = cargarLogoBase64();
         String fechaEmision = LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
-
-        // CAMBIO: Acceso directo a la propiedad pública f.numeroOrden
-        String numeroOrdenStr = (f.getNumeroOrden() != null) ? f.getNumeroOrden()  : "-";
+        String numeroOrdenStr = (f.getNumeroOrden() != null) ? f.getNumeroOrden() : "-";
 
         StringBuilder sb = new StringBuilder();
 
-        sb.append("""
-            <html>
-            <head>
-                <meta charset="UTF-8" />
-                <style>
-                    @page { size: A4; margin: 2.5cm; }
-                    body { font-family: 'Helvetica', 'Arial', sans-serif; color: #333; font-size: 12px; line-height: 1.4; }
-                    .header-table { width: 100%%; border-bottom: 2px solid #0056b3; padding-bottom: 10px; margin-bottom: 25px; }
-                    .header-logo { width: 40%%; vertical-align: middle; }
-                    .header-info { width: 60%%; text-align: right; vertical-align: middle; }
-                    .header-info h1 { margin: 0; font-size: 22px; color: #0056b3; text-transform: uppercase; }
-                    .header-info p { margin: 2px 0; color: #666; font-size: 11px; }
-                    .section-title { background-color: #f0f4f8; padding: 8px; font-weight: bold; border-left: 4px solid #0056b3; margin-top: 20px; margin-bottom: 15px; font-size: 13px; text-transform: uppercase; }
-                    .info-table { width: 100%%; border-collapse: collapse; margin-bottom: 20px; }
-                    .info-table th { background-color: #0056b3; color: white; padding: 8px; text-align: left; font-size: 11px; width: 35%%; }
-                    .info-table td { padding: 8px; border-bottom: 1px solid #eee; font-size: 11px; color: #000; }
-                    .info-table tr:nth-child(even) td { background-color: #fafafa; }
-                    .footer { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 9px; color: #999; border-top: 1px solid #eee; padding-top: 10px; }
-                </style>
-            </head>
-            <body>
-                <table class="header-table">
-                    <tr>
-                        <td class="header-logo">%s</td>
-                        <td class="header-info">
-                            <h1>Ficha Técnica</h1>
-                            <p>Especificaciones del Equipo</p>
-                            <p>Generado el: %s</p>
-                            <p style="font-weight: bold; font-size: 12px; color: #000;">Orden de Trabajo: %s</p>
-                        </td>
-                    </tr>
-                </table>
+        sb.append("<!DOCTYPE html><html><head><meta charset=\"UTF-8\" />");
+        sb.append("<style>");
+        sb.append("@page { size: A4; margin: 0.6cm; }");
+        sb.append("body { font-family: Arial, sans-serif; color: #000000 !important; font-size: 8px; line-height: 1.3; }");
+        sb.append(".header { width: 94%; margin: 0 auto 10px; border-bottom: 3px solid #7c3aed; padding-bottom: 8px; }");
+        sb.append(".header h1 { color: #000000 !important; font-size: 13px; margin: 0; }");
+        sb.append(".section-title { width: 94%; margin: 8px auto 4px; background-color: #7c3aed; color: #ffffff !important; padding: 4px 6px; font-size: 8px; font-weight: bold; text-transform: uppercase; }");
+        sb.append("table { width: 94% !important; margin: 0 auto 6px !important; border-collapse: collapse; }");
+        sb.append("td { padding: 3px 5px; border: 1px solid #ddd; color: #000000 !important; font-size: 7px; }");
+        sb.append("td:first-child { background-color: #e5e5e5; font-weight: bold; width: 32%; }");
+        sb.append("td:last-child { background-color: #ffffff; width: 68%; }");
+        sb.append(".obs-box { background-color: #f5f5f5; padding: 5px; margin: 0 auto 6px; width: 94%; border-left: 3px solid #7c3aed; color: #000000; font-size: 7px; }");
+        sb.append(".footer { text-align: center; font-size: 7px; color: #666; margin-top: 10px; padding-top: 5px; border-top: 1px solid #ddd; }");
+        sb.append("</style></head><body>");
 
-                <div class="section-title">Detalles del Hardware y Sistema</div>
+        // HEADER
+        sb.append("<div class='header'>");
+        sb.append("<h1>FICHA TÉCNICA COMPLETA DEL EQUIPO</h1>");
+        sb.append("<p style='margin: 3px 0; color: #000000; font-size: 8px;'>Generada: ").append(fechaEmision).append(" | Orden: ").append(numeroOrdenStr).append(" | ID Ficha: ").append(f.getId()).append("</p>");
+        sb.append("</div>");
 
-                <table class="info-table">
-                    <thead>
-                        <tr>
-                            <th>Especificación</th>
-                            <th>Detalle</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            """.formatted(logoTag, fechaEmision, numeroOrdenStr));
+        // ==================== IDENTIFICACIÓN DEL EQUIPO ====================
+        sb.append("<div class='section-title'>IDENTIFICACIÓN DEL EQUIPO</div>");
+        sb.append("<table>");
+        agregarFila(sb, "Marca", f.getEquipoMarca());
+        agregarFila(sb, "Modelo", f.getEquipoModelo());
+        agregarFila(sb, "Número de Serie", f.getEquipoSerie());
+        agregarFila(sb, "Nombre del Equipo", f.getEquipoNombre());
+        agregarFila(sb, "Otros Datos", f.getEquipoOtros());
+        agregarFila(sb, "Roturas", f.getEquipoRoturas());
+        agregarFila(sb, "Marcas de Desgaste", f.getEquipoMarcasDesgaste());
+        sb.append("</table>");
 
-        // Generación Dinámica de Filas
-        Field[] fields = FichaTecnicaDTO.class.getDeclaredFields();
-        boolean hayDatos = false;
+        // ==================== CARCASA ====================
+        sb.append("<div class='section-title'>CARCASA</div>");
+        sb.append("<table>");
+        agregarFila(sb, "Estado", f.getCarcasaEstado());
+        agregarFilaBool(sb, "Tornillos Faltantes", f.getTornillosFaltantes());
+        agregarFila(sb, "Observaciones", f.getCarcasaObservaciones());
+        sb.append("</table>");
 
-        for (Field field : fields) {
-            try {
-                field.setAccessible(true);
-                Object val = field.get(f);
+        // ==================== PROCESADOR (CPU) ====================
+        sb.append("<div class='section-title'>PROCESADOR (CPU)</div>");
+        sb.append("<table>");
+        agregarFila(sb, "Nombre CPU", f.getCpuNombre());
+        agregarFila(sb, "Marca (Ficha)", f.getProcesadorMarca());
+        agregarFila(sb, "Modelo (Ficha)", f.getProcesadorModelo());
+        agregarFila(sb, "Núcleos Físicos", f.getCpuNucleos());
+        agregarFila(sb, "Procesadores Lógicos", f.getCpuLogicos());
+        agregarFila(sb, "Paquetes Físicos", f.getCpuPaquetesFisicos());
+        agregarFila(sb, "Frecuencia (MHz)", f.getCpuFrecuenciaOriginalMhz());
+        sb.append("</table>");
 
-                if (val == null) continue;
-                if (val instanceof Number && ((Number) val).doubleValue() == 0) continue;
-                if (val instanceof String && ((String) val).trim().isEmpty()) continue;
+        // ==================== MEMORIA RAM ====================
+        sb.append("<div class='section-title'>MEMORIA RAM</div>");
+        sb.append("<table>");
+        agregarFila(sb, "Capacidad (GB)", f.getRamCapacidadGb());
+        agregarFila(sb, "Frecuencia (MHz)", f.getRamFrecuenciaMhz());
+        agregarFila(sb, "Tipo", f.getRamTipo());
+        agregarFila(sb, "Tecnología Módulo", f.getRamTecnologiaModulo());
+        agregarFila(sb, "Número Módulo", f.getRamNumeroModulo());
+        agregarFila(sb, "Serie Módulo", f.getRamSerieModulo());
+        agregarFila(sb, "Fecha Fabricación", f.getRamFechaFabricacion());
+        agregarFila(sb, "Lugar Fabricación", f.getRamLugarFabricacion());
+        agregarFila(sb, "Tipo Equipo (Ficha)", f.getRamTipoEquipo());
+        agregarFila(sb, "Cantidad Módulos (Ficha)", f.getRamCantidadModulos());
+        agregarFila(sb, "Marca (Ficha)", f.getRamMarcaFicha());
+        agregarFila(sb, "Tecnología (Ficha)", f.getRamTecnologiaFicha());
+        agregarFila(sb, "Capacidad (Ficha)", f.getRamCapacidadFicha());
+        agregarFila(sb, "Frecuencia (Ficha)", f.getRamFrecuenciaFicha());
+        agregarFila(sb, "Observaciones RAM", f.getRamObservacionesFicha());
+        sb.append("</table>");
 
-                // Filtramos campos internos
-                if (field.getName().equalsIgnoreCase("id")) continue;
-                if (field.getName().equalsIgnoreCase("ordenTrabajoId")) continue;
-                if (field.getName().equalsIgnoreCase("numeroOrden")) continue; // Ya está en el header
-                if (field.getName().equalsIgnoreCase("equipoId")) continue;
+        // ==================== ALMACENAMIENTO (DISCO) ====================
+        sb.append("<div class='section-title'>ALMACENAMIENTO (DISCO)</div>");
+        sb.append("<table>");
+        agregarFila(sb, "Modelo", f.getDiscoModelo());
+        agregarFila(sb, "Tipo", f.getDiscoTipo());
+        agregarFila(sb, "Capacidad", f.getDiscoCapacidadStr());
+        agregarFila(sb, "Capacidad (MB)", f.getDiscoCapacidadMb());
+        agregarFila(sb, "Número de Serie", f.getDiscoNumeroSerie());
+        agregarFila(sb, "RPM", f.getDiscoRpm());
+        agregarFila(sb, "Letras de Unidad", f.getDiscoLetras());
+        agregarFila(sb, "WWN", f.getDiscoWwn());
+        agregarFila(sb, "Temperatura", f.getDiscoTemperatura());
+        agregarFila(sb, "Horas Encendido", f.getDiscoHorasEncendido());
+        agregarFila(sb, "Sectores Reasignados", f.getDiscoSectoresReasignados());
+        agregarFila(sb, "Sectores Pendientes", f.getDiscoSectoresPendientes());
+        agregarFila(sb, "Errores de Lectura", f.getDiscoErroresLectura());
+        agregarFila(sb, "Errores CRC", f.getDiscoErrorCrc());
+        agregarFila(sb, "Estado (Ficha)", f.getDiscoEstado());
+        agregarFila(sb, "Tipo (Ficha)", f.getDiscoTipoFicha());
+        agregarFila(sb, "Marca (Ficha)", f.getDiscoMarcaFicha());
+        agregarFila(sb, "Capacidad (Ficha)", f.getDiscoCapacidadFicha());
+        agregarFila(sb, "Serie (Ficha)", f.getDiscoSerieFicha());
+        agregarFila(sb, "Observaciones Disco", f.getDiscoObservacionesFicha());
+        sb.append("</table>");
 
-                String label = formatearLabel(field.getName());
-                String value = escaparHtml(String.valueOf(val));
+        // ==================== PLACA BASE (MAINBOARD) ====================
+        sb.append("<div class='section-title'>PLACA BASE (MAINBOARD)</div>");
+        sb.append("<table>");
+        agregarFila(sb, "Modelo Mainboard", f.getMainboardModelo());
+        agregarFila(sb, "Modelo (Ficha)", f.getMainboardModeloFicha());
+        agregarFila(sb, "Chipset", f.getChipset());
+        agregarFila(sb, "Observaciones", f.getMainboardObservaciones());
+        sb.append("</table>");
 
-                sb.append("<tr>")
-                        .append("<td>").append(escaparHtml(label)).append("</td>")
-                        .append("<td>").append(value).append("</td>")
-                        .append("</tr>");
+        // ==================== GPU ====================
+        sb.append("<div class='section-title'>TARJETA GRÁFICA (GPU)</div>");
+        sb.append("<table>");
+        agregarFila(sb, "GPU", f.getGpuNombre());
+        agregarFila(sb, "Tipo Gráfica", f.getGraficaTipo());
+        sb.append("</table>");
 
-                hayDatos = true;
+        // ==================== BIOS / UEFI ====================
+        sb.append("<div class='section-title'>BIOS / UEFI</div>");
+        sb.append("<table>");
+        agregarFila(sb, "Fabricante BIOS", f.getBiosFabricante());
+        agregarFila(sb, "Versión BIOS", f.getBiosVersion());
+        agregarFila(sb, "Fecha BIOS", f.getBiosFechaStr());
+        agregarFilaBool(sb, "Es UEFI Capaz", f.getBiosEsUefiCapaz());
+        agregarFilaBool(sb, "Arranque UEFI Presente", f.getArranqueUefiPresente());
+        agregarFilaBool(sb, "Secure Boot Activo", f.getSecureBootActivo());
+        agregarFila(sb, "Tipo Arranque", f.getBiosTipoArranque());
+        agregarFilaBool(sb, "Contraseña BIOS", f.getBiosContrasena());
+        agregarFilaBool(sb, "Secure Boot (Ficha)", f.getBiosSecureBoot());
+        agregarFila(sb, "Observaciones BIOS", f.getBiosObservacionesFicha());
+        sb.append("</table>");
 
-            } catch (Exception ignored) {}
+        // ==================== SISTEMA OPERATIVO ====================
+        sb.append("<div class='section-title'>SISTEMA OPERATIVO</div>");
+        sb.append("<table>");
+        agregarFila(sb, "Descripción", f.getSoDescripcion());
+        agregarFila(sb, "Proveedor", f.getSoProveedor());
+        agregarFila(sb, "Tipo", f.getSoTipo());
+        agregarFila(sb, "Versión", f.getSoVersion());
+        agregarFilaBool(sb, "Licencia Activa", f.getSoLicenciaActiva());
+        sb.append("</table>");
+
+        // ==================== SEGURIDAD ====================
+        sb.append("<div class='section-title'>SEGURIDAD</div>");
+        sb.append("<table>");
+        agregarFilaBool(sb, "TPM Presente", f.getTpmPresente());
+        agregarFila(sb, "Versión TPM", f.getTpmVersion());
+        agregarFila(sb, "Estado HVCI", f.getHvciEstado());
+        agregarFila(sb, "Marca Antivirus", f.getAntivirusMarca());
+        agregarFilaBool(sb, "Licencia Antivirus Activa", f.getAntivirusLicenciaActiva());
+        agregarFila(sb, "Observaciones Antivirus", f.getAntivirusObservaciones());
+        sb.append("</table>");
+
+        // ==================== RED Y CONECTIVIDAD ====================
+        sb.append("<div class='section-title'>RED Y CONECTIVIDAD</div>");
+        sb.append("<table>");
+        agregarFila(sb, "Adaptador Red", f.getAdaptadorRed());
+        agregarFila(sb, "Dirección MAC", f.getMacAddress());
+        agregarFila(sb, "Velocidad WiFi Actual", f.getWifiLinkSpeedActual());
+        agregarFila(sb, "Velocidad WiFi Máxima", f.getWifiLinkSpeedMax());
+        agregarFilaBool(sb, "WiFi Funciona", f.getWifiFunciona());
+        agregarFila(sb, "Observaciones WiFi", f.getWifiObservaciones());
+        sb.append("</table>");
+
+        // ==================== PANTALLA / MONITOR ====================
+        sb.append("<div class='section-title'>PANTALLA / MONITOR</div>");
+        sb.append("<table>");
+        agregarFila(sb, "Monitor Nombre", f.getMonitorNombre());
+        agregarFila(sb, "Modelo Monitor", f.getMonitorModelo());
+        agregarFilaBool(sb, "Rayones", f.getPantallaRayones());
+        agregarFilaBool(sb, "Trizaduras", f.getPantallaTrizaduras());
+        agregarFilaBool(sb, "Píxeles Muertos", f.getPantallaPixelesMuertos());
+        agregarFilaBool(sb, "Manchas", f.getPantallaManchas());
+        agregarFilaBool(sb, "Táctil", f.getPantallaTactil());
+        agregarFila(sb, "Observaciones Pantalla", f.getPantallaObservaciones());
+        sb.append("</table>");
+
+        // ==================== AUDIO ====================
+        sb.append("<div class='section-title'>AUDIO</div>");
+        sb.append("<table>");
+        agregarFila(sb, "Adaptador", f.getAudioAdaptador());
+        agregarFila(sb, "Codec", f.getAudioCodec());
+        agregarFila(sb, "Hardware ID", f.getAudioHardwareId());
+        sb.append("</table>");
+
+        // ==================== TECLADO ====================
+        sb.append("<div class='section-title'>TECLADO</div>");
+        sb.append("<table>");
+        agregarFila(sb, "Estado", f.getTecladoEstado());
+        agregarFilaBool(sb, "Teclas Dañadas", f.getTecladoTeclasDanadas());
+        agregarFilaBool(sb, "Teclas Faltantes", f.getTecladoTeclasFaltantes());
+        agregarFilaBool(sb, "Retroiluminación", f.getTecladoRetroiluminacion());
+        agregarFila(sb, "Observaciones Teclado", f.getTecladoObservaciones());
+        sb.append("</table>");
+
+        // ==================== TOUCHPAD ====================
+        sb.append("<div class='section-title'>TOUCHPAD</div>");
+        sb.append("<table>");
+        agregarFila(sb, "Estado", f.getTouchpadEstado());
+        agregarFilaBool(sb, "Funciona", f.getTouchpadFunciona());
+        agregarFilaBool(sb, "Botón Izquierdo", f.getTouchpadBotonIzq());
+        agregarFilaBool(sb, "Botón Derecho", f.getTouchpadBotonDer());
+        agregarFilaBool(sb, "Táctil", f.getTouchpadTactil());
+        agregarFila(sb, "Observaciones Touchpad", f.getTouchpadObservaciones());
+        sb.append("</table>");
+
+        // ==================== PUERTOS E INTERFACES ====================
+        sb.append("<div class='section-title'>PUERTOS E INTERFACES</div>");
+        sb.append("<table>");
+        agregarFilaBool(sb, "Puerto USB", f.getPuertoUsb());
+        agregarFilaBool(sb, "Puerto VGA", f.getPuertoVga());
+        agregarFilaBool(sb, "Puerto Ethernet", f.getPuertoEthernet());
+        agregarFilaBool(sb, "Puerto HDMI", f.getPuertoHdmi());
+        agregarFilaBool(sb, "Entrada Audio", f.getPuertoEntradaAudio());
+        agregarFilaBool(sb, "Salida Audio", f.getPuertoSalidaAudio());
+        agregarFilaBool(sb, "MicroSD", f.getPuertoMicroSd());
+        agregarFilaBool(sb, "DVD", f.getPuertoDvd());
+        agregarFila(sb, "Versión PCI Express", f.getPciExpressVersion());
+        agregarFila(sb, "Versión USB", f.getUsbVersion());
+        agregarFila(sb, "Observaciones Puertos", f.getPuertosObservaciones());
+        sb.append("</table>");
+
+        // ==================== BATERÍA ====================
+        sb.append("<div class='section-title'>BATERÍA</div>");
+        sb.append("<table>");
+        agregarFila(sb, "Código Batería", f.getBateriaCodigo());
+        agregarFila(sb, "Observaciones Batería", f.getBateriaObservaciones());
+        sb.append("</table>");
+
+        // ==================== CARGADOR ====================
+        sb.append("<div class='section-title'>CARGADOR</div>");
+        sb.append("<table>");
+        agregarFila(sb, "Código Cargador", f.getCargadorCodigo());
+        agregarFila(sb, "Estado Cable", f.getCargadorEstadoCable());
+        agregarFila(sb, "Voltajes", f.getCargadorVoltajes());
+        sb.append("</table>");
+
+        // ==================== FUENTE Y VENTILACIÓN ====================
+        sb.append("<div class='section-title'>FUENTE Y VENTILACIÓN</div>");
+        sb.append("<table>");
+        agregarFila(sb, "Estado Ventilador Fuente", f.getFuenteVentiladorEstado());
+        agregarFila(sb, "Ruido", f.getFuenteRuido());
+        agregarFila(sb, "Medición Voltaje", f.getFuenteMedicionVoltaje());
+        agregarFila(sb, "Observaciones Fuente", f.getFuenteObservaciones());
+        agregarFila(sb, "Observaciones Ventilador CPU", f.getVentiladorCpuObservaciones());
+        sb.append("</table>");
+
+        // ==================== CÁMARA ====================
+        sb.append("<div class='section-title'>CÁMARA</div>");
+        sb.append("<table>");
+        agregarFilaBool(sb, "Funciona", f.getCamaraFunciona());
+        agregarFila(sb, "Observaciones Cámara", f.getCamaraObservaciones());
+        sb.append("</table>");
+
+        // ==================== SOFTWARE ====================
+        sb.append("<div class='section-title'>SOFTWARE</div>");
+        sb.append("<table>");
+        agregarFilaBool(sb, "Office Licencia Activa", f.getOfficeLicenciaActiva());
+        agregarFila(sb, "Versión Office", f.getOfficeVersion());
+        agregarFila(sb, "Otros Programas", f.getInformacionOtrosProgramas());
+        sb.append("</table>");
+
+        // ==================== INFORMACIÓN Y RESPALDO ====================
+        sb.append("<div class='section-title'>INFORMACIÓN Y RESPALDO</div>");
+        sb.append("<table>");
+        agregarFila(sb, "Cantidad de Información", f.getInformacionCantidad());
+        agregarFilaBool(sb, "Requiere Respaldo", f.getInformacionRequiereRespaldo());
+        sb.append("</table>");
+
+        // ==================== TRABAJO REALIZADO ====================
+        if (f.getTrabajoRealizado() != null && !f.getTrabajoRealizado().isEmpty()) {
+            sb.append("<div class='section-title'>TRABAJO REALIZADO</div>");
+            sb.append("<div class='obs-box'>").append(escaparHtml(f.getTrabajoRealizado())).append("</div>");
         }
 
-        if (!hayDatos) {
-            sb.append("<tr><td colspan='2' style='text-align:center; color:#999;'>No hay datos técnicos registrados para este equipo.</td></tr>");
+        // ==================== OBSERVACIONES GENERALES ====================
+        if (f.getObservaciones() != null && !f.getObservaciones().isEmpty()) {
+            sb.append("<div class='section-title'>OBSERVACIONES GENERALES</div>");
+            sb.append("<div class='obs-box'>").append(escaparHtml(f.getObservaciones())).append("</div>");
         }
 
-        sb.append("""
-                    </tbody>
-                </table>
-                <div class="footer">Documento generado automáticamente por NewbieCore System.</div>
-            </body>
-            </html>
-            """);
+        // FOOTER
+        sb.append("<div class='footer'>");
+        sb.append("<p>Documento generado automáticamente por NewbieSoft | Ficha Técnica ID: ").append(f.getId()).append(" | Estado: ").append(f.getEstado() != null ? f.getEstado() : "-").append("</p>");
+        sb.append("</div>");
+
+        sb.append("</body></html>");
 
         return sb.toString();
+    }
+
+    private void agregarFila(StringBuilder sb, String label, Object valor) {
+        String val = valor != null ? valor.toString() : "";
+        if (val.isEmpty() || "0".equals(val) || "0.0".equals(val)) val = "-";
+        sb.append("<tr><td>").append(escaparHtml(label)).append("</td><td>").append(escaparHtml(val)).append("</td></tr>");
+    }
+
+    private void agregarFilaBool(StringBuilder sb, String label, Boolean valor) {
+        String val = valor == null ? "-" : (valor ? "Sí" : "No");
+        sb.append("<tr><td>").append(escaparHtml(label)).append("</td><td><b>").append(val).append("</b></td></tr>");
     }
 
     private byte[] htmlToPdf(String html) throws IOException {
@@ -209,23 +395,12 @@ public class PdfController {
             if (resource.exists()) {
                 byte[] imageBytes = resource.getInputStream().readAllBytes();
                 String base64 = Base64.getEncoder().encodeToString(imageBytes);
-                return "<img src='data:image/png;base64," + base64 + "' alt='Logo' style='max-height: 60px; max-width: 200px;' />";
+                return "<img src='data:image/png;base64," + base64 + "' style='height: 50px;' />";
             }
         } catch (Exception e) {
             System.err.println("No se pudo cargar el logo: " + e.getMessage());
         }
-        return "<b>NEWBIE SOFT</b>";
-    }
-
-    private String formatearLabel(String key) {
-        StringBuilder sb = new StringBuilder();
-        for (char c : key.toCharArray()) {
-            if (Character.isUpperCase(c)) sb.append(' ');
-            sb.append(c);
-        }
-        String resultado = sb.toString().trim();
-        if (resultado.isEmpty()) return "";
-        return resultado.substring(0, 1).toUpperCase() + resultado.substring(1);
+        return "";
     }
 
     private String escaparHtml(String s) {

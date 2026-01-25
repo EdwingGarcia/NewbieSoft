@@ -14,6 +14,7 @@ import {
   Cpu, MemoryStick, HardDrive, CircuitBoard, Wifi, Shield,
   Laptop, Keyboard, Monitor, Plug, Battery, FileCode,
   Database, Wrench, ClipboardList, Info, Zap, Settings2,
+  Edit2, Lock, FileCheck, AlertCircle,
   type LucideIcon
 } from "lucide-react";
 import { API_BASE_URL } from "@/app/lib/api";
@@ -159,6 +160,7 @@ interface FichaTecnicaDTO {
   ordenTrabajoId: number | null;
   tecnicoId: string | null;
   clienteId: string | null;
+  estado: string | null; // BORRADOR o CERRADA
 
   adaptadorRed: string | null;
   arranqueUefiPresente: boolean | null;
@@ -721,10 +723,21 @@ export default function FichaTecnicaEditorModal({
 
   const [detalle, setDetalle] = useState<FichaTecnicaDTO | null>(null);
   const [detalleForm, setDetalleForm] = useState<FichaTecnicaDTO | null>(null);
+  
+  // Estados para control de edición en fichas cerradas
+  const [modoEdicionForzado, setModoEdicionForzado] = useState(false);
+  const [showConfirmEdit, setShowConfirmEdit] = useState(false);
+  const [showConfirmClose, setShowConfirmClose] = useState(false);
 
   // ✅ Variable Helper para saber si estamos editando
   // Si fichaId existe (y es > 0), es modo edición. Si es null/0, es modo crear.
   const esModoEdicion = Boolean(fichaId && fichaId > 0);
+  
+  // ✅ Determinar si la ficha está cerrada
+  const fichaCerrada = detalleForm?.estado === "CERRADA";
+  
+  // ✅ Determinar si los campos deben estar deshabilitados
+  const camposDeshabilitados = fichaCerrada && !modoEdicionForzado;
 
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
@@ -738,12 +751,16 @@ export default function FichaTecnicaEditorModal({
   };
 
   const updateField = <K extends keyof FichaTecnicaDTO>(field: K, value: FichaTecnicaDTO[K]) => {
+    // No permitir cambios si la ficha está cerrada y no hay modo edición forzado
+    if (fichaCerrada && !modoEdicionForzado) return;
     setDetalleForm((prev) => (prev ? { ...prev, [field]: value } : prev));
   };
 
   const handleEquipoChange = async (equipoId: number | null, equipoData?: EquipoDTO | null) => {
     // Si estamos editando una ficha existente, no permitimos cambiar el equipo
     if (esModoEdicion) return;
+    // Si la ficha está cerrada y no hay modo edición forzado, no permitir
+    if (fichaCerrada && !modoEdicionForzado) return;
 
     console.log("📝 Cambio de equipo:", { equipoId, tengoData: !!equipoData });
 
@@ -975,13 +992,18 @@ export default function FichaTecnicaEditorModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  const guardarFichaCompleta = async (e?: SyntheticEvent) => {
+  const guardarFichaCompleta = async (e?: SyntheticEvent, estadoNuevo?: string) => {
     e?.preventDefault();
     if (!detalleForm || !token) return;
 
     const equipoIdAntes = detalleForm.equipoId;
     const method = detalleForm.id ? "PUT" : "POST";
     const url = detalleForm.id ? `${FICHAS_API_BASE}/${detalleForm.id}` : FICHAS_API_BASE;
+
+    // Si se pasa un estado nuevo, actualizarlo
+    const dataToSend = estadoNuevo 
+      ? { ...detalleForm, estado: estadoNuevo }
+      : detalleForm;
 
     try {
       setGuardando(true);
@@ -991,7 +1013,7 @@ export default function FichaTecnicaEditorModal({
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(detalleForm),
+        body: JSON.stringify(dataToSend),
       });
 
       if (!res.ok) {
@@ -1007,8 +1029,15 @@ export default function FichaTecnicaEditorModal({
 
       setDetalle(fichaActualizada);
       setDetalleForm(fichaActualizada);
+      
+      // Resetear modo edición forzado si se cerró
+      if (estadoNuevo === "CERRADA") {
+        setModoEdicionForzado(false);
+      }
 
-      alert("✅ Ficha técnica guardada correctamente");
+      alert(estadoNuevo === "CERRADA" 
+        ? "✅ Ficha técnica cerrada correctamente" 
+        : "✅ Ficha técnica guardada como borrador");
       onSaved?.();
     } catch (e: any) {
       console.error("❌ Error al guardar:", e);
@@ -1016,6 +1045,31 @@ export default function FichaTecnicaEditorModal({
     } finally {
       setGuardando(false);
     }
+  };
+
+  // Guardar como borrador
+  const guardarBorrador = (e?: SyntheticEvent) => {
+    guardarFichaCompleta(e, "BORRADOR");
+  };
+
+  // Cerrar ficha (con confirmación)
+  const cerrarFicha = () => {
+    setShowConfirmClose(true);
+  };
+
+  const confirmarCerrarFicha = () => {
+    setShowConfirmClose(false);
+    guardarFichaCompleta(undefined, "CERRADA");
+  };
+
+  // Habilitar edición en ficha cerrada (con confirmación)
+  const solicitarEdicion = () => {
+    setShowConfirmEdit(true);
+  };
+
+  const confirmarEdicion = () => {
+    setShowConfirmEdit(false);
+    setModoEdicionForzado(true);
   };
 
   const descargarPdf = async () => {
@@ -1071,16 +1125,37 @@ export default function FichaTecnicaEditorModal({
                   <h2 className="text-lg font-bold text-white">
                     {loading ? "Cargando..." : esModoEdicion ? `Ficha Técnica #${detalleForm?.id}` : "Nueva Ficha Técnica"}
                   </h2>
-                  {esModoEdicion && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-300 border border-emerald-500/30">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                      Editando
+                  {/* Badge de estado */}
+                  {fichaCerrada ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-green-500/20 px-2.5 py-0.5 text-[10px] font-semibold text-green-300 border border-green-500/30">
+                      <Lock className="h-3 w-3" />
+                      Cerrada
                     </span>
-                  )}
-                  {!esModoEdicion && (
+                  ) : esModoEdicion ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/20 px-2.5 py-0.5 text-[10px] font-semibold text-amber-300 border border-amber-500/30">
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
+                      Borrador
+                    </span>
+                  ) : (
                     <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/20 px-2.5 py-0.5 text-[10px] font-semibold text-indigo-300 border border-indigo-500/30">
                       <span className="h-1.5 w-1.5 rounded-full bg-indigo-400" />
                       Nuevo
+                    </span>
+                  )}
+                  {/* Botón de editar para fichas cerradas */}
+                  {fichaCerrada && !modoEdicionForzado && (
+                    <button
+                      onClick={solicitarEdicion}
+                      className="ml-2 inline-flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 hover:text-amber-200 transition-all"
+                      title="Habilitar edición"
+                    >
+                      <Edit2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  {modoEdicionForzado && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/20 px-2.5 py-0.5 text-[10px] font-semibold text-amber-300 border border-amber-500/30">
+                      <Edit2 className="h-3 w-3" />
+                      Modo Edición
                     </span>
                   )}
                 </div>
@@ -1111,17 +1186,6 @@ export default function FichaTecnicaEditorModal({
                   )}
                 </div>
               )}
-
-              <Button
-                variant="ghost"
-                size="sm"
-                className="flex items-center gap-2 border border-white/20 bg-white/5 px-4 text-[11px] text-white hover:bg-white/10 hover:border-white/30 transition-all"
-                onClick={descargarPdf}
-                disabled={!detalleForm || !detalleForm.id}
-              >
-                <FileUp className="h-4 w-4" />
-                Exportar PDF
-              </Button>
 
               <button
                 onClick={onClose}
@@ -1171,7 +1235,22 @@ export default function FichaTecnicaEditorModal({
               <p className="text-sm text-slate-500">Iniciando formulario...</p>
             </div>
           ) : (
-            <form onSubmit={guardarFichaCompleta} className="space-y-5">
+            <form onSubmit={(e) => e.preventDefault()} className="space-y-5">
+              {/* Banner de ficha cerrada */}
+              {camposDeshabilitados && (
+                <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100">
+                    <Lock className="h-5 w-5 text-green-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-green-800">Ficha técnica cerrada</p>
+                    <p className="text-xs text-green-600">
+                      Esta ficha está en modo solo lectura. Haz clic en el ícono de lápiz en la cabecera para habilitar la edición.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* METADATOS BÁSICOS */}
               <Section title="Identificación de Ficha" subtitle="Información básica del registro" icon={Info} iconColor="text-blue-500">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -1931,49 +2010,171 @@ export default function FichaTecnicaEditorModal({
           )}
         </div>
 
-        {/* Footer Mejorado */}
+        {/* Footer Mejorado con Exportar, Guardar Borrador y Cerrar Ficha */}
         {detalleForm && !loading && !error && (
           <footer className="sticky bottom-0 z-20 border-t border-slate-200 bg-gradient-to-r from-white via-slate-50 to-white px-6 py-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100">
-                  <Settings2 className="h-4 w-4 text-slate-500" />
+                  {fichaCerrada && !modoEdicionForzado ? (
+                    <Lock className="h-4 w-4 text-green-600" />
+                  ) : (
+                    <Settings2 className="h-4 w-4 text-slate-500" />
+                  )}
                 </div>
                 <div>
                   <p className="text-xs font-medium text-slate-700">
-                    Ficha #{detalleForm.id ?? "Nueva"}
+                    Ficha #{detalleForm.id ?? "Nueva"} 
+                    <span className={`ml-2 text-[10px] px-2 py-0.5 rounded-full ${
+                      fichaCerrada 
+                        ? "bg-green-100 text-green-700" 
+                        : "bg-amber-100 text-amber-700"
+                    }`}>
+                      {fichaCerrada ? "Cerrada" : "Borrador"}
+                    </span>
                   </p>
-                  <p className="text-[10px] text-slate-400">Los cambios se guardarán automáticamente</p>
+                  <p className="text-[10px] text-slate-400">
+                    {fichaCerrada && !modoEdicionForzado 
+                      ? "Ficha cerrada - Solo lectura" 
+                      : "Los cambios se guardarán al confirmar"}
+                  </p>
                 </div>
               </div>
 
-              <div className="flex gap-3">
+              <div className="flex gap-2">
+                {/* Botón Exportar PDF */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={descargarPdf}
+                  disabled={!detalleForm.id}
+                  className="h-10 px-4 border-violet-300 text-xs font-medium text-violet-700 hover:bg-violet-50"
+                >
+                  <FileUp className="h-4 w-4 mr-2" />
+                  Exportar PDF
+                </Button>
+
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={onClose}
-                  className="h-10 px-5 border-slate-300 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                  className="h-10 px-4 border-slate-300 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                >
+                  Cancelar
+                </Button>
+
+                {/* Mostrar botones de edición solo si no está cerrada o si tiene modo edición forzado */}
+                {(!fichaCerrada || modoEdicionForzado) && (
+                  <>
+                    {/* Guardar Borrador */}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={guardando || camposDeshabilitados}
+                      onClick={guardarBorrador}
+                      className="h-10 px-4 border-amber-300 text-xs font-medium text-amber-700 hover:bg-amber-50"
+                    >
+                      {guardando ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : (
+                        <Save className="h-4 w-4 mr-2" />
+                      )}
+                      Guardar Borrador
+                    </Button>
+
+                    {/* Cerrar Ficha */}
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={guardando || camposDeshabilitados}
+                      onClick={cerrarFicha}
+                      className="flex h-10 items-center gap-2 bg-gradient-to-r from-green-600 to-green-700 px-5 text-xs font-medium text-white shadow-lg shadow-green-900/20 hover:from-green-500 hover:to-green-600 transition-all"
+                    >
+                      <FileCheck className="h-4 w-4" />
+                      Cerrar Ficha
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
+          </footer>
+        )}
+
+        {/* Modal de confirmación para editar ficha cerrada */}
+        {showConfirmEdit && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-md mx-4">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-100">
+                  <AlertCircle className="h-6 w-6 text-amber-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900">¿Habilitar edición?</h3>
+                  <p className="text-sm text-slate-500">Esta ficha está cerrada</p>
+                </div>
+              </div>
+              <p className="text-sm text-slate-600 mb-6">
+                La ficha técnica ya fue cerrada. ¿Estás seguro de que deseas habilitarla para edición? 
+                Los cambios quedarán registrados.
+              </p>
+              <div className="flex gap-3 justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowConfirmEdit(false)}
+                  className="px-4"
                 >
                   Cancelar
                 </Button>
                 <Button
-                  type="button"
-                  size="sm"
-                  disabled={guardando}
-                  onClick={guardarFichaCompleta}
-                  className="flex h-10 items-center gap-2 bg-gradient-to-r from-slate-800 to-slate-900 px-6 text-xs font-medium text-white shadow-lg shadow-slate-900/20 hover:from-slate-700 hover:to-slate-800 transition-all"
+                  onClick={confirmarEdicion}
+                  className="bg-amber-600 hover:bg-amber-700 text-white px-4"
                 >
-                  {guardando ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Save className="h-4 w-4" />
-                  )}
-                  {guardando ? "Guardando..." : "Guardar Ficha"}
+                  <Edit2 className="h-4 w-4 mr-2" />
+                  Sí, habilitar edición
                 </Button>
               </div>
             </div>
-          </footer>
+          </div>
+        )}
+
+        {/* Modal de confirmación para cerrar ficha */}
+        {showConfirmClose && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-md mx-4">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
+                  <FileCheck className="h-6 w-6 text-green-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900">¿Cerrar ficha técnica?</h3>
+                  <p className="text-sm text-slate-500">Esta acción bloqueará la edición</p>
+                </div>
+              </div>
+              <p className="text-sm text-slate-600 mb-6">
+                Una vez cerrada, la ficha técnica quedará en modo solo lectura. 
+                Podrás habilitarla para edición nuevamente si es necesario.
+              </p>
+              <div className="flex gap-3 justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowConfirmClose(false)}
+                  className="px-4"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={confirmarCerrarFicha}
+                  className="bg-green-600 hover:bg-green-700 text-white px-4"
+                >
+                  <Lock className="h-4 w-4 mr-2" />
+                  Sí, cerrar ficha
+                </Button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>

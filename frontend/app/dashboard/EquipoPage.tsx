@@ -255,7 +255,7 @@ export default function EquipoPage(): JSX.Element {
     /* ============================
        DETALLES DE EQUIPO
     =============================== */
-    const verDetalles = async (id: number) => {
+    const verDetalles = useCallback(async (id: number) => {
         const token = getToken();
 
         try {
@@ -265,11 +265,6 @@ export default function EquipoPage(): JSX.Element {
 
             if (res.ok) {
                 const data = await res.json();
-
-                // --- AGREGA ESTO ---
-                console.log("DATOS QUE LLEGAN DEL BACKEND:", data);
-                // -------------------
-
                 setDetalle(data);
                 setHardwareSearch("");
                 setShowXml(false);
@@ -279,7 +274,14 @@ export default function EquipoPage(): JSX.Element {
         } catch (err: any) {
             alert(err.message);
         }
-    };
+    }, []);
+
+    // Callback para refrescar el detalle después de subir XML
+    const handleXmlUploadSuccess = useCallback(() => {
+        if (detalle?.id || detalle?.idEquipo) {
+            verDetalles(detalle.idEquipo || detalle.id!);
+        }
+    }, [detalle, verDetalles]);
 
     /* ============================
          FILTRO LISTA & PAGINACIÓN
@@ -785,6 +787,7 @@ export default function EquipoPage(): JSX.Element {
                                     <div className="p-6">
                                         <XmlUploader
                                             equipoId={detalle.idEquipo || (detalle as any).id}
+                                            onUploadSuccess={handleXmlUploadSuccess}
                                         />
                                     </div>
                                 </div>

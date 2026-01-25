@@ -87,6 +87,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/firmas/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/equipo/*/hardware/upload-xml").permitAll()
 
+                        // Archivos estáticos (uploads) - requieren autenticación
+                        .requestMatchers("/uploads/**").authenticated()
+
                         // Todo lo demás
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().authenticated());

@@ -55,22 +55,26 @@ public class OrdenTrabajoImagenService {
         OrdenTrabajo orden = ordenTrabajoRepository.findById(ordenId)
                 .orElseThrow(() -> new IllegalArgumentException("Orden de trabajo no encontrada"));
 
-        String folderName = orden.getNumeroOrden(); //+ "(" + orden.getId() + ")";
-        Path folderPath = uploadPath.resolve(folderName);
-        Files.createDirectories(folderPath);
-
+        // Estructura: OT-00015/imagenes/INGRESO/, OT-00015/imagenes/DIAGNOSTICO/, etc.
+        String folderName = orden.getNumeroOrden();
+        
         CategoriaImagen categoria = CategoriaImagen.valueOf(
                 categoriaStr == null ? "OTRO" : categoriaStr.toUpperCase()
         );
+        
+        // Crear estructura: numeroOrden/imagenes/CATEGORIA/
+        Path imagenesPath = uploadPath.resolve(folderName).resolve("imagenes").resolve(categoria.name());
+        Files.createDirectories(imagenesPath);
 
         for (MultipartFile file : files) {
             if (file.isEmpty()) continue;
 
             String fileName = UUID.randomUUID() + "-" + file.getOriginalFilename();
-            Path filePath = folderPath.resolve(fileName);
+            Path filePath = imagenesPath.resolve(fileName);
             Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
-            String relativeUrl = "/uploads/" + folderName + "/" + fileName;
+            // Ruta relativa: /uploads/OT-00015/imagenes/INGRESO/archivo.jpg
+            String relativeUrl = "/uploads/" + folderName + "/imagenes/" + categoria.name() + "/" + fileName;
 
             Imagen img = Imagen.builder()
                     .ordenTrabajo(orden)

@@ -84,6 +84,7 @@ public class FichaTecnicaService {
         }
         ficha.setObservaciones(observaciones);
         ficha.setFechaCreacion(Instant.now());
+        ficha.setEstado("BORRADOR"); // Estado por defecto
 
         // Autocomplete desde hardwareJson
         FichaTecnicaAutoFillHelper.rellenarDesdeHardwareJson(ficha, equipo);
@@ -229,6 +230,9 @@ public class FichaTecnicaService {
     private void aplicarDtoEnEntidad(FichaTecnicaDTO dto, FichaTecnica f) {
         // Observaciones generales
         f.setObservaciones(dto.getObservaciones());
+        
+        // Estado de la ficha (BORRADOR o CERRADA)
+        f.setEstado(dto.getEstado());
 
         // ================= HW AUTO =================
         f.setAdaptadorRed(dto.getAdaptadorRed());

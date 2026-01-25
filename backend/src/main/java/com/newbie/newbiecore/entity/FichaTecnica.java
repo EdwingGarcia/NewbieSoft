@@ -39,6 +39,10 @@ public class FichaTecnica {
     @Column(name = "tecnico_id")
     private String tecnicoId;
 
+    // Estado de la ficha: BORRADOR o CERRADA
+    @Column(name = "estado", length = 20)
+    private String estado;
+
     /* ===========================================================
        =============== CAMPOS AUTOCOMPLETADOS HW =================
        =========================================================== */

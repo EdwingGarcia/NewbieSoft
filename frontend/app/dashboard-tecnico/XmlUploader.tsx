@@ -20,6 +20,7 @@ import { X, FileUp, Upload, Loader2, Search, Trash2 } from "lucide-react";
 
 interface Props {
     equipoId: number;
+    onUploadSuccess?: () => void;  // Callback cuando la subida es exitosa
 }
 import { API_BASE_URL } from "../lib/api";
 const buildUrl = (path: string) => `${API_BASE_URL}${path}`;
@@ -40,7 +41,7 @@ function getAuthToken(): string | null {
     );
 }
 
-export default function XmlUploaderFull({ equipoId }: Props) {
+export default function XmlUploaderFull({ equipoId, onUploadSuccess }: Props) {
     const router = useRouter();
 
     const [authed, setAuthed] = useState<boolean | null>(null);
@@ -178,12 +179,17 @@ export default function XmlUploaderFull({ equipoId }: Props) {
             setUploadMsg("Archivo subido correctamente ✔");
             setFile(null);
             setProgress(0);
+            
+            // Notificar al componente padre para refrescar los datos
+            if (onUploadSuccess) {
+                onUploadSuccess();
+            }
         } catch (e: any) {
             setError(e?.message || "Error subiendo el XML");
         } finally {
             setUploading(false);
         }
-    }, [file, equipoId, router]);
+    }, [file, equipoId, router, onUploadSuccess]);
 
     const hasHwinfo = useMemo(
         () => text.includes("<HWINFO") || text.includes("<HWINFO>"),
