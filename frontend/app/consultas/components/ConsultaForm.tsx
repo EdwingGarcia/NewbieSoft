@@ -11,7 +11,8 @@ import {
     Calendar,
     AlertTriangle,
     X, // ✅ Importamos el icono de cerrar
-    PenTool // ✅ Icono para firmar
+    PenTool, // ✅ Icono para firmar
+    DollarSign // ✅ Icono para costos
 } from "lucide-react";
 
 export default function ConsultaForm() {
@@ -262,6 +263,80 @@ export default function ConsultaForm() {
                                     </div>
                                 )}
 
+                                {/* Sección 5: Costos y Total */}
+                                {resultadoProc.costos && resultadoProc.costos.length > 0 && (
+                                    <div className="result-section">
+                                        <div className="result-section-title" style={{ color: '#10b981' }}>
+                                            <DollarSign size={14} /> Detalle de Costos ({resultadoProc.costos.length} items)
+                                        </div>
+                                        <div style={{
+                                            backgroundColor: '#1f2937',
+                                            borderRadius: '8px',
+                                            overflow: 'hidden',
+                                            border: '1px solid #374151'
+                                        }}>
+                                            {/* Contenedor con scroll para la tabla */}
+                                            <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                                                    <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
+                                                        <tr style={{ backgroundColor: '#374151' }}>
+                                                            <th style={{ padding: '8px 10px', textAlign: 'left', color: '#9ca3af', fontWeight: 600, fontSize: 10, textTransform: 'uppercase' }}>Descripción</th>
+                                                            <th style={{ padding: '8px 10px', textAlign: 'center', color: '#9ca3af', fontWeight: 600, fontSize: 10, textTransform: 'uppercase', width: '70px' }}>Tipo</th>
+                                                            <th style={{ padding: '8px 10px', textAlign: 'right', color: '#9ca3af', fontWeight: 600, fontSize: 10, textTransform: 'uppercase', width: '70px' }}>P.Unit</th>
+                                                            <th style={{ padding: '8px 10px', textAlign: 'center', color: '#9ca3af', fontWeight: 600, fontSize: 10, textTransform: 'uppercase', width: '40px' }}>Qty</th>
+                                                            <th style={{ padding: '8px 10px', textAlign: 'right', color: '#9ca3af', fontWeight: 600, fontSize: 10, textTransform: 'uppercase', width: '80px' }}>Subtotal</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {resultadoProc.costos.map((costo, idx) => (
+                                                            <tr key={idx} style={{ borderBottom: '1px solid #374151' }}>
+                                                                <td style={{ padding: '8px 10px', color: '#e5e7eb', fontSize: '12px' }}>{costo.descripcion}</td>
+                                                                <td style={{ padding: '8px 10px', textAlign: 'center' }}>
+                                                                    <span style={{
+                                                                        backgroundColor: costo.tipo === 'SERVICIO' ? '#3b82f6' : '#8b5cf6',
+                                                                        color: 'white',
+                                                                        padding: '2px 6px',
+                                                                        borderRadius: '4px',
+                                                                        fontSize: '9px',
+                                                                        fontWeight: 600
+                                                                    }}>
+                                                                        {costo.tipo === 'SERVICIO' ? 'SERV' : 'PROD'}
+                                                                    </span>
+                                                                </td>
+                                                                <td style={{ padding: '8px 10px', textAlign: 'right', color: '#9ca3af', fontSize: '12px' }}>
+                                                                    ${formatCurrency(costo.costoUnitario)}
+                                                                </td>
+                                                                <td style={{ padding: '8px 10px', textAlign: 'center', color: '#9ca3af', fontSize: '12px' }}>
+                                                                    {costo.cantidad}
+                                                                </td>
+                                                                <td style={{ padding: '8px 10px', textAlign: 'right', color: '#e5e7eb', fontWeight: 500, fontSize: '12px' }}>
+                                                                    ${formatCurrency(costo.subtotal)}
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            {/* Total fijo abajo */}
+                                            <div style={{
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                alignItems: 'center',
+                                                padding: '10px 12px',
+                                                backgroundColor: '#10b981',
+                                                borderTop: '2px solid #059669'
+                                            }}>
+                                                <span style={{ fontWeight: 700, fontSize: '13px', color: 'white' }}>
+                                                    TOTAL A PAGAR
+                                                </span>
+                                                <span style={{ fontWeight: 700, fontSize: '16px', color: 'white' }}>
+                                                    ${formatCurrency(resultadoProc.totalCostos ?? 0)}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
                                 {/* ✅ BOTÓN DE FIRMA DE RECIBO - Solo aparece en fase Cierre */}
                                 {resultadoProc.estado && (resultadoProc.estado.toUpperCase().includes('CIERRE') || resultadoProc.estado.toUpperCase().includes('OTP')) && (
                                     <div className="result-section" style={{ backgroundColor: '#1f2937', borderRadius: '8px', padding: '15px', marginTop: '20px' }}>
@@ -377,4 +452,9 @@ function fmtDateOnly(value?: string | null) {
     try {
         return new Date(value).toLocaleDateString("es-ES", { day: '2-digit', month: 'short', year: 'numeric' });
     } catch { return value; }
+}
+
+function formatCurrency(value?: number | null): string {
+    if (value === null || value === undefined) return "0.00";
+    return value.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }

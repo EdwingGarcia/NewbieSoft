@@ -265,10 +265,32 @@ form button:disabled {
     padding: 24px;
     background: rgba(0, 0, 0, 0.2);
     border: 1px solid rgba(255, 255, 255, 0.08);
-    /* height: 100%; Quitamos height fijo para dejar que crezca natural */
     display: flex;
     flex-direction: column;
     gap: 20px;
+    /* Scroll interno para contenido largo */
+    max-height: 70vh;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(139, 92, 246, 0.5) transparent;
+}
+
+/* Scrollbar personalizado para result-card */
+.result-card::-webkit-scrollbar {
+    width: 6px;
+}
+
+.result-card::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.result-card::-webkit-scrollbar-thumb {
+    background: rgba(139, 92, 246, 0.4);
+    border-radius: 3px;
+}
+
+.result-card::-webkit-scrollbar-thumb:hover {
+    background: rgba(139, 92, 246, 0.6);
 }
 
 /* Encabezado Resultados */

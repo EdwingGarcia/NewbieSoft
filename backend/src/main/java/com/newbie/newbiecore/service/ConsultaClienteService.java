@@ -4,6 +4,7 @@ import com.newbie.newbiecore.dto.Consultas.ConsultaOtpVerifyResponse;
 import com.newbie.newbiecore.dto.Consultas.OrdenPublicaDto;
 import com.newbie.newbiecore.dto.EquipoDto;
 import com.newbie.newbiecore.entity.OrdenTrabajo;
+import com.newbie.newbiecore.entity.OrdenTrabajoCosto;
 import com.newbie.newbiecore.entity.OtpValidacion;
 import com.newbie.newbiecore.repository.OrdenTrabajoRepository;
 import com.newbie.newbiecore.repository.OtpValidacionRepository;
@@ -15,7 +16,9 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
+import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -100,7 +103,8 @@ public class ConsultaClienteService {
 
     public ConsultaOtpVerifyResponse validarOtpYCrearToken(String cedula, String codigo) {
         var otpOpt = otpRepository.findTopByUsuario_CedulaOrderByFechaEnvioDesc(cedula);
-        if (otpOpt.isEmpty()) return new ConsultaOtpVerifyResponse(false, "OTP no encontrado", null, 0);
+        if (otpOpt.isEmpty())
+            return new ConsultaOtpVerifyResponse(false, "OTP no encontrado", null, 0);
 
         var otp = otpOpt.get();
 
@@ -150,6 +154,7 @@ public class ConsultaClienteService {
                 .orElseThrow(() -> new IllegalArgumentException("Token inválido o expirado"));
         return otp.getUsuario().getCedula();
     }
+
     public OrdenPublicaDto consultarProcedimiento(String token, String numeroOrden) {
         String cedula = validarTokenYObtenerCedula(token);
 
@@ -178,8 +183,27 @@ public class ConsultaClienteService {
                     .numeroSerie(ot.getEquipo().getNumeroSerie())
                     .modelo(ot.getEquipo().getModelo())
                     .marca(ot.getEquipo().getMarca())
-                    // Agrega aquí otros campos de Equipo si son necesarios y existen en la entidad
                     .build();
+        }
+
+        // Mapeo de costos
+        List<OrdenPublicaDto.CostoItemDto> costosDto = List.of();
+        BigDecimal totalCostos = BigDecimal.ZERO;
+
+        if (ot.getCostos() != null && !ot.getCostos().isEmpty()) {
+            costosDto = ot.getCostos().stream()
+                    .map(c -> new OrdenPublicaDto.CostoItemDto(
+                            c.getTipo(),
+                            c.getDescripcion(),
+                            c.getCostoUnitario(),
+                            c.getCantidad(),
+                            c.getSubtotal()))
+                    .toList();
+
+            totalCostos = ot.getCostos().stream()
+                    .map(OrdenTrabajoCosto::getSubtotal)
+                    .filter(s -> s != null)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
         }
 
         return new OrdenPublicaDto(
@@ -194,7 +218,8 @@ public class ConsultaClienteService {
                 ot.getObservacionesIngreso(),
                 ot.getDiagnosticoTrabajo(),
                 ot.getObservacionesRecomendaciones(),
-                ot.getMotivoCierre()
-        );
+                ot.getMotivoCierre(),
+                costosDto,
+                totalCostos);
     }
 }

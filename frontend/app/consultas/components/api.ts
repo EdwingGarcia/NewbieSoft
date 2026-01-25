@@ -25,7 +25,16 @@ export type EquipoDto = {
     marca?: string;
 };
 
-// ✅ DTO Actualizado con toda la info nueva
+// ✅ DTO para cada item de costo
+export type CostoItemDto = {
+    tipo: string;           // PRODUCTO | SERVICIO
+    descripcion: string;
+    costoUnitario: number;
+    cantidad: number;
+    subtotal: number;
+};
+
+// ✅ DTO Actualizado con toda la info nueva incluyendo costos
 export type OrdenPublicaDto = {
     numeroOrden: string;
     estado: string;
@@ -43,6 +52,10 @@ export type OrdenPublicaDto = {
     diagnosticoTrabajo?: string;
     observacionesRecomendaciones?: string;
     motivoCierre?: string;
+
+    // Costos
+    costos?: CostoItemDto[];
+    totalCostos?: number;
 };
 
 async function postJSON<T>(path: string, body: unknown): Promise<T> {
