@@ -33,16 +33,18 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { API_BASE_URL } from "../lib/api";
-import { formatDateTime } from "../lib/config";
 import { CrearFichaTecnicaModal } from "@/app/dashboard/components/CrearFichaTecnicaModal";
+
+// Sistema de configuración
+import { formatDateTime, getItemsPerPage } from "../lib/config";
 
 const FICHAS_API_BASE = `${API_BASE_URL}/api/fichas`;
 const API_BASE = `${API_BASE_URL}/api/ordenes`;
 const OTP_API_BASE = `${API_BASE_URL}/api/otp`;
 const buildUrl = (p: string = "") => `${API_BASE}${p}`;
 
-// --- CONSTANTES ---
-const ITEMS_PER_PAGE = 6;
+// Obtener items por página de la configuración
+const getConfiguredItemsPerPage = () => getItemsPerPage() || 6;
 
 /* =========================
    DTOs / Interfaces base
@@ -82,6 +84,14 @@ interface OrdenTrabajoListaDTO {
     tecnicoCedula?: string | null;
     tecnicoNombre?: string | null;
     equipoId: number;
+    // Campos del equipo - alineados con backend
+    tipoEquipo?: string | null;
+    marca?: string | null;
+    modelo?: string | null;
+    numeroSerie?: string | null;
+    hostname?: string | null;
+    sistemaOperativo?: string | null;
+    // Alias para compatibilidad
     equipoModelo?: string | null;
     equipoHostname?: string | null;
     problemaReportado?: string | null;
@@ -949,9 +959,10 @@ export default function OrdenesTrabajoPage() {
     }, [searchTerm, dateStart, dateEnd]);
 
     // Calcular datos de la página actual
-    const totalPages = Math.ceil(ordenesFiltradas.length / ITEMS_PER_PAGE);
-    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    const currentOrdenes = ordenesFiltradas.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+    const itemsPerPage = getConfiguredItemsPerPage();
+    const totalPages = Math.ceil(ordenesFiltradas.length / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const currentOrdenes = ordenesFiltradas.slice(startIndex, startIndex + itemsPerPage);
 
     /* ===== GET lista - Solo las órdenes del técnico logueado ===== */
     const fetchOrdenes = useCallback(async () => {
@@ -2389,10 +2400,10 @@ export default function OrdenesTrabajoPage() {
                         <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 px-2">
                             <span className="text-xs text-slate-500 italic">Doble clic en una tarjeta para ver detalles</span>
 
-                            {ordenesFiltradas.length > ITEMS_PER_PAGE && (
+                            {ordenesFiltradas.length > itemsPerPage && (
                                 <div className="flex items-center gap-3">
                                     <span className="text-sm text-slate-600">
-                                        {startIndex + 1} - {Math.min(startIndex + ITEMS_PER_PAGE, ordenesFiltradas.length)} de {ordenesFiltradas.length}
+                                        {startIndex + 1} - {Math.min(startIndex + itemsPerPage, ordenesFiltradas.length)} de {ordenesFiltradas.length}
                                     </span>
                                     <div className="flex items-center gap-1">
                                         <Button
