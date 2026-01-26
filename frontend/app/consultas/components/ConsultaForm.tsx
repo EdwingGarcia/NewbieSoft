@@ -408,6 +408,31 @@ export default function ConsultaForm() {
                                                     <div className="result-item-right" style={{ textAlign: 'right' }}>
                                                         <div className="badge" style={{ fontSize: 11 }}>{o.estado}</div>
                                                         <div className="result-date">{fmtDateOnly(o.fechaHoraIngreso)}</div>
+                                                        {/* Botón de descarga de documentos */}
+                                                        <button
+                                                            className="btn-download-docs"
+                                                            style={{
+                                                                marginTop: 6,
+                                                                background: '#2563eb',
+                                                                color: 'white',
+                                                                border: 'none',
+                                                                borderRadius: 4,
+                                                                padding: '4px 10px',
+                                                                fontSize: 12,
+                                                                cursor: 'pointer',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                gap: 4
+                                                            }}
+                                                            title="Descargar documentos de la OT"
+                                                            onClick={e => {
+                                                                e.stopPropagation();
+                                                                window.open(`http://localhost:8080/api/ordenes/${o.numeroOrden}/documentos`, '_blank');
+                                                            }}
+                                                        >
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24"><path fill="currentColor" d="M12 16.5a1 1 0 0 1-1-1V5a1 1 0 1 1 2 0v10.5a1 1 0 0 1-1 1Z" /><path fill="currentColor" d="M7.21 13.79a1 1 0 0 1 1.42-1.42l2.29 2.3 2.29-2.3a1 1 0 1 1 1.42 1.42l-3 3a1 1 0 0 1-1.42 0l-3-3ZM5 20a1 1 0 0 1-1-1v-2a1 1 0 1 1 2 0v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H5Z" /></svg>
+                                                            Descargar
+                                                        </button>
                                                     </div>
                                                 </div>
                                             ))}
