@@ -10,9 +10,9 @@ import {
     Wrench,
     Calendar,
     AlertTriangle,
-    X, // ✅ Importamos el icono de cerrar
-    PenTool, // ✅ Icono para firmar
-    DollarSign // ✅ Icono para costos
+    X,
+    PenTool,
+    DollarSign
 } from "lucide-react";
 
 export default function ConsultaForm() {
@@ -100,14 +100,11 @@ export default function ConsultaForm() {
         runConsulta(token);
     };
 
-    // ✅ FUNCIÓN 1: Seleccionar orden del historial (Doble Clic)
     const handleSelectOrden = (orden: OrdenPublicaDto) => {
         setResultadoProc(orden);
-        // Hacemos scroll arriba suavemente para ver el detalle
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    // ✅ FUNCIÓN 2: Cerrar detalle y volver al historial
     const handleCloseDetail = () => {
         setResultadoProc(null);
     };
@@ -177,7 +174,6 @@ export default function ConsultaForm() {
                                 <div className="result-header-row">
                                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                                         <h3>{resultadoProc.numeroOrden}</h3>
-                                        {/* Texto auxiliar si estamos navegando desde el historial */}
                                         {resultadoHistorial && (
                                             <span style={{ fontSize: 11, opacity: 0.5, marginTop: 4, fontWeight: 600 }}>
                                                 VISTA DE DETALLE
@@ -190,7 +186,6 @@ export default function ConsultaForm() {
                                             {resultadoProc.estado.replace(/_/g, " ")}
                                         </div>
 
-                                        {/* ✅ Botón de Cerrar (Solo aparece si tenemos historial o queremos limpiar) */}
                                         <button
                                             onClick={handleCloseDetail}
                                             className="btn-close-detail"
@@ -275,7 +270,6 @@ export default function ConsultaForm() {
                                             overflow: 'hidden',
                                             border: '1px solid #374151'
                                         }}>
-                                            {/* Contenedor con scroll para la tabla */}
                                             <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
                                                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                                                     <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
@@ -317,7 +311,6 @@ export default function ConsultaForm() {
                                                     </tbody>
                                                 </table>
                                             </div>
-                                            {/* Total fijo abajo */}
                                             <div style={{
                                                 display: 'flex',
                                                 justifyContent: 'space-between',
@@ -337,11 +330,11 @@ export default function ConsultaForm() {
                                     </div>
                                 )}
 
-                                {/* ✅ BOTÓN DE FIRMA DE RECIBO - Solo aparece en fase Cierre */}
+                                {/* BOTÓN DE FIRMA DE RECIBO */}
                                 {resultadoProc.estado && (resultadoProc.estado.toUpperCase().includes('CIERRE') || resultadoProc.estado.toUpperCase().includes('OTP')) && (
                                     <div className="result-section" style={{ backgroundColor: '#1f2937', borderRadius: '8px', padding: '15px', marginTop: '20px' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-                                            <PenTool size={16} style={{ color: '#60a5fa' }} />
+                                            <PenTool size={16} style={{ color: '#a78bfa' }} />
                                             <span style={{ fontSize: '13px', fontWeight: '600', color: '#d1d5db' }}>Firma de Recibo</span>
                                         </div>
                                         <p style={{ fontSize: '12px', color: '#9ca3af', marginBottom: '12px' }}>
@@ -353,7 +346,7 @@ export default function ConsultaForm() {
                                                 window.open(`/firma?ordenId=${ordenId}&modo=recibo`, '_blank');
                                             }}
                                             style={{
-                                                backgroundColor: '#10b981',
+                                                background: 'linear-gradient(90deg, #8b5cf6 0%, #6d28d9 100%)',
                                                 color: 'white',
                                                 border: 'none',
                                                 padding: '10px 20px',
@@ -364,13 +357,45 @@ export default function ConsultaForm() {
                                                 display: 'flex',
                                                 alignItems: 'center',
                                                 gap: '8px',
-                                                transition: 'background-color 0.2s'
+                                                boxShadow: '0 2px 8px 0 rgba(139,92,246,0.25)',
+                                                transition: 'background 0.2s'
                                             }}
-                                            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#059669')}
-                                            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#10b981')}
+                                            onMouseEnter={(e) => (e.currentTarget.style.background = '#6d28d9')}
+                                            onMouseLeave={(e) => (e.currentTarget.style.background = 'linear-gradient(90deg, #8b5cf6 0%, #6d28d9 100%)')}
                                         >
                                             <PenTool size={14} />
                                             Firmar Recibo de Entrega
+                                        </button>
+                                    </div>
+                                )}
+
+                                {/* Botón de descarga de documentos - Solo visible si OT está CERRADA */}
+                                {resultadoProc.estado && resultadoProc.estado.toUpperCase().includes('CERRAD') && (
+                                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 18 }}>
+                                        <button
+                                            className="btn-download-docs"
+                                            style={{
+                                                background: 'linear-gradient(90deg, #8b5cf6 0%, #6d28d9 100%)',
+                                                color: 'white',
+                                                border: 'none',
+                                                borderRadius: 8,
+                                                padding: '10px 22px',
+                                                fontSize: 15,
+                                                fontWeight: 600,
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: 10,
+                                                boxShadow: '0 2px 8px 0 rgba(139,92,246,0.25)',
+                                                transition: 'background 0.2s',
+                                            }}
+                                            title="Descargar documentos de la OT"
+                                            onClick={() => window.open(`http://localhost:8080/api/ordenes/${resultadoProc.numeroOrden}/documentos`, '_blank')}
+                                            onMouseEnter={e => e.currentTarget.style.background = '#6d28d9'}
+                                            onMouseLeave={e => e.currentTarget.style.background = 'linear-gradient(90deg, #8b5cf6 0%, #6d28d9 100%)'}
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24"><path fill="currentColor" d="M12 16.5a1 1 0 0 1-1-1V5a1 1 0 1 1 2 0v10.5a1 1 0 0 1-1 1Z" /><path fill="currentColor" d="M7.21 13.79a1 1 0 0 1 1.42-1.42l2.29 2.3 2.29-2.3a1 1 0 1 1 1.42 1.42l-3 3a1 1 0 0 1-1.42 0l-3-3ZM5 20a1 1 0 0 1-1-1v-2a1 1 0 1 1 2 0v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H5Z" /></svg>
+                                            Descargar Documentos
                                         </button>
                                     </div>
                                 )}
@@ -378,7 +403,6 @@ export default function ConsultaForm() {
                         )}
 
                         {/* === VISTA HISTORIAL === */}
-                        {/* ✅ OCULTAMOS el historial si hay una orden seleccionada (resultadoProc) */}
                         {resultadoHistorial && !resultadoProc && (
                             <div className="result-card">
                                 <div className="result-header-row">
@@ -394,7 +418,6 @@ export default function ConsultaForm() {
                                                 <div
                                                     key={o.numeroOrden}
                                                     className="result-item"
-                                                    // ✅ EVENTO DOBLE CLIC
                                                     onDoubleClick={() => handleSelectOrden(o)}
                                                     title="Doble clic para ver detalles completos"
                                                 >
@@ -408,31 +431,38 @@ export default function ConsultaForm() {
                                                     <div className="result-item-right" style={{ textAlign: 'right' }}>
                                                         <div className="badge" style={{ fontSize: 11 }}>{o.estado}</div>
                                                         <div className="result-date">{fmtDateOnly(o.fechaHoraIngreso)}</div>
-                                                        {/* Botón de descarga de documentos */}
-                                                        <button
-                                                            className="btn-download-docs"
-                                                            style={{
-                                                                marginTop: 6,
-                                                                background: '#2563eb',
-                                                                color: 'white',
-                                                                border: 'none',
-                                                                borderRadius: 4,
-                                                                padding: '4px 10px',
-                                                                fontSize: 12,
-                                                                cursor: 'pointer',
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                gap: 4
-                                                            }}
-                                                            title="Descargar documentos de la OT"
-                                                            onClick={e => {
-                                                                e.stopPropagation();
-                                                                window.open(`http://localhost:8080/api/ordenes/${o.numeroOrden}/documentos`, '_blank');
-                                                            }}
-                                                        >
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24"><path fill="currentColor" d="M12 16.5a1 1 0 0 1-1-1V5a1 1 0 1 1 2 0v10.5a1 1 0 0 1-1 1Z" /><path fill="currentColor" d="M7.21 13.79a1 1 0 0 1 1.42-1.42l2.29 2.3 2.29-2.3a1 1 0 1 1 1.42 1.42l-3 3a1 1 0 0 1-1.42 0l-3-3ZM5 20a1 1 0 0 1-1-1v-2a1 1 0 1 1 2 0v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H5Z" /></svg>
-                                                            Descargar
-                                                        </button>
+                                                        {/* Botón solo visible si OT está CERRADA */}
+                                                        {o.estado && o.estado.toUpperCase().includes('CERRAD') && (
+                                                            <button
+                                                                className="btn-download-docs"
+                                                                style={{
+                                                                    marginTop: 6,
+                                                                    background: 'linear-gradient(90deg, #8b5cf6 0%, #6d28d9 100%)',
+                                                                    color: 'white',
+                                                                    border: 'none',
+                                                                    borderRadius: 8,
+                                                                    padding: '8px 18px',
+                                                                    fontSize: 13,
+                                                                    fontWeight: 600,
+                                                                    cursor: 'pointer',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: 8,
+                                                                    boxShadow: '0 2px 8px 0 rgba(139,92,246,0.25)',
+                                                                    transition: 'background 0.2s',
+                                                                }}
+                                                                title="Descargar documentos de la OT"
+                                                                onClick={e => {
+                                                                    e.stopPropagation();
+                                                                    window.open(`http://localhost:8080/api/ordenes/${o.numeroOrden}/documentos`, '_blank');
+                                                                }}
+                                                                onMouseEnter={e => e.currentTarget.style.background = '#6d28d9'}
+                                                                onMouseLeave={e => e.currentTarget.style.background = 'linear-gradient(90deg, #8b5cf6 0%, #6d28d9 100%)'}
+                                                            >
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24"><path fill="currentColor" d="M12 16.5a1 1 0 0 1-1-1V5a1 1 0 1 1 2 0v10.5a1 1 0 0 1-1 1Z" /><path fill="currentColor" d="M7.21 13.79a1 1 0 0 1 1.42-1.42l2.29 2.3 2.29-2.3a1 1 0 1 1 1.42 1.42l-3 3a1 1 0 0 1-1.42 0l-3-3ZM5 20a1 1 0 0 1-1-1v-2a1 1 0 1 1 2 0v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H5Z" /></svg>
+                                                                Descargar Documentos
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 </div>
                                             ))}
@@ -443,16 +473,16 @@ export default function ConsultaForm() {
                         )}
                     </div>
                 </div>
-            </div>
 
-            {mostrarOTP && (
-                <OTPModal
-                    cedula={cedula}
-                    onClose={() => setMostrarOTP(false)}
-                    onVerified={onVerified}
-                    onVerify={handleVerify}
-                />
-            )}
+                {mostrarOTP && (
+                    <OTPModal
+                        cedula={cedula}
+                        onClose={() => setMostrarOTP(false)}
+                        onVerified={onVerified}
+                        onVerify={handleVerify}
+                    />
+                )}
+            </div>
         </div>
     );
 }
