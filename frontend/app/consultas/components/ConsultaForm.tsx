@@ -390,7 +390,7 @@ export default function ConsultaForm() {
                                                 transition: 'background 0.2s',
                                             }}
                                             title="Descargar documentos de la OT"
-                                            onClick={() => window.open(`http://localhost:8080/api/ordenes/${resultadoProc.numeroOrden}/documentos`, '_blank')}
+                                            onClick={() => window.open(`/api/ordenes/${resultadoProc.numeroOrden}/documentos`, '_blank')}
                                             onMouseEnter={e => e.currentTarget.style.background = '#6d28d9'}
                                             onMouseLeave={e => e.currentTarget.style.background = 'linear-gradient(90deg, #8b5cf6 0%, #6d28d9 100%)'}
                                         >
@@ -454,7 +454,7 @@ export default function ConsultaForm() {
                                                                 title="Descargar documentos de la OT"
                                                                 onClick={e => {
                                                                     e.stopPropagation();
-                                                                    window.open(`http://localhost:8080/api/ordenes/${o.numeroOrden}/documentos`, '_blank');
+                                                                    window.open(`/api/ordenes/${o.numeroOrden}/documentos`, '_blank');
                                                                 }}
                                                                 onMouseEnter={e => e.currentTarget.style.background = '#6d28d9'}
                                                                 onMouseLeave={e => e.currentTarget.style.background = 'linear-gradient(90deg, #8b5cf6 0%, #6d28d9 100%)'}

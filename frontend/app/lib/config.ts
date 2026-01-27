@@ -40,7 +40,7 @@ const CONFIG_DEFAULTS: Record<ConfigKey, ConfigDefinition> = {
     },
     API_BASE_URL: {
         key: "API_BASE_URL",
-        defaultValue: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080",
+        defaultValue: process.env.NEXT_PUBLIC_API_URL || "",
         type: "string",
     },
     APP_NAME: {

@@ -100,7 +100,7 @@ const FRONTEND_CONFIGS: FrontendConfig[] = [
         label: "URL del Backend API",
         description: "Dirección base del servidor backend",
         type: "url",
-        defaultValue: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080",
+        defaultValue: process.env.NEXT_PUBLIC_API_URL || "",
         placeholder: "https://api.example.com",
         required: true,
         category: "Frontend",

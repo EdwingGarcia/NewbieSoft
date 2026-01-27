@@ -2,7 +2,7 @@
  * URL BASE CENTRALIZADA
  * Lee la variable de entorno. Si no existe (ej. en desarrollo sin .env), usa localhost.
  */
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+export const API_BASE_URL = "";
 
 /**
  * Helper genérico para hacer peticiones.

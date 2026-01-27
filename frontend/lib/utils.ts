@@ -13,7 +13,7 @@ export function getAuthImageUrl(path: string | undefined | null): string {
   if (path.startsWith("http") && !path.includes("localhost")) return path;
 
   // Usa la variable de entorno o localhost por defecto
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+  const baseUrl = "";
 
   // Limpiar el path para asegurar que empiece con /
   const cleanPath = path.startsWith("/") ? path : `/${path}`;
