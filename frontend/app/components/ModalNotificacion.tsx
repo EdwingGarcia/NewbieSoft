@@ -21,7 +21,6 @@ export default function ModalNotificacion({ otId, open, onClose }: Props) {
         setLoading(true);
 
         try {
-            // Usamos fetchAPI. Ya no hace falta poner http://localhost:8080
             // fetchAPI combina API_BASE_URL + el endpoint que le pases.
             await fetchAPI(`/api/notificaciones/ot/${otId}`, {
                 method: "POST",

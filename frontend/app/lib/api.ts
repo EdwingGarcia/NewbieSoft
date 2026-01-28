@@ -2,7 +2,7 @@
  * URL BASE CENTRALIZADA
  * Lee la variable de entorno. Si no existe (ej. en desarrollo sin .env), usa localhost.
  */
-export const API_BASE_URL = "";
+export const API_BASE_URL = "/newbiecore-0.0.1-SNAPSHOT";
 
 /**
  * Helper genérico para hacer peticiones.

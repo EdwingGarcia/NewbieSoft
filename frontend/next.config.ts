@@ -4,8 +4,10 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  // Habilitar output standalone solo para Docker (variable de entorno)
-  output: process.env.STANDALONE === 'true' ? 'standalone' : undefined,
+  output: 'export',
+  trailingSlash: true,
+  basePath: '/frontend',
+  // assetPrefix: '/frontend',
 };
 
 export default nextConfig;
